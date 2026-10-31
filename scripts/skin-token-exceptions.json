@@ -1,0 +1,9 @@
+[
+  {
+    "file": "ui/app.js",
+    "selector": "[canvas color]",
+    "property": "fillStyle",
+    "value": "rgba(${tint(c,palette)},${al.toFixed(3)})",
+    "reason": "Canvas 逐格插值需要动态 RGB 与 alpha；tint 的 RGB 从皮肤变量读取，不包含写死的颜色。"
+  }
+]

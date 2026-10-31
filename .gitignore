@@ -1,0 +1,28 @@
+# This delivery includes private evidence for Ken; do not commit it publicly.
+reports/
+dist/
+delivery/
+node_modules/
+.env
+.env.*
+*.har
+*.log
+.DS_Store
+._*
+
+.ui-test-env/
+
+# Local research snapshots are not product dependencies.
+/research
+bin/
+fixtures/native-acceptance/build/
+
+# .NET compilation intermediates
+windows/obj/
+windows/bin/
+
+# SwiftPM local intermediates
+native/.build/
+
+# Sole owner-private Sites Worker; independent Git root, never Mac gitlink.
+/sites/one1052-b-worker

@@ -1,0 +1,54 @@
+name: 问题反馈
+description: 报告 ChatHand 试用版的问题
+title: "[问题] "
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        请先检查附件。不要提交 API 密钥、密码、登录资料、聊天正文或私有文件。提交前请确认你有权公开附件内容。
+  - type: input
+    id: version
+    attributes:
+      label: ChatHand 版本与构建号
+      description: 可在「设置 → 关于 ChatHand」查看。
+      placeholder: 1.0.0-beta.1 / build 1001
+    validations:
+      required: true
+  - type: input
+    id: macos
+    attributes:
+      label: macOS 版本与芯片
+      placeholder: macOS 15.x / Apple M 系列
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 重现步骤
+      description: 写下问题出现前你做了什么；请用虚构示例替代私人内容。
+      placeholder: |
+        1. …
+        2. …
+        3. …
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: 实际结果与预期结果
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: 诊断文件
+      description: 在 ChatHand「设置 → 通知与更新 → 遇到问题」选择「导出诊断」，然后将下载的诊断文件拖入此问题。请勿粘贴密钥；提交前自行检查附件。
+      placeholder: 拖入或附加 ChatHand 诊断 JSON 文件。
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: 其他信息或截图
+      description: 仅添加排查所需的最少信息，并遮盖账号名、聊天内容和其他私人数据。

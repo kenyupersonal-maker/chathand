@@ -1,0 +1,74 @@
+<!doctype html><html lang="@LANG@"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>@TEXT:dmg.jump.title@</title><style>
+@THEME@
+body{min-height:100dvh;padding:56px 24px 40px;display:flex;align-items:flex-start;justify-content:center}
+main{width:100%;max-width:560px}
+.hero p{font-size:14px;color:var(--ink-2)}
+.hero p.after{font-size:13px;color:var(--ink-3);margin-top:6px}
+.connection{display:flex;align-items:flex-start;justify-content:center;margin:0 auto 22px}
+.brand{display:flex;flex-direction:column;align-items:center;gap:8px;font-size:13px;color:var(--ink-3)}
+.brand img{display:block;width:72px;height:72px}
+.tile{display:grid;place-items:center;width:58px;height:58px;margin:7px;border-radius:13px;background:var(--tile);border:1px solid var(--line);color:var(--ink)}
+.tile svg{display:block;width:34px;height:34px}
+.flow{position:relative;margin:36px 18px 0;width:64px;height:1px;background:var(--line)}
+.flow::after{content:"";position:absolute;top:-2px;left:0;width:5px;height:5px;border-radius:50%;background:var(--mint);animation:travel 2s ease-in-out infinite}
+@keyframes travel{0%{transform:translateX(0);opacity:0}15%,85%{opacity:1}100%{transform:translateX(59px);opacity:0}}
+.actions{display:grid;justify-content:center;gap:12px;margin-top:28px} /* 1068：上下两个按钮一样宽（取长的那个） */
+.actions .primary{min-width:280px}
+.after{margin:16px auto 0;max-width:500px;font-size:13px;color:var(--ink-2);text-align:center;text-wrap:pretty}
+.after.warn{color:var(--o-ink)}
+.more{margin-top:28px;border-top:1px solid var(--line)}
+.more>details{border-bottom:1px solid var(--line);font-size:13px;color:var(--ink-2)}
+.more>details>summary{min-height:48px;padding:0 4px}
+.tips{margin:0 0 16px;padding-left:18px}
+.tips li{margin:6px 0}
+#promptDetails .q{font-size:13px}
+#promptDetails .btn{margin:10px 0 16px}
+@media (max-width:560px){body{padding:40px 20px}.actions{align-items:stretch}.actions .primary{min-width:0}.actions .btn{width:100%;padding-inline:16px}}
+@media (prefers-reduced-motion:reduce){.flow::after{display:none}}
+</style></head><body><main>
+<div class="connection" aria-label="@TEXT:dmg.jump.connectionLabel@">
+ <div class="brand"><span class="tile" id="gptmark">@CHATGPT_MARK@</span><span>ChatGPT</span></div>
+ <span class="flow" aria-hidden="true"></span>
+ <div class="brand"><img alt="" src="@APP_ICON@"><span>ChatHand</span></div>
+</div>
+<header class="hero"><h1>@TEXT:dmg.jump.title@</h1><p>@TEXT:dmg.jump.instructions@</p><p class="after">@LOCAL_WORK_WEB_WARNING@</p></header>
+<div class="actions">
+ <button class="btn primary" id="go" type="button">@TEXT:dmg.jump.retry@</button>
+ <button class="btn" id="copy" type="button"><svg class="ico i-copy" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg><svg class="ico i-ok" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4 10-10"/></svg><span class="lbl">@TEXT:dmg.prompt.copyAndSend@</span></button>
+</div>
+<p class="after" id="after" role="status" aria-live="polite" hidden></p>
+<div class="more">
+<details class="fallback fold"><summary>@TEXT:dmg.jump.fallbackSummary@</summary><ul class="tips"><li>@TEXT:dmg.jump.workFallback@</li><li>@TEXT:dmg.jump.desktopFallback@</li><li>@TEXT:dmg.jump.consentFallback@</li></ul></details>
+<details id="promptDetails" class="fallback fold"><summary>@TEXT:dmg.prompt.summary@</summary><div class="q" id="q"></div><button class="btn sm" id="manualCopy" type="button">@TEXT:dmg.copy@</button></details>
+</div>
+</main><script>
+// 提示词和链接前缀与 ui/h10/prompts.mjs 同源；安装盘入口指定 Codex 模式。
+// 安装盘上 ChatHand.app 的路径只在打开这一页时按页面自己的位置算，不预先写死。
+const template="@PROMPT_TEMPLATE@";
+function mountedApp(){if(location.protocol!=='file:')return null;let f;try{f=decodeURIComponent(location.pathname)}catch(_){return null}
+ if(!f.startsWith('/Volumes/')||!f.endsWith('.html')||f.includes('\0'))return null;const end=f.lastIndexOf('/');return end>9?f.slice(0,end)+'/ChatHand.app':null}
+const app=mountedApp();
+const prompt=template.replace("@PROMPT_LOCATION_TOKEN@",()=>app||@JS:dmg.prompt.localApp@);
+const link='@DEEP_LINK_PREFIX@'+encodeURIComponent(prompt)+'&mode=codex';
+document.getElementById('q').textContent=prompt;
+async function copyText(t){try{await navigator.clipboard.writeText(t);return true}catch(_){}
+ const a=document.createElement('textarea');a.value=t;a.style.position='fixed';a.style.opacity='0';document.body.appendChild(a);a.select();let ok=false;try{ok=document.execCommand('copy')}catch(_){}a.remove();return ok}
+function openCodex(){location.href=link}
+// One automatic attempt. Browser consent is the only path to opening the desktop app.
+if(app)setTimeout(openCodex,300);
+function showResult(ok,text){const after=document.getElementById('after');after.hidden=false;after.textContent=text;after.classList.toggle('warn',!ok);if(!ok)document.getElementById('promptDetails').open=true}
+document.getElementById('go').addEventListener('click',async()=>{
+ const ok=await copyText(prompt);
+ showResult(ok,ok?@JS:dmg.prompt.openCopied@:@JS:dmg.prompt.openCopyManually@);
+ openCodex();
+});
+let copyTimer;
+async function copyOnly(){
+ const ok=await copyText(prompt);
+ showResult(ok,ok?@JS:dmg.prompt.copiedHint@:@JS:dmg.prompt.copyFailedHint@);
+ if(ok){const b=document.getElementById('copy'),label=b.querySelector('.lbl');clearTimeout(copyTimer);b.dataset.state='ok';label.textContent=@JS:dmg.copied@;copyTimer=setTimeout(()=>{delete b.dataset.state;label.textContent=@JS:dmg.prompt.copyAndSend@},1600)}
+}
+document.getElementById('copy').addEventListener('click',copyOnly);
+document.getElementById('manualCopy').addEventListener('click',copyOnly);
+</script></body></html>

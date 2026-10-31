@@ -1,0 +1,7 @@
+{
+  "existingElements": ["color", "color-scheme", "background", "background-color", "background-image", "border-color", "border-top-color", "border-right-color", "border-bottom-color", "border-left-color", "border-radius", "border-top-left-radius", "border-top-right-radius", "border-bottom-left-radius", "border-bottom-right-radius", "box-shadow", "text-shadow", "outline", "outline-color", "opacity", "filter", "backdrop-filter", "-webkit-backdrop-filter", "mix-blend-mode", "accent-color", "caret-color", "scrollbar-color", "fill", "stroke", "transition", "transition-property", "transition-duration", "transition-timing-function", "animation", "animation-name", "animation-duration", "animation-timing-function", "animation-iteration-count"],
+  "decorativePseudoElements": ["content", "inset", "position", "pointer-events", "z-index"],
+  "animatedProperties": ["color", "background-color", "border-color", "box-shadow", "opacity", "filter"],
+  "maxDurationMs": 240,
+  "maxImportant": 3
+}

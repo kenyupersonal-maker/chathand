@@ -1,0 +1,1 @@
+ALTER TABLE `rc_jobs` ADD `http_wait_until` integer;

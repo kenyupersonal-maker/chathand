@@ -1,0 +1,3 @@
+import fs from 'node:fs';import path from 'node:path';import crypto from 'node:crypto';
+export function inventory(base){const files=[];function walk(p){for(const name of fs.readdirSync(p).sort()){const f=path.join(p,name),s=fs.lstatSync(f),rel=path.relative(base,f);if(s.isSymbolicLink())files.push({path:rel,link:fs.readlinkSync(f)});else if(s.isDirectory())walk(f);else if(s.isFile())files.push({path:rel,bytes:s.size,sha256:crypto.createHash('sha256').update(fs.readFileSync(f)).digest('hex')});}}walk(base);return files;}
+export function payloadManifest(app,version){return {version,files:inventory(app)};}

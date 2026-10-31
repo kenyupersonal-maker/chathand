@@ -1,0 +1,8 @@
+{
+  "helperName": {
+    "message": "ChatHand Chrome extension"
+  },
+  "helperDescription": {
+    "message": "Connects to ChatHand on this Mac to run authorized tasks in your signed-in browser."
+  }
+}

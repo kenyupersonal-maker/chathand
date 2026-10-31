@@ -1,0 +1,6 @@
+interface:
+  display_name: "ChatHand 配置助手"
+  short_description: "保留已有配置，完成本机连接与验收"
+  default_prompt: "使用 $chathand-setup 配置本机 ChatHand。已有健康连接就保留。"
+policy:
+  allow_implicit_invocation: false

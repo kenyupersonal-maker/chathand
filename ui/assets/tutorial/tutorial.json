@@ -1,0 +1,578 @@
+{
+  "_readme": "Tutorial content for the manual setup steps. Coordinates are CSS px in each screenshot's own space (screenshot natural pixel size / 2; see shots-data.json w/h). focus = [x,y,w,h] region shown inline (null = whole image). rings = [x,y,w,h] boxes to outline; each ring gets a number badge equal to its sub-step number. Images are real ChatGPT (zh UI) and OpenAI Platform (English-only UI) screenshots captured 2026-09-28; personal info already masked. The same images are used for zh and en.",
+  "rail": [
+    {
+      "id": "s-connect",
+      "zh": "",
+      "en": "",
+      "textKey": "ui.wizard.tutorial.rail.connect"
+    },
+    {
+      "id": "s-devmode",
+      "zh": "",
+      "en": "",
+      "textKey": "ui.wizard.tutorial.rail.devmode"
+    },
+    {
+      "id": "s-tunnel",
+      "zh": "",
+      "en": "",
+      "textKey": "ui.wizard.tutorial.rail.tunnel"
+    },
+    {
+      "id": "s-key",
+      "zh": "",
+      "en": "",
+      "textKey": "ui.wizard.tutorial.rail.key"
+    },
+    {
+      "id": "s-add",
+      "zh": "",
+      "en": "",
+      "textKey": "ui.wizard.tutorial.rail.add"
+    },
+    {
+      "id": "s-test",
+      "zh": "",
+      "en": "",
+      "textKey": "ui.wizard.tutorial.rail.test"
+    },
+    {
+      "id": "s-workspace",
+      "zh": "",
+      "en": "",
+      "textKey": "ui.wizard.tutorial.rail.workspace"
+    },
+    {
+      "id": "s-control",
+      "zh": "",
+      "en": "",
+      "textKey": "ui.wizard.tutorial.rail.control"
+    },
+    {
+      "id": "s-done",
+      "zh": "",
+      "en": "",
+      "textKey": "ui.wizard.tutorial.rail.done"
+    }
+  ],
+  "steps": {
+    "s-devmode": {
+      "title": {
+        "zh": "",
+        "en": "",
+        "textKey": "ui.wizard.tutorial.devmode.title"
+      },
+      "lead": {
+        "zh": "",
+        "en": "",
+        "textKey": "ui.wizard.tutorial.devmode.lead"
+      },
+      "actions": [
+        {
+          "zh": "",
+          "en": "",
+          "href": "https://chatgpt.com/plugins",
+          "textKey": "ui.wizard.tutorial.devmode.openPage"
+        }
+      ],
+      "subs": [
+        {
+          "zh": "",
+          "en": "",
+          "shot": "s5a-add-menu",
+          "focus": [
+            420,
+            0,
+            508,
+            220
+          ],
+          "rings": [
+            [
+              830,
+              6,
+              86,
+              40
+            ]
+          ],
+          "textKey": "ui.wizard.tutorial.devmode.openPluginMenu"
+        },
+        {
+          "zh": "",
+          "en": "",
+          "shot": "s5a-add-menu",
+          "focus": [
+            420,
+            0,
+            508,
+            220
+          ],
+          "rings": [
+            [
+              753,
+              126,
+              152,
+              40
+            ]
+          ],
+          "textKey": "ui.wizard.tutorial.devmode.checkCreateOption"
+        },
+        {
+          "zh": "",
+          "en": "",
+          "shot": null,
+          "info": true,
+          "textKey": "ui.wizard.tutorial.devmode.enableDeveloperMode"
+        }
+      ]
+    },
+    "s-tunnel": {
+      "title": {
+        "zh": "",
+        "en": "",
+        "textKey": "ui.wizard.tutorial.tunnel.title"
+      },
+      "lead": {
+        "zh": "",
+        "en": "",
+        "textKey": "ui.wizard.tutorial.tunnel.lead"
+      },
+      "actions": [
+        {
+          "zh": "",
+          "en": "",
+          "href": "https://platform.openai.com/settings/organization/tunnels",
+          "textKey": "ui.wizard.tutorial.tunnel.openPage"
+        }
+      ],
+      "subs": [
+        {
+          "zh": "",
+          "en": "",
+          "shot": "s3a-tunnels",
+          "focus": [
+            560,
+            0,
+            720,
+            190
+          ],
+          "rings": [
+            [
+              1143,
+              8,
+              117,
+              40
+            ]
+          ],
+          "textKey": "ui.wizard.tutorial.tunnel.openTunnels"
+        },
+        {
+          "zh": "",
+          "en": "",
+          "shot": "s3b-create-tunnel",
+          "focus": [
+            16,
+            16,
+            640,
+            270
+          ],
+          "rings": [
+            [
+              32,
+              105,
+              608,
+              40
+            ],
+            [
+              32,
+              189,
+              608,
+              80
+            ]
+          ],
+          "textKey": "ui.wizard.tutorial.tunnel.fillTunnelDetails"
+        },
+        {
+          "zh": "",
+          "en": "",
+          "shot": "s3b-create-tunnel",
+          "focus": [
+            16,
+            410,
+            640,
+            214
+          ],
+          "rings": [
+            [
+              32,
+              456,
+              608,
+              50
+            ],
+            [
+              566,
+              556,
+              74,
+              40
+            ]
+          ],
+          "textKey": "ui.wizard.tutorial.tunnel.selectWorkspace"
+        },
+        {
+          "zh": "",
+          "en": "",
+          "shot": "s3a-tunnels",
+          "focus": [
+            260,
+            84,
+            560,
+            110
+          ],
+          "rings": [
+            [
+              731,
+              119,
+              44,
+              36
+            ]
+          ],
+          "textKey": "ui.wizard.tutorial.tunnel.copyTunnelId"
+        }
+      ]
+    },
+    "s-key": {
+      "title": {
+        "zh": "",
+        "en": "",
+        "textKey": "ui.wizard.tutorial.key.title"
+      },
+      "lead": {
+        "zh": "",
+        "en": "",
+        "textKey": "ui.wizard.tutorial.key.lead"
+      },
+      "actions": [
+        {
+          "zh": "",
+          "en": "",
+          "href": "https://platform.openai.com/settings/organization/api-keys",
+          "textKey": "ui.wizard.tutorial.key.openPage"
+        }
+      ],
+      "note": {
+        "zh": "",
+        "en": "",
+        "textKey": "ui.wizard.tutorial.key.note"
+      },
+      "subs": [
+        {
+          "zh": "",
+          "en": "",
+          "shot": "s4-apikeys-page",
+          "focus": [
+            560,
+            0,
+            720,
+            100
+          ],
+          "rings": [
+            [
+              1068,
+              8,
+              192,
+              40
+            ]
+          ],
+          "textKey": "ui.wizard.tutorial.key.createSecretKey"
+        },
+        {
+          "zh": "",
+          "en": "",
+          "shot": "s4a-key-dialog",
+          "focus": [
+            12,
+            190,
+            450,
+            240
+          ],
+          "rings": [
+            [
+              28,
+              226,
+              418,
+              42
+            ],
+            [
+              28,
+              301,
+              418,
+              42
+            ],
+            [
+              28,
+              379,
+              418,
+              42
+            ]
+          ],
+          "textKey": "ui.wizard.tutorial.key.chooseProjectExpiry"
+        },
+        {
+          "zh": "",
+          "en": "",
+          "shot": "s4b-key-tunnels-perm",
+          "focus": null,
+          "rings": [
+            [
+              20,
+              100,
+              420,
+              40
+            ],
+            [
+              307,
+              135,
+              308,
+              84
+            ]
+          ],
+          "textKey": "ui.wizard.tutorial.key.restrictPermissions"
+        },
+        {
+          "zh": "",
+          "en": "",
+          "shot": "s4c-key-copy",
+          "focus": [
+            12,
+            12,
+            450,
+            280
+          ],
+          "rings": [
+            [
+              345,
+              202,
+              89,
+              40
+            ]
+          ],
+          "textKey": "ui.wizard.tutorial.key.copySecretKey"
+        }
+      ]
+    },
+    "s-add": {
+      "title": {
+        "zh": "",
+        "en": "",
+        "textKey": "ui.wizard.tutorial.add.title"
+      },
+      "lead": {
+        "zh": "",
+        "en": "",
+        "textKey": "ui.wizard.tutorial.add.lead"
+      },
+      "actions": [
+        {
+          "zh": "",
+          "en": "",
+          "href": "https://chatgpt.com/plugins",
+          "textKey": "ui.wizard.tutorial.add.openPage"
+        }
+      ],
+      "subs": [
+        {
+          "zh": "",
+          "en": "",
+          "shot": "s5a-add-menu",
+          "focus": [
+            420,
+            0,
+            508,
+            220
+          ],
+          "rings": [
+            [
+              830,
+              6,
+              86,
+              40
+            ],
+            [
+              753,
+              126,
+              152,
+              40
+            ]
+          ],
+          "textKey": "ui.wizard.tutorial.add.createMcpApp"
+        },
+        {
+          "zh": "",
+          "en": "",
+          "shot": "s5b-new-plugin",
+          "focus": [
+            16,
+            70,
+            608,
+            330
+          ],
+          "rings": [
+            [
+              28,
+              148,
+              568,
+              44
+            ],
+            [
+              544,
+              280,
+              50,
+              32
+            ],
+            [
+              28,
+              358,
+              114,
+              32
+            ]
+          ],
+          "textKey": "ui.wizard.tutorial.add.chooseTunnel"
+        },
+        {
+          "zh": "",
+          "en": "",
+          "shot": "s5b-new-plugin",
+          "focus": [
+            16,
+            404,
+            608,
+            288
+          ],
+          "rings": [
+            [
+              28,
+              422,
+              568,
+              44
+            ],
+            [
+              29,
+              533,
+              566,
+              96
+            ],
+            [
+              526,
+              634,
+              70,
+              44
+            ]
+          ],
+          "textKey": "ui.wizard.tutorial.add.confirmAuthentication"
+        },
+        {
+          "zh": "",
+          "en": "",
+          "shot": "s5d-connect",
+          "focus": null,
+          "rings": [
+            [
+              32,
+              436,
+              440,
+              44
+            ]
+          ],
+          "textKey": "ui.wizard.tutorial.add.connectApp"
+        },
+        {
+          "zh": "",
+          "en": "",
+          "shot": "s5e-tool-permissions",
+          "focus": [
+            175,
+            30,
+            385,
+            205
+          ],
+          "rings": [
+            [
+              187,
+              189,
+              363,
+              34
+            ]
+          ],
+          "textKey": "ui.wizard.tutorial.add.allowTools"
+        }
+      ],
+      "trouble": {
+        "zh": "",
+        "en": "",
+        "shot": "s5c-create-error",
+        "focus": null,
+        "rings": [
+          [
+            26,
+            96,
+            210,
+            30
+          ]
+        ],
+        "textKey": "ui.wizard.tutorial.add.trouble"
+      }
+    },
+    "s-test": {
+      "title": {
+        "zh": "",
+        "en": "",
+        "textKey": "ui.wizard.tutorial.test.title"
+      },
+      "lead": {
+        "zh": "",
+        "en": "",
+        "textKey": "ui.wizard.tutorial.test.lead"
+      },
+      "actions": [
+        {
+          "zh": "",
+          "en": "",
+          "href": "https://chatgpt.com/",
+          "textKey": "ui.wizard.tutorial.test.openPage"
+        }
+      ],
+      "subs": [
+        {
+          "zh": "",
+          "en": "",
+          "shot": "s6-test-chat",
+          "focus": null,
+          "rings": [
+            [
+              246,
+              12,
+              544,
+              80
+            ]
+          ],
+          "textKey": "ui.wizard.tutorial.test.sendNonce"
+        },
+        {
+          "zh": "",
+          "en": "",
+          "shot": "s6-test-chat",
+          "focus": null,
+          "rings": [
+            [
+              10,
+              150,
+              448,
+              38
+            ]
+          ],
+          "textKey": "ui.wizard.tutorial.test.awaitProbe"
+        }
+      ]
+    }
+  }
+}

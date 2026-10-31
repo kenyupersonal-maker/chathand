@@ -1,0 +1,23 @@
+import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import os from 'node:os';import path from 'node:path';
+import {createDesktop} from '../app/server.mjs';import {Updater} from '../app/v1/update.mjs';import {armUpgradeGuard} from '../app/v08/upgrade-guard.mjs';import {Tools} from '../app/tools.mjs';import {ToolsRefresher} from '../app/v1/tools-refresh.mjs';import {VERSION,manifest} from '../app/product.mjs';import {TOOLS} from '../app/tools.mjs';import {installationTask} from '../app/v1/update-install-task.mjs';
+const currentBuild=JSON.parse(fs.readFileSync(new URL('../package.json',import.meta.url),'utf8')).kenBridge.build_number,previousBuild=currentBuild-1;
+test('current live installer is verifying; real owner HTTP commit clears guard and matching result completes the install task',async t=>{
+ const root=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'1059-real-commit-'))),stateDir=path.join(root,'state'),home=path.join(stateDir,'upgrades'),work=path.join(root,'work');fs.mkdirSync(work);fs.mkdirSync(path.join(home,'install.lock'),{recursive:true});
+ const contract=manifest(TOOLS),task=installationTask({build:currentBuild,caller:'chatgpt',now:Date.now()-1000});
+ const put=(name,value)=>fs.writeFileSync(path.join(stateDir,name),JSON.stringify(value));
+ armUpgradeGuard(stateDir,VERSION,'isolated-guard',{build:currentBuild,transactionId:'2026-10-17T00-00-00-000Z-abcd1234'});fs.writeFileSync(path.join(home,'install.lock/owner.json'),JSON.stringify({pid:process.pid}));
+ put('update-ai.json',{at:Date.now()-1000,from:{version:VERSION,build:previousBuild},to:{version:VERSION,build:currentBuild},install_task:task});put('update-pending.json',{from:VERSION,to:VERSION,build_from:previousBuild,build_to:currentBuild,schema_from:contract.schema_sha256});
+ const app=await createDesktop({stateDir,defaultRoot:work,uiKey:'ab'.repeat(32),adminAccess:{supported:()=>false,ready:()=>false},clientDeps:{currentAppPath:path.join(root,'ChatHand.app'),computerName:()=> 'isolated',tunnelFactory:()=>({child:null,doctorChild:null,log:[],status:'off',stop(){},snapshot:async()=>({status:'off',ready:false,healthy:false,process_running:false})}),updaterFactory:deps=>{const u=new Updater(deps);u.check=async()=>u.snapshot();return u;}}});
+ t.after(async()=>{await app.close();fs.rmSync(root,{recursive:true,force:true});});
+ const state=await app.snapshot();assert.equal(state.upgrade_pending,true);assert.equal(state.update.install.state,'verifying');assert.equal(state.update.install.code,'UPGRADE_STILL_RUNNING');assert.doesNotMatch(state.update.install.message,/拖进|重新安装/);assert.equal(app.updater.ai.install_task.result,undefined);
+ const response=await fetch('http://127.0.0.1:'+app.apiPort+'/api/upgrade/commit',{method:'POST',headers:{Authorization:'Bearer '+app.adminToken,'Content-Type':'application/json'},body:'{}'});assert.equal(response.status,200);assert.equal((await response.json()).committed,true);
+ put('update-result.json',{status:'COMMITTED',from:VERSION,to:VERSION,build_to:currentBuild,schema_from:contract.schema_sha256,schema_to:contract.schema_sha256,time:new Date().toISOString()});
+ const end=Date.now()+3000;while(Date.now()<end&&!app.updater.ai.install_task.result)await new Promise(r=>setTimeout(r,50));const after=await app.snapshot();assert.equal(after.upgrade_pending,false);assert.equal(after.update.status,'updated');assert.equal(after.update.install.state,'idle');assert.equal(app.updater.ai.install_task.result.status,'completed');assert.equal(app.updater.ai.install_task.result.installed.build,currentBuild);
+});
+test('1059 connection proof clears obsolete failure without claiming target page attestation; actual target proof keeps its stronger statement',()=>{
+ const current={state:'current',observed:true,persisted:true,schema_sha256:manifest(TOOLS).schema_sha256};const refresh=new ToolsRefresher({listStatus:()=>current});refresh.value={state:'unverified',clicked:true,message:'old failure'};
+ const r=refresh.snapshot();assert.equal(r.proof_current,true);assert.equal(r.target_attested,undefined);
+ const tools=Object.create(Tools.prototype);tools.updater={aiStatus:()=>({phase:'updated',current:{version:VERSION,build:1059},tools_changed:true,install_state:'idle'})};tools.toolsRefresh=refresh;
+ let value=tools.upgradeView();assert.match(value.message,/这条连接已取到当前工具表/);assert.doesNotMatch(value.message,/目标页面已核验绑定/);
+ refresh.value={state:'refreshed',target_attested:true,message:'target verified'};value=tools.upgradeView();assert.equal(value.tools_refresh.target_attested,true);assert.match(value.message,/目标页面已核验绑定/);assert.equal(value.tools_refresh.proof_current,undefined);
+});

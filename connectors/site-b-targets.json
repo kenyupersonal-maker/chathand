@@ -1,0 +1,5 @@
+{
+  "format": 1,
+  "description": "Release-signed Site B deployment anchors only. Empty until authorized deployment metadata is verified.",
+  "deployments": []
+}

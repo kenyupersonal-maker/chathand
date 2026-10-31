@@ -1,0 +1,54 @@
+{
+  "format": 1,
+  "width": 698,
+  "height": 718,
+  "version": "1.0.0-beta.36",
+  "locale": "en",
+  "catalog_sha256": "d7d124319ad2a1de0483e655f14065759d498dcd158a4c70ae6d0691c074690a",
+  "template_sha256": "e9cc6ec0d53c9a40ef62f62fdf12bb7d5f6d168dedf991d2b923e953eb102d50",
+  "source_sha256": {
+    "ui/h10/offline.mjs": "16152c314deb9d8118c7849de7009504f79aae9c268e02ae3c619084f3dae737",
+    "ui/h10/prompts.mjs": "3bc010250ae88579620fa028d17e7d4a8bfbbff8a1157f9ec8cc5a096f7bcad7",
+    "ui/assets/dmg/src/background.template.html": "e9cc6ec0d53c9a40ef62f62fdf12bb7d5f6d168dedf991d2b923e953eb102d50",
+    "ui/assets/dmg/src/jump.template.html": "4a94c6af9eee84f5ae62ff0deb5fd718ddcda41d448ab08c709f05ae476947f4",
+    "ui/assets/dmg/src/first-open.template.html": "7d5b5c668ce5c50c050fe3bd5bfef22db4b18b87560d61248285e7946f12ea9f",
+    "ui/assets/dmg/src/system-guide.html": "9dfc36ec645b18edad52a20b7051f8079a65433db9d00ce52ae1919ba5b5b679",
+    "ui/assets/dmg/src/theme.css": "fab07c2e4eade24a085a1cefe340f0aff699b5c19113388f525148a82de1e4b4",
+    "ui/assets/dmg/src/localize.mjs": "2e3fa9c50dc603ae72e978889abdf730b10e309be91a9c6e7c4eaaccd8c776ca",
+    "ui/assets/dmg/src/generate.mjs": "3f64a778af9439c69067630a2550031f6be20cf1e6b5cab33ed366de962ca974",
+    "ui/assets/dmg/src/render.mjs": "03da2cd355bd40a6f1d4ae08bd63396a012e28937a17de73c8382c49173f6439",
+    "ui/assets/dmg/src/install-command.txt": "cc5310c6f003c315c0442017ce6e8a9179cf3c5cb62529042aa3f1f801c13771",
+    "ui/assets/dmg/src/codexdoc.svg": "6d80cfd589dcf0ae8f5d11b700ee70e14ba0aae49a91812b423b74e0cd76e2e7",
+    "ui/assets/dmg/src/helpdoc.svg": "7c95d19cd49292853a88734bd9bc4da16ac3f821099023f659e633a3293501ab"
+  },
+  "assets": {
+    "background.html": {
+      "sha256": "185a20b6fdb30b8946a7bb1e378fa802e4060e5d7a1017b6695270097fda7712"
+    },
+    "background.png": {
+      "sha256": "2999f9e657987141469f39efd36f58dfb968a727f2205b5af6bbea091fc4641e",
+      "width": 698,
+      "height": 718
+    },
+    "background@2x.png": {
+      "sha256": "7d6f199683d683a72904ec4f67b62ead33a2600d1d2e98878250fa9389b6b336",
+      "width": 1396,
+      "height": 1436
+    },
+    "background.tiff": {
+      "sha256": "739e111830d3a0fc747ae9203951eb519237f1fa8c677a9643faff636e7a54d4"
+    },
+    "让 ChatGPT 来装.html": {
+      "sha256": "c22504b14bc46df0fb81e5a669072210d915e34e2e4f0c66a86595f80ad0a990"
+    },
+    "第一次打开.html": {
+      "sha256": "0c92bcb537dadc2f213f0a0708578e6d28c252c8f355d523d61be52da4104b30"
+    },
+    "codexdoc.icns": {
+      "sha256": "3a80415a753cce57b377e2ded7b259817e77c6d81b5c227e375085a5b2c80368"
+    },
+    "helpdoc.icns": {
+      "sha256": "84a2b0a615be4b2391db7f79d9b2d7c8c92ca75c51558823a9174030c99dd2d2"
+    }
+  }
+}

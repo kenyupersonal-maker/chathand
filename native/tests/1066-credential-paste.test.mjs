@@ -1,0 +1,14 @@
+import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import path from 'node:path';import os from 'node:os';import vm from 'node:vm';import {spawnSync} from 'node:child_process';
+test('manual credential receipt uses fake clipboard only and invalid runtime input displays the concrete existing UI message',{skip:process.platform!=='darwin',timeout:120000},t=>{
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'chathand-credential-native-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));const binary=path.join(root,'checks');
+ const compile=spawnSync('/usr/bin/xcrun',['swiftc','-swift-version','5','-module-cache-path',path.join(root,'cache'),'-parse-as-library','-framework','Cocoa','-framework','WebKit','native/ClientFeatures.swift','native/WindowChrome.swift','native/tests/NativeCredentialPasteChecks.swift','-o',binary],{encoding:'utf8',timeout:90000});assert.equal(compile.status,0,compile.stderr);
+ const run=spawnSync(binary,[],{encoding:'utf8',timeout:5000});assert.equal(run.status,0,run.stderr);assert.match(run.stdout,/PASS: manual authenticated receipt/);const rows=JSON.parse(run.stdout.slice(0,run.stdout.indexOf('\nPASS:')));
+ const source=fs.readFileSync('ui/wizard.js','utf8'),start=source.indexOf(' function resolvePasteRuntimeKeyResponse('),end=source.indexOf(' let watch=',start),zh=JSON.parse(fs.readFileSync('locales/zh.json'));assert.ok(start>=0&&end>start);const context=vm.createContext({window:{ChatHandText:{t:key=>zh[key]}}});vm.runInContext(source.slice(start,end),context);
+ for(const row of rows.filter(x=>x.case==='invalid-runtime')){context.receipt=row.response;const visible=vm.runInContext('resolvePasteRuntimeKeyResponse(receipt)',context);assert.equal(visible.saved,false);assert.equal(visible.error,zh['ui.wizard.clipboardKeyInvalid']);assert.notEqual(visible.error,zh['ui.wizard.saveKeyFailed']);assert.equal(row.response.reason_code,'CLIPBOARD_NOT_A_KEY');}
+ console.log(run.stdout.trim());
+});
+test('real manual bridge wrappers preserve owner/window authority and remove the command-v provenance gate',()=>{
+ const main=fs.readFileSync('native/main.swift','utf8'),runtime=main.slice(main.indexOf('func pasteRuntimeKey('),main.indexOf('func revealSiteTemplate(')),site=main.slice(main.indexOf('func pasteSiteGrant('),main.indexOf('func safeChat('));
+ for(const body of [runtime,site]){assert.ok(body.includes('authorized:interfaceKeyShared && ownsService'));assert.ok(body.includes('NSPasteboard.general'));assert.doesNotMatch(body,/consumeNative|isTrusted|confirmationInput|CGEventSource|lastWindowInput/);}
+ const branch=main.slice(main.indexOf('case "pasteRuntimeKey":'),main.indexOf('case "revealPluginIcon":'));assert.doesNotMatch(branch,/EXPLICIT_PASTE_REQUIRED|trigger|isTrusted|consumeNative/);assert.ok(branch.includes('guard interfaceKeyShared && ownsService'));
+});

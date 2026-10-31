@@ -1,0 +1,10 @@
+import test from 'node:test';import assert from 'node:assert/strict';import crypto from 'node:crypto';import {desktop} from './1052-a-fixture.mjs';
+async function command(f,large=false){const task_id=f.task??(f.task=await f.begin()),r=f.ok(await f.rpc('propose_command',{task_id,request_id:crypto.randomUUID(),program:process.execPath,args:['-e',large?"for(let i=0;i<100;i++)process.stdout.write('row-'+i+' '+ 'x'.repeat(15000)+'\\n')":"for(let i=0;i<100;i++)process.stdout.write('row-'+i+'\\n')"],wait_ms:1000}));await f.app.queue.result(r.job_id,2000);return f.app.queue.get(r.job_id);}
+test('preinstall13 ten-minute memory reduction does not delete the session full archive',async t=>{
+ const f=await desktop(t),j=await command(f),q=f.app.queue,e=q.fullOutputs.get(j.id);q.retentionClock={...q.retentionClock,now:()=>j.finished_at+600001};q.maintainOutputs();assert.equal(j.output_retention.reason,'age');assert.equal(j.output_retention.reduced,true);assert.ok(e.spool);assert.equal(j.capture_error,undefined);const p=f.ok(await f.rpc('command_result',{job_id:j.id,full:true}));assert.equal(p.segments.map(x=>x.text).join(''),Array.from({length:100},(_,i)=>'row-'+i+'\n').join(''));
+});
+test('preinstall13 discard oldest archive before considering memory so retained memory survives',async t=>{
+ const f=await desktop(t),first=await command(f,true),second=await command(f),q=f.app.queue,a=q.fullOutputs.get(first.id),b=q.fullOutputs.get(second.id),firstEvents=first.events,secondEvents=second.events,firstCount=first.events.length,secondCount=second.events.length;assert.ok(first.raw_bytes>1024*1024);assert.ok(firstCount>0);assert.ok(secondCount>0);
+ q.finishedOutputBudget=b.spool.diskBytes()+first.kept_bytes+second.kept_bytes;assert.ok(a.spool.diskBytes()+b.spool.diskBytes()>q.finishedOutputBudget);q.maintainOutputs();
+ assert.equal(a.spool,null);assert.ok(b.spool);assert.equal(first.events,firstEvents);assert.equal(second.events,secondEvents);assert.equal(first.events.length,firstCount);assert.equal(second.events.length,secondCount);assert.equal(q.outputRetentionStatus.over_budget,false);
+});

@@ -1,0 +1,1622 @@
+/* 字号表已换成整数（tools/font_scale.py rec，10/2）。再跑一次会重复放大，所以这个文件不要再跑。 */
+/* ChatHand 主窗口 · 单页工作台（1011，照 Ken 10/2 的 Figma「ChatHand 单页工作台」）
+   白底；卡片白底细边淡阴影；状态色只有绿（运行中、正常）和橙（要你留意），黄色只给「高危命令」那条提醒。
+   数值大多是 Figma 原值；和 Figma 不一样的几处见 docs/plans/v1/ChatHand-单页工作台定稿方案-20261002.md 2.6。 */
+
+/* 中文字和全角标点固定用简体苹方（Ken 10/16）：系统是繁体中文时，-apple-system 会挑繁体字形，逗号句号跑到字的正中。
+   只管中文和全角标点（unicode-range），英文和数字照旧走系统字体。 */
+@font-face{font-family:"ChatHand SC";src:local("PingFangSC-Light");font-weight:300;unicode-range:U+2E80-2FDF,U+3000-303F,U+3100-312F,U+31C0-31EF,U+3200-33FF,U+3400-4DBF,U+4E00-9FFF,U+F900-FAFF,U+FE10-FE1F,U+FE30-FE4F,U+FF00-FFEF}
+@font-face{font-family:"ChatHand SC";src:local("PingFangSC-Regular");font-weight:400;unicode-range:U+2E80-2FDF,U+3000-303F,U+3100-312F,U+31C0-31EF,U+3200-33FF,U+3400-4DBF,U+4E00-9FFF,U+F900-FAFF,U+FE10-FE1F,U+FE30-FE4F,U+FF00-FFEF}
+@font-face{font-family:"ChatHand SC";src:local("PingFangSC-Medium");font-weight:500;unicode-range:U+2E80-2FDF,U+3000-303F,U+3100-312F,U+31C0-31EF,U+3200-33FF,U+3400-4DBF,U+4E00-9FFF,U+F900-FAFF,U+FE10-FE1F,U+FE30-FE4F,U+FF00-FFEF}
+@font-face{font-family:"ChatHand SC";src:local("PingFangSC-Semibold");font-weight:600 900;unicode-range:U+2E80-2FDF,U+3000-303F,U+3100-312F,U+31C0-31EF,U+3200-33FF,U+3400-4DBF,U+4E00-9FFF,U+F900-FAFF,U+FE10-FE1F,U+FE30-FE4F,U+FF00-FFEF}
+
+:root{
+  color-scheme:light;
+  --win:#FFFFFF;--panel:#FEFFFD;--card:#FFFFFF;--surface:#FFFFFF;
+  /* 色块深浅：--fill / --fill-2 从所在底色算（见文件末尾「色块」一节），这里只给混入比例和混入的颜色 */
+  --fill-mix:2.5;--fill-ink:var(--ink);--tile-dark:#282D2A;
+  --heat-0:var(--fill-2);--heat-1:oklch(calc(0.9244 + var(--theme-l)) calc(0.039 * var(--theme-c)) calc(var(--theme-h) + 0.1));--heat-2:oklch(calc(0.8393 + var(--theme-l)) calc(0.0859 * var(--theme-c)) calc(var(--theme-h) + 0.1));--heat-3:oklch(calc(0.7388 + var(--theme-l)) calc(0.1274 * var(--theme-c)) calc(var(--theme-h) - 2.1));--heat-4:oklch(calc(0.6071 + var(--theme-l)) calc(0.1144 * var(--theme-c)) calc(var(--theme-h) - 0.3));--quota-ch:linear-gradient(90deg,oklch(calc(0.804 + var(--theme-l)) calc(0.1194 * var(--theme-c)) calc(var(--theme-h) + 1.2)),oklch(calc(0.7026 + var(--theme-l)) calc(0.1311 * var(--theme-c)) calc(var(--theme-h) - 1.1)));
+  --line:rgba(16,24,40,.095);--line-2:rgba(16,24,40,.15);--line-soft:rgba(16,24,40,.06);
+  --line-2-solid:color-mix(in srgb,var(--card) 85%,rgb(16 24 40));
+  --ink:#171A18;--ink-2:#5F6661;--ink-3:#929994;--ink-4:#C4C9C5;
+  --accent:#171A18;--accent-hover:#2E3330;--accent-ink:#FFFFFF;
+  /* 主题色（10/4）：--theme-h 色相、--theme-c 鲜艳倍数（172 / 1 = 原来的薄荷绿 #03D4AA）、--theme-l 亮度偏移（0 = 原亮度，加在每个主题色的亮度上，−0.3～0.3）。
+     功能绿（运行中、成功、开关、勾、热力图、额度条）都从它算，浅深两套亮度各自定好；右上角光、光斑、流光的颜色范围也跟着转。
+     皮肤可以改，浅色深色通用。 */
+  --theme-h:172;--theme-c:1.08;--theme-l:0;--extreme-ink:#FFFFFF;
+  --g:oklch(calc(0.7749 + var(--theme-l)) calc(0.1505 * var(--theme-c)) calc(var(--theme-h) - 0.4));--g-sw:oklch(calc(0.7166 + var(--theme-l)) calc(0.1394 * var(--theme-c)) calc(var(--theme-h) - 0.3));--g-ink:oklch(calc(0.6005 + var(--theme-l)) calc(0.1143 * var(--theme-c)) calc(var(--theme-h) + 1.9));--g-soft:oklch(calc(0.9657 + var(--theme-l)) calc(0.0157 * var(--theme-c)) calc(var(--theme-h) - 17.5));
+  --o:#FF7B00;--o-ink:#B4600B;--o-soft:rgba(255,123,0,.10);--o-tag:rgba(255,123,0,.16);--o-line:rgba(180,96,11,.26);
+  --connection-wait:#D9AE24;--connection-wait-ink:#9A7610;--connection-down:#D64545;--connection-down-ink:#BE3030;
+  --y-bg:#FFF8E6;--y-line:#F5DFA8;--y-ink:#8A5A00;
+  /* 卡片投影（10/4）：平时没有；鼠标放上去才浮起来——投影由小变大，卡片放大一点、往上一点（transform，不挤别的卡片）。
+     投影是灰的，只带一点点当前主题色（--sh-tint：0 纯灰）；数值见下面 --sh-*，皮肤可以改。 */
+  --card-shadow:0 0 0 0 transparent,0 0 0 0 transparent,0 0 0 0 transparent;
+  --card-shadow-hover:0 1px 2px var(--sh-col-contact),0 calc(var(--sh-y) * .3px) calc(var(--sh-blur) * .35px) calc(var(--sh-spread) * .3px) var(--sh-col-near),0 calc(var(--sh-y) * 1px) calc(var(--sh-blur) * 1px) calc(var(--sh-spread) * 1px) var(--sh-col);
+  --pop-shadow:0 14px 36px rgba(17,20,18,.14),0 2px 6px rgba(17,20,18,.05);
+  --modal-shadow:0 24px 64px rgba(17,20,18,.20),0 2px 8px rgba(17,20,18,.05);
+  /* 右侧抽屉（10/30 Ken）：浮在界面里，离窗口上、下、右各空 --drawer-gap：半格网点（12 点间距时 6px，默认界面大小下屏幕上 7.5 点）；阴影四周都有 */
+  --drawer-gap:calc(var(--dots-gap) * .5px);
+  /* 抽屉右边两个角挨着窗口边，跟 App 窗口的圆角同心（10/30 Ken：离边近了圆角要跟着小一点，比窗口的角稍小）：窗口圆角减去抽屉离边的那条缝，两条弧中间的缝处处一样宽。
+     窗口圆角按屏幕上的点算（--win-corner，macOS 26 上量出来约 16 点）；网页被原生放大了（界面大小 --ui-zoom，默认 1.25），先除回去得到 --win-radius（默认 12.8px），
+     再减 --drawer-gap：默认 12.8 − 6 = 6.8px，屏幕上 8.5 点。最小是窗口圆角的一半（老版本 macOS 窗口角小、界面放得很大、皮肤的网点间距很大时）。
+     左边两个角不挨着窗口边，用不着同心（10/30 Ken：左边的角大一些）：跟窗口的角一样大，--drawer-radius-left 就是 --win-radius，默认屏幕上 16 点。
+     在 App 里界面大小跟着设置走（app.js 的 adoptState、showZoom）；窗口圆角原生可以在 setWindowChrome 里传 corner（点），老版本 macOS 的窗口角小一些。 */
+  --win-corner:16;--ui-zoom:1.25;--win-radius:calc(var(--win-corner) * 1px / var(--ui-zoom));
+  --drawer-radius:max(var(--win-radius) - var(--drawer-gap),var(--win-radius) / 2);
+  --drawer-radius-left:var(--win-radius);
+  --drawer-shadow:0 2px 8px rgba(16,24,40,.05),0 18px 48px rgba(16,24,40,.13);--drawer-edge:rgba(16,24,40,.09);--drawer-bg:var(--win);
+  --backdrop:rgba(17,20,18,.16);
+  --trail-a:.26;
+  /* 皮肤角色：原写死颜色，三种模式先保持原值。 */
+  --switch-thumb:#fff;--switch-shadow:rgba(0,0,0,.22);--tile-ink:#fff;--segment-shadow:rgba(17,20,18,.08);--brand-top:#323735;--brand-bottom:#1A1D1B;--brand-ink:#fff;--brand-highlight:rgba(255,255,255,.08);--mask-opaque:#fff;--mask-cutout:#000;--glow-start:#03D4AA;--glow-mid:#38BDF8;--glow-end:#A78BFA;--glow-core:#E9FFF8;--g-line:oklch(calc(0.7749 + var(--theme-l)) calc(0.1505 * var(--theme-c)) calc(var(--theme-h) - 0.4) / 0.28);--dismiss-hover:rgba(17,20,18,.06);--tutorial-shadow:rgba(0,0,0,.25);--tutorial-backdrop:rgba(0,0,0,.35);--wiz-surface-fallback:#fff;--wiz-ink-fallback:#222;--wiz-fill-fallback:#f6f6f6;--wiz-line-fallback:#eee;--wiz-muted-fallback:#888;--wiz-step-fallback:#eaeaea;--wiz-body-fallback:#666;--wiz-media-fallback:#f5f5f5;--wiz-key-line-fallback:#bbb;--wiz-key-fill-fallback:#fafafa;--wiz-focus-ring:#0a84ff;--wiz-hint-bg:#fff;--wiz-hint-ink:#555;--wiz-risk-ink:#ad6821;--trail-rgb-a:3,212,170;--trail-rgb-b:56,189,248;--trail-rgb-c:167,139,250;
+  /* 背景（10/2 第二版）：网点更小、更密、更淡；光团用浅色；--o1..3 是光团和极光当前用的三种颜色 */
+  --dot:rgba(23,26,24,.085);
+  /* 背景网点：--dots-gap 间距、--dots-size 点的半径（px，0～8，0 = 一个点都不画）、--dots-a 浓淡倍数（1 = 皮肤给的 --dot，最多 2 倍）。皮肤可以改。
+     --spot-dot：被鼠标照亮的那些点的半径（px，0～8，0 = 亮点不画）；和 --dots-size 一样大时，亮起来的点和底下的点一样大，只换颜色。
+     点边缘有一圈虚边：--dot-fr / --spot-fr，最宽 .6px，半径不到 .3 时跟着变窄，到 0 时只剩 .01px（看不见；留一点宽度是免得两个色标重合，各家浏览器画法不一）。
+     --grid-snap:1 = 卡片对齐网点（10/4 定：默认 12 点间距、对齐打开；规则见文件末尾「对齐网点」一节） */
+  --dots-gap:12;--dots-size:.6;--spot-dot:0.4;--dots-a:.7;--grid-snap:1;--bg-motion:1;--dot-gap:calc(var(--dots-gap) * 1px);--dot-r:calc(var(--dots-size) * 1px);--dot-fr:max(.01px,min(.6px,calc(var(--dot-r) * 2)));--spot-r:calc(var(--spot-dot) * 1px);--spot-fr:max(.01px,min(.6px,calc(var(--spot-r) * 2)));
+  --dot-col:color-mix(in srgb,var(--dot) calc(clamp(0,var(--dots-a),1) * 100%),transparent);--dot-col2:color-mix(in srgb,var(--dot) calc(clamp(0,var(--dots-a) - 1,1) * 100%),transparent);
+  --spot1:rgba(0,186,148,.80);--spot2:rgba(38,156,236,.42);
+  --glass:rgba(255,255,255,.6);--glass-panel:rgba(255,255,255,.64);--glass-line:rgba(16,24,40,.08);--glass-hi:rgba(255,255,255,.9);
+  --orb-a:.8;--aur-a:.72;--orb-blend:multiply;
+  --mint1:#A2EFD5;--mint2:#BDE9F4;--mint3:#D9D5FF;--dawn1:#FFD8C2;--dawn2:#FFD0E3;--dawn3:#E1D6FF;
+  --sky1:#C3D8FF;--sky2:#CBE6FF;--sky3:#DAD4FF;--fog1:#E6E9E7;--fog2:#E9EBEE;--fog3:#EDEEF1;
+  --ease:cubic-bezier(.32,.72,0,1);
+  --font:"ChatHand SC",-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Hiragino Sans GB","Microsoft YaHei UI","Segoe UI",sans-serif;
+  --mono:"SF Mono",ui-monospace,Menlo,Consolas,"Liberation Mono",monospace;
+  /* 1014 · 细线和特效参数（浅色、深色各一份），皮肤可以改。
+     10/4 晚：写回了 Ken 调好的一套（右上角用「柔光」、光斑改成中性灰、不要卡片边缘高光等）。
+     --hair 是描边粗细：Retina 屏 0.5（一个物理像素），普通屏 1。
+     --fx-h / --fx-h2 是「现在的颜色」（OKLCH 色相），由 app.js 按时间和鼠标移动在 --hue-a～--hue-b 之间来回走，
+     光团、光斑、卡片边缘高光、任务流光都跟着它变。
+     任务流光的饱和度只由 --comet-c 管：头和尾直接用它，最亮的核心用它乘 --core-c（比例；默认写成「原来的色度 / 默认的 --comet-c」，外观不变），所以 --comet-c 为 0 时整圈只剩灰白。 */
+  --hair:1px;
+  --fx-h:165;--fx-h2:295;--hue-a:150;--hue-b:230;--hue-time:1;--hue-move:1;
+  --aura-a:.65;--aura-l:.92;--aura-c:0.12;--aura-alpha:.42;--aura-size:1;--aura-speed:4;--aura-reach:.43;--aura-x:0;--aura-y:0;
+  --spot-size:165;--spot-a:0.88;--spot-l:.3;--spot-c:0;--spot-trail:1;--spot-wash:0;
+  --edge-a:0;--edge-l:.72;--edge-c:.15;--edge-size:400;
+  --glow-speed:7;--glow-size:36;--glow-a:.3;--ring-a:1;--spill-a:.2;--tail:.57;
+  /* 流光的速度：卡片四个角、四条边中点的相对速度（左上角起顺时针：左上角、上边、右上角、右边、右下角、下边、左下角、左边），app.js 连成平滑的一圈。
+     默认「过山车」：顺着左边爬上来越来越慢，左上角最慢（蓄力），翻过去沿上边加速，右边往下最快，再沿下边慢慢减速。--glow-accel 是起伏大小，100 = 照这组数 */
+  --glow-v1:.55;--glow-v2:.95;--glow-v3:1.3;--glow-v4:1.55;--glow-v5:1.45;--glow-v6:1.15;--glow-v7:.9;--glow-v8:.7;--glow-accel:100;
+  --comet-l:0.83;--comet-c:0.12;--core-dl:.06;--core-c:calc(.15 / .16);
+  --glass-blur:3;--glass-mix:100;
+  --sh-l:.3;--sh-tint:.3;--sh-a:.12;--sh-blur:32;--sh-y:14;--sh-spread:-12;--lift:1.012;--lift-y:1;
+  /* 由上面几项算出来的颜色（产品样式里只用变量） */
+  --spot-col:oklch(var(--spot-l) var(--spot-c) var(--fx-h) / var(--spot-a));--spot-col-mid:oklch(var(--spot-l) var(--spot-c) var(--fx-h) / calc(var(--spot-a) * .42));--spot-col-0:oklch(var(--spot-l) var(--spot-c) var(--fx-h) / 0);
+  --spot-col2:oklch(var(--spot-l) var(--spot-c) calc(var(--fx-h) * .7 + var(--fx-h2) * .3) / var(--spot-a));--spot-col2-0:oklch(var(--spot-l) var(--spot-c) calc(var(--fx-h) * .7 + var(--fx-h2) * .3) / 0);
+  --spot-col3:oklch(var(--spot-l) var(--spot-c) calc(var(--fx-h) * .45 + var(--fx-h2) * .55) / var(--spot-a));--spot-col3-0:oklch(var(--spot-l) var(--spot-c) calc(var(--fx-h) * .45 + var(--fx-h2) * .55) / 0);
+  --wash-col:oklch(var(--spot-l) var(--spot-c) var(--fx-h) / 1);--wash-col-0:oklch(var(--spot-l) var(--spot-c) var(--fx-h) / 0);
+  --edge-col:oklch(var(--edge-l) var(--edge-c) var(--fx-h) / var(--edge-a));--edge-col-mid:oklch(var(--edge-l) var(--edge-c) var(--fx-h) / calc(var(--edge-a) * .45));--edge-col-0:oklch(var(--edge-l) var(--edge-c) var(--fx-h) / 0);
+  --sh-col:oklch(var(--sh-l) calc(var(--sh-tint) * .08) var(--fx-h) / var(--sh-a));--sh-col-near:oklch(var(--sh-l) calc(var(--sh-tint) * .08) var(--fx-h) / calc(var(--sh-a) * .5));--sh-col-contact:oklch(var(--sh-l) calc(var(--sh-tint) * .08) var(--fx-h) / calc(var(--sh-a) * .4));
+  --tile-shadow:0 1px 2px rgba(16,24,40,.05),0 10px 24px -10px rgba(16,24,40,.16);--pill-shadow:0 8px 24px -10px rgba(16,24,40,.22);--empty-ring:var(--line-2);
+  /* 黑色小气泡（引导提示）：浅色模式黑、深色模式灰，和卡片区分开 */
+  --tip-bg:#1E2023;--tip-ink:rgba(255,255,255,.8);--tip-ink-strong:#FFFFFF;--tip-btn:rgba(255,255,255,.14);--tip-btn-hover:rgba(255,255,255,.24);--tip-shadow:0 14px 34px -10px rgba(16,24,40,.38),0 2px 6px rgba(16,24,40,.14);
+  /* 浮动提示（toast，1082 Ken 10/28）：浅色毛玻璃。底色是 --surface 透一点，后面的东西糊开；细边、上沿一道亮线、软投影 */
+  --toast-bg:color-mix(in srgb,var(--surface) 78%,transparent);--toast-line:var(--line);--toast-hi:rgba(255,255,255,.75);--toast-shadow:0 12px 32px -8px rgba(16,24,40,.22),0 2px 6px -1px rgba(16,24,40,.08);--toast-blur:blur(20px) saturate(1.8);
+  /* 「去开通」跳过去时，目标那一行忽闪两下用的底色 */
+  --flash-bg:color-mix(in srgb,var(--o) 14%,transparent);
+  /* 旧名字：wizard.css、设置向导、配置助手还在用 */
+  --bg:var(--win);--surface-2:var(--fill);--surface-3:var(--fill-2);--accent-soft:var(--fill);--accent-line:var(--line-2);
+  --ok:var(--g);--ok-ink:var(--g-ink);--ok-soft:var(--g-soft);--warn:var(--o);--warn-ink:var(--o-ink);--warn-soft:var(--o-soft);--warn-line:var(--o-line);
+  --bad:var(--o-ink);--err:var(--o-ink);--bad-soft:var(--o-soft);--bad-line:var(--o-line);--pop-shadow-old:var(--pop-shadow);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --win:#0B0C0E;--panel:#111215;--card:#131417;--surface:#18191D;
+    --fill-mix:4;--tile-dark:#ECEDEF;
+  --heat-0:var(--fill-2);--heat-1:oklch(calc(0.3227 + var(--theme-l)) calc(0.0448 * var(--theme-c)) calc(var(--theme-h) + 2.7));--heat-2:oklch(calc(0.4359 + var(--theme-l)) calc(0.0712 * var(--theme-c)) calc(var(--theme-h) + 0.2));--heat-3:oklch(calc(0.5905 + var(--theme-l)) calc(0.111 * var(--theme-c)) calc(var(--theme-h) - 5.2));--heat-4:oklch(calc(0.7945 + var(--theme-l)) calc(0.1427 * var(--theme-c)) calc(var(--theme-h) - 1.9));--quota-ch:linear-gradient(90deg,oklch(calc(0.5823 + var(--theme-l)) calc(0.1066 * var(--theme-c)) calc(var(--theme-h) - 1.4)),oklch(calc(0.7661 + var(--theme-l)) calc(0.1393 * var(--theme-c)) calc(var(--theme-h) - 2.2)));
+    --line:rgba(255,255,255,.085);--line-2:rgba(255,255,255,.14);--line-soft:rgba(255,255,255,.055);--line-2-solid:color-mix(in srgb,var(--card) 86%,#fff);
+    --ink:#EDEEF0;--ink-2:#A6A9B0;--ink-3:#7C8089;--ink-4:#4A4D55;
+    --accent:#F2F3F5;--accent-hover:#DADCE0;--accent-ink:#0B0C0E;
+    --g-sw:oklch(calc(0.7166 + var(--theme-l)) calc(0.1394 * var(--theme-c)) calc(var(--theme-h) - 0.3));--g-ink:oklch(calc(0.8127 + var(--theme-l)) calc(0.1471 * var(--theme-c)) calc(var(--theme-h) + 1.2));--g-soft:oklch(calc(0.7749 + var(--theme-l)) calc(0.1505 * var(--theme-c)) calc(var(--theme-h) - 0.4) / 0.12);
+    --o-ink:#EBA04E;--o-soft:rgba(255,123,0,.12);--o-tag:rgba(255,123,0,.20);--o-line:rgba(235,160,78,.34);
+    --y-bg:rgba(245,180,40,.10);--y-line:rgba(245,180,40,.28);--y-ink:#E8C27A;
+    --sh-l:.08;--sh-tint:.25;--sh-a:.55;
+    --tip-bg:#3A3C42;--tip-ink:rgba(255,255,255,.84);--tip-btn:rgba(255,255,255,.12);--tip-btn-hover:rgba(255,255,255,.2);--tip-shadow:0 14px 34px -10px rgba(0,0,0,.7),0 2px 6px rgba(0,0,0,.45);
+    --toast-bg:color-mix(in srgb,color-mix(in srgb,var(--surface) 86%,#fff) 78%,transparent);--toast-line:rgba(255,255,255,.1);--toast-hi:rgba(255,255,255,.07);--toast-shadow:0 16px 40px -8px rgba(0,0,0,.65),0 2px 8px rgba(0,0,0,.4);
+    --flash-bg:color-mix(in srgb,var(--o) 18%,transparent);
+    --pop-shadow:0 14px 36px rgba(0,0,0,.55),0 2px 6px rgba(0,0,0,.35);
+    --modal-shadow:0 24px 64px rgba(0,0,0,.6),0 2px 8px rgba(0,0,0,.35);
+    --drawer-shadow:0 2px 10px rgba(0,0,0,.30),0 20px 56px rgba(0,0,0,.55);--drawer-edge:rgba(255,255,255,.09);--backdrop:rgba(0,0,0,.5);--drawer-bg:#121316;
+    --trail-a:.30;
+  /* 皮肤角色：原写死颜色，三种模式先保持原值。 */
+  --switch-thumb:#fff;--switch-shadow:rgba(0,0,0,.22);--tile-ink:#fff;--segment-shadow:rgba(17,20,18,.08);--brand-top:#323735;--brand-bottom:#1A1D1B;--brand-ink:#fff;--brand-highlight:rgba(255,255,255,.08);--mask-opaque:#fff;--mask-cutout:#000;--glow-start:#03D4AA;--glow-mid:#38BDF8;--glow-end:#A78BFA;--glow-core:#E9FFF8;--g-line:oklch(calc(0.7749 + var(--theme-l)) calc(0.1505 * var(--theme-c)) calc(var(--theme-h) - 0.4) / 0.28);--dismiss-hover:rgba(17,20,18,.06);--tutorial-shadow:rgba(0,0,0,.25);--tutorial-backdrop:rgba(0,0,0,.35);--wiz-surface-fallback:#fff;--wiz-ink-fallback:#222;--wiz-fill-fallback:#f6f6f6;--wiz-line-fallback:#eee;--wiz-muted-fallback:#888;--wiz-step-fallback:#eaeaea;--wiz-body-fallback:#666;--wiz-media-fallback:#f5f5f5;--wiz-key-line-fallback:#bbb;--wiz-key-fill-fallback:#fafafa;--wiz-focus-ring:#0a84ff;--wiz-hint-bg:#fff;--wiz-hint-ink:#555;--wiz-risk-ink:#ad6821;--trail-rgb-a:3,212,170;--trail-rgb-b:56,189,248;--trail-rgb-c:167,139,250;
+    --dot:rgba(255,255,255,.075);--spot1:rgba(47,224,185,.85);--spot2:rgba(56,170,248,.45);
+    /* 深色模式下深色小方块（左上角 ChatHand、OpenAI 通道）反过来：白底黑图标，不然黑块贴着黑底看不见 */
+    --tile-ink:#0B0C0E;--brand-top:#FFFFFF;--brand-bottom:#DADCE0;--brand-ink:#0B0C0E;--brand-highlight:rgba(255,255,255,.7);--dismiss-hover:rgba(255,255,255,.08);--segment-shadow:rgba(0,0,0,.4);
+    --aura-a:.8;--aura-l:.77;--aura-c:.3;--aura-alpha:.42;
+    --spot-a:1;--spot-l:.3;--spot-c:0;--spot-wash:.03;
+    --edge-a:0;--edge-l:.8;--edge-c:.14;
+    --tile-shadow:0 1px 2px rgba(0,0,0,.4),0 10px 24px -10px rgba(0,0,0,.6);--pill-shadow:0 8px 24px -10px rgba(0,0,0,.6);
+    --glow-a:.3;--ring-a:1;--spill-a:.2;--comet-l:.8;--comet-c:.15;--core-dl:.17;--core-c:calc(.035 / .15);
+    --glass:rgba(22,23,27,.55);--glass-panel:rgba(18,19,22,.6);--glass-line:rgba(255,255,255,.08);--glass-hi:rgba(255,255,255,.055);
+    --orb-a:.75;--aur-a:.7;--orb-blend:screen;
+    --mint1:#0B7E66;--mint2:#0F6878;--mint3:#46398F;--dawn1:#8F4A2C;--dawn2:#7E2B58;--dawn3:#45378F;
+    --sky1:#1E4A9A;--sky2:#1E66A6;--sky3:#3D3794;--fog1:#262B28;--fog2:#272B30;--fog3:#282C31;
+  --glass-mix:80;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --win:#0B0C0E;--panel:#111215;--card:#131417;--surface:#18191D;
+  --fill-mix:4;--tile-dark:#ECEDEF;
+  --heat-0:var(--fill-2);--heat-1:oklch(calc(0.3227 + var(--theme-l)) calc(0.0448 * var(--theme-c)) calc(var(--theme-h) + 2.7));--heat-2:oklch(calc(0.4359 + var(--theme-l)) calc(0.0712 * var(--theme-c)) calc(var(--theme-h) + 0.2));--heat-3:oklch(calc(0.5905 + var(--theme-l)) calc(0.111 * var(--theme-c)) calc(var(--theme-h) - 5.2));--heat-4:oklch(calc(0.7945 + var(--theme-l)) calc(0.1427 * var(--theme-c)) calc(var(--theme-h) - 1.9));--quota-ch:linear-gradient(90deg,oklch(calc(0.5823 + var(--theme-l)) calc(0.1066 * var(--theme-c)) calc(var(--theme-h) - 1.4)),oklch(calc(0.7661 + var(--theme-l)) calc(0.1393 * var(--theme-c)) calc(var(--theme-h) - 2.2)));
+  --line:rgba(255,255,255,.085);--line-2:rgba(255,255,255,.14);--line-soft:rgba(255,255,255,.055);--line-2-solid:color-mix(in srgb,var(--card) 86%,#fff);
+  --ink:#EDEEF0;--ink-2:#A6A9B0;--ink-3:#7C8089;--ink-4:#4A4D55;
+  --accent:#F2F3F5;--accent-hover:#DADCE0;--accent-ink:#0B0C0E;
+  --g-sw:oklch(calc(0.7166 + var(--theme-l)) calc(0.1394 * var(--theme-c)) calc(var(--theme-h) - 0.3));--g-ink:oklch(calc(0.8127 + var(--theme-l)) calc(0.1471 * var(--theme-c)) calc(var(--theme-h) + 1.2));--g-soft:oklch(calc(0.7749 + var(--theme-l)) calc(0.1505 * var(--theme-c)) calc(var(--theme-h) - 0.4) / 0.12);
+  --o-ink:#EBA04E;--o-soft:rgba(255,123,0,.12);--o-tag:rgba(255,123,0,.20);--o-line:rgba(235,160,78,.34);
+  --y-bg:rgba(245,180,40,.10);--y-line:rgba(245,180,40,.28);--y-ink:#E8C27A;
+  --sh-l:.08;--sh-tint:.25;--sh-a:.55;
+  --tip-bg:#3A3C42;--tip-ink:rgba(255,255,255,.84);--tip-btn:rgba(255,255,255,.12);--tip-btn-hover:rgba(255,255,255,.2);--tip-shadow:0 14px 34px -10px rgba(0,0,0,.7),0 2px 6px rgba(0,0,0,.45);
+  --toast-bg:color-mix(in srgb,color-mix(in srgb,var(--surface) 86%,#fff) 78%,transparent);--toast-line:rgba(255,255,255,.1);--toast-hi:rgba(255,255,255,.07);--toast-shadow:0 16px 40px -8px rgba(0,0,0,.65),0 2px 8px rgba(0,0,0,.4);
+  --flash-bg:color-mix(in srgb,var(--o) 18%,transparent);
+  --pop-shadow:0 14px 36px rgba(0,0,0,.55),0 2px 6px rgba(0,0,0,.35);
+  --modal-shadow:0 24px 64px rgba(0,0,0,.6),0 2px 8px rgba(0,0,0,.35);
+  --drawer-shadow:0 2px 10px rgba(0,0,0,.30),0 20px 56px rgba(0,0,0,.55);--drawer-edge:rgba(255,255,255,.09);--backdrop:rgba(0,0,0,.5);--drawer-bg:#121316;
+  --trail-a:.30;
+  /* 皮肤角色：原写死颜色，三种模式先保持原值。 */
+  --switch-thumb:#fff;--switch-shadow:rgba(0,0,0,.22);--tile-ink:#fff;--segment-shadow:rgba(17,20,18,.08);--brand-top:#323735;--brand-bottom:#1A1D1B;--brand-ink:#fff;--brand-highlight:rgba(255,255,255,.08);--mask-opaque:#fff;--mask-cutout:#000;--glow-start:#03D4AA;--glow-mid:#38BDF8;--glow-end:#A78BFA;--glow-core:#E9FFF8;--g-line:oklch(calc(0.7749 + var(--theme-l)) calc(0.1505 * var(--theme-c)) calc(var(--theme-h) - 0.4) / 0.28);--dismiss-hover:rgba(17,20,18,.06);--tutorial-shadow:rgba(0,0,0,.25);--tutorial-backdrop:rgba(0,0,0,.35);--wiz-surface-fallback:#fff;--wiz-ink-fallback:#222;--wiz-fill-fallback:#f6f6f6;--wiz-line-fallback:#eee;--wiz-muted-fallback:#888;--wiz-step-fallback:#eaeaea;--wiz-body-fallback:#666;--wiz-media-fallback:#f5f5f5;--wiz-key-line-fallback:#bbb;--wiz-key-fill-fallback:#fafafa;--wiz-focus-ring:#0a84ff;--wiz-hint-bg:#fff;--wiz-hint-ink:#555;--wiz-risk-ink:#ad6821;--trail-rgb-a:3,212,170;--trail-rgb-b:56,189,248;--trail-rgb-c:167,139,250;
+  --dot:rgba(255,255,255,.075);--spot1:rgba(47,224,185,.85);--spot2:rgba(56,170,248,.45);
+  /* 深色模式下深色小方块（左上角 ChatHand、OpenAI 通道）反过来：白底黑图标，不然黑块贴着黑底看不见 */
+    --tile-ink:#0B0C0E;--brand-top:#FFFFFF;--brand-bottom:#DADCE0;--brand-ink:#0B0C0E;--brand-highlight:rgba(255,255,255,.7);--dismiss-hover:rgba(255,255,255,.08);--segment-shadow:rgba(0,0,0,.4);
+  --aura-a:.8;--aura-l:.77;--aura-c:.3;--aura-alpha:.42;
+  --spot-a:1;--spot-l:.3;--spot-c:0;--spot-wash:.03;
+  --edge-a:0;--edge-l:.8;--edge-c:.14;
+  --tile-shadow:0 1px 2px rgba(0,0,0,.4),0 10px 24px -10px rgba(0,0,0,.6);--pill-shadow:0 8px 24px -10px rgba(0,0,0,.6);
+  --glow-a:.3;--ring-a:1;--spill-a:.2;--comet-l:.8;--comet-c:.15;--core-dl:.17;--core-c:calc(.035 / .15);
+  --glass:rgba(22,23,27,.55);--glass-panel:rgba(18,19,22,.6);--glass-line:rgba(255,255,255,.08);--glass-hi:rgba(255,255,255,.055);
+  --orb-a:.75;--aur-a:.7;--orb-blend:screen;
+  --mint1:#0B7E66;--mint2:#0F6878;--mint3:#46398F;--dawn1:#8F4A2C;--dawn2:#7E2B58;--dawn3:#45378F;
+  --sky1:#1E4A9A;--sky2:#1E66A6;--sky3:#3D3794;--fog1:#262B28;--fog2:#272B30;--fog3:#282C31;
+  --glass-mix:80;
+}
+
+@media (min-resolution:2dppx){:root{--hair:.5px}}
+@property --fx-h{syntax:'<number>';inherits:true;initial-value:165}
+@property --fx-h2{syntax:'<number>';inherits:true;initial-value:295}
+
+/* ---------- 基础 ---------- */
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+/* 10/5：整页一起滚（以前左右两栏各自滚）。系统滚动条藏起来，换成 app.js 画的细条（.sbar） */
+html,body{margin:0}
+/* 滚到顶、滚到底就停，不再往外拖出一截空白（10/6 Ken；1050 改回弹性后顶上又露白条，10/16 Ken 再定：不回弹）。
+   底部抖动已由固定 56px 留白解决，和这里无关；万一还有回弹，露出来的也是窗口底色 */
+html{min-height:100%;scrollbar-width:none;overscroll-behavior:none;background:var(--win)}
+body{overscroll-behavior:none}
+html::-webkit-scrollbar,body::-webkit-scrollbar{display:none;width:0;height:0}
+body{min-height:100vh;background:var(--win);color:var(--ink);font:15px/1.5 var(--font);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+button{font:inherit;color:inherit}
+a{color:var(--ink);text-decoration:none;cursor:pointer}
+:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+:focus:not(:focus-visible),html[data-input="pointer"] :focus{outline:none}
+.i{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.i.sm{width:16px;height:16px}
+.i.xs{width:14px;height:14px;stroke-width:1.8}
+.mono{font-family:var(--mono);font-size:13px;letter-spacing:0}
+.grow{flex:1}
+.row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.hint{font-size:13px;color:var(--ink-3);margin:0}
+.truncate{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.warn-text{color:var(--o-ink)}
+.kvr .v small.warn-text{margin-left:8px}  /* 1070（Claude）：「构建 1052」后面紧跟「不是当前版本」，中间留一点空 */
+.kvr .v small.note-text{margin-left:8px;color:var(--ink-2)}  /* 1081（Claude）：「构建 1078」后面的「有新版本」，不影响用，灰字 */
+.muted{color:var(--ink-3)}
+.empty{margin:0;font-size:14px;color:var(--ink-3)}
+.copyok{color:var(--g-ink)!important}
+.path{padding:8px 12px;border-radius:10px;background:var(--fill);font:13px/1.5 var(--mono);color:var(--ink-2);word-break:break-all}
+
+/* ---------- 按钮、开关、状态点 ---------- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:32px;padding:0 14px;border-radius:999px;border:var(--hair) solid var(--line);background:var(--card);color:var(--ink);font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap;transition:background-color .15s,border-color .15s,color .15s,transform .12s var(--ease)}
+.btn:hover{background:var(--fill)}
+.btn:active{transform:scale(.97)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary:hover{background:var(--accent-hover);border-color:var(--accent-hover)}
+.btn.sm{height:28px;padding:0 12px;font-size:13px}
+.btn.ghost{border-color:transparent;background:transparent;color:var(--ink-2)}
+.btn.ghost:hover{background:var(--fill);color:var(--ink)}
+.btn.danger{color:var(--o-ink)}
+.btn.stop{height:36px;padding:0 12px;gap:8px;font-size:14px}
+.btn.stop:not(.primary):hover{border-color:var(--o-line);background:var(--o-soft);color:var(--o-ink)}
+.btn.tlink{height:auto;padding:0;gap:4px;border:0;background:none;font-weight:500;color:var(--ink)}
+.btn.tlink:hover{background:none;color:var(--ink-2)}
+.btn.tlink .i{width:16px;height:16px}
+.tbtn{padding:0;border:0;background:none;color:var(--ink-2);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}
+.tbtn:hover{color:var(--ink)}
+.switch{position:relative;width:29px;height:16px;flex:none;padding:0;border:0;border-radius:999px;background:var(--line-2);cursor:pointer;transition:background-color .15s}
+.switch::before{content:"";position:absolute;inset:0}
+.switch::after{content:"";position:absolute;top:1.6px;left:1.6px;width:12.8px;height:12.8px;border-radius:50%;background:var(--switch-thumb);box-shadow:0 1px 2px var(--switch-shadow);transition:transform .15s var(--ease)}
+.switch[aria-checked="true"]{background:var(--g-sw)}
+.switch[aria-checked="true"]::after{transform:translateX(12.8px)}
+.dp-h .switch{width:38px;height:22px}
+.dp-h .switch::after{top:2px;left:2px;width:18px;height:18px}
+.dp-h .switch[aria-checked="true"]::after{transform:translateX(16px)}
+.sdot{position:relative;display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--ink-4);flex:none}
+.sdot.ok{background:var(--g)}
+.sdot.warn{background:var(--o)}
+.sdot.cloud-wait{background:var(--connection-wait)}
+.sdot.cloud-down{background:var(--connection-down)}
+.stat.cloud-wait{color:var(--connection-wait-ink)}
+.stat.cloud-down{color:var(--connection-down-ink)}
+.sdot.live::after{content:"";position:absolute;inset:-4px;border-radius:50%;background:var(--g);opacity:0;animation:halo 2.6s ease-out infinite}
+.sdot.spin{background:transparent;border:1.5px solid var(--line-2);border-top-color:var(--ink-2);animation:spin .9s linear infinite}
+.stat{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600;line-height:16px;color:var(--ink-3);white-space:nowrap;font-variant-numeric:tabular-nums}
+.stat.ok{color:var(--g-ink)}
+.stat.warn{color:var(--o-ink)}
+.tag{display:inline-flex;align-items:center;height:16px;padding:0 5px;border-radius:30px;background:var(--o-tag);color:var(--o-ink);font-size:11px;font-weight:500;line-height:1;white-space:nowrap}
+.spinner{display:inline-block;width:12px;height:12px;flex:none;border:2px solid var(--line-2);border-top-color:var(--ink-2);border-radius:50%;animation:spin .9s linear infinite}
+.spinner.big{width:26px;height:26px;border-width:3px}
+.tile{width:28px;height:28px;flex:none;display:grid;place-items:center;border-radius:6px;background:var(--fill);color:var(--ink-2)}
+.tile .i{width:15px;height:15px}
+.tile.dark{width:36px;height:36px;border-radius:10px;background:var(--tile-dark);color:var(--tile-ink)}
+.tile.dark .i{width:18px;height:18px}
+.tile.lg{width:36px;height:36px;border-radius:10px}
+.tile.lg .i{width:18px;height:18px}
+.chip{display:inline-flex;align-items:center;height:30px;padding:0 13px;border-radius:999px;border:var(--hair) solid var(--line);background:var(--card);color:var(--ink-2);font-size:13px;cursor:pointer;white-space:nowrap;max-width:100%}
+.chip:hover{color:var(--ink);border-color:var(--ink-4)}
+.chiprow{display:flex;flex-wrap:wrap;gap:8px}
+.seg{display:inline-flex;align-self:flex-start;padding:3px;border-radius:10px;background:var(--fill-2);gap:2px}
+.seg button{height:26px;padding:0 11px;border:0;border-radius:7px;background:transparent;color:var(--ink-2);font-size:13px;cursor:pointer}
+.seg button:hover{color:var(--ink)}
+.seg button[aria-pressed="true"]{color:var(--ink);font-weight:600}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes halo{0%{transform:scale(.5);opacity:.32}100%{transform:scale(1.55);opacity:0}}
+@keyframes breath{0%,100%{opacity:.35}50%{opacity:1}}
+@keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* ---------- 窗口骨架：顶上 48 留给窗口三个按钮（左上角），品牌行在它下面；全屏时收到 24 ---------- */
+#fx{position:fixed;left:0;top:0;width:100vw;height:100vh;z-index:0;pointer-events:none}
+/* 背景（10/2 第二版，Ken 挑定后只留一种）：
+   网点：CSS 画，16 一格、点半径 0.75、很淡，不耗电；鼠标附近一小片网点亮起来（薄荷绿到天蓝），停下 0.9 秒后淡掉。
+   光团：右上角三团浅色柔光慢慢飘。极光：顶上一条很淡的彩带，往下渐隐。
+   颜色有几套（pal-*），也可以跟着状态变（pal-status + st-*：在跑薄荷、等你处理暖橙粉、空闲天蓝、连不上灰）。 */
+@property --o1{syntax:'<color>';inherits:true;initial-value:transparent}
+@property --o2{syntax:'<color>';inherits:true;initial-value:transparent}
+@property --o3{syntax:'<color>';inherits:true;initial-value:transparent}
+html{--o1:var(--mint1);--o2:var(--mint2);--o3:var(--mint3)}
+html.pal-dawn,html.pal-status.st-wait{--o1:var(--dawn1);--o2:var(--dawn2);--o3:var(--dawn3)}
+html.pal-sky,html.pal-status.st-idle{--o1:var(--sky1);--o2:var(--sky2);--o3:var(--sky3)}
+html.pal-status.st-off{--o1:var(--fog1);--o2:var(--fog2);--o3:var(--fog3)}
+/* 两层一样的网点：浓淡超过 1 倍时第二层补上去 */
+html.bg-dots body,html.bg-dots-orb body{background-image:radial-gradient(circle,var(--dot-col) var(--dot-r),transparent calc(var(--dot-r) + var(--dot-fr))),radial-gradient(circle,var(--dot-col2) var(--dot-r),transparent calc(var(--dot-r) + var(--dot-fr)));background-size:var(--dot-gap) var(--dot-gap)}
+html.dots-canvas body{background-image:none}
+/* 卡片是磨砂玻璃：背后的网点、光斑、右上角光团会被模糊后透出来一点 */
+html.glass .card,html.glass .orow{background-color:color-mix(in srgb,var(--glass) calc(var(--glass-mix) * 1%),transparent);border-color:var(--glass-line);-webkit-backdrop-filter:blur(calc(var(--glass-blur) * 1px)) saturate(1.6);backdrop-filter:blur(calc(var(--glass-blur) * 1px)) saturate(1.6)}
+html.glass .tp-in{background:color-mix(in srgb,var(--glass-panel) calc(var(--glass-mix) * 1%),transparent);-webkit-backdrop-filter:blur(calc(var(--glass-blur) * 1px)) saturate(1.6);backdrop-filter:blur(calc(var(--glass-blur) * 1px)) saturate(1.6)}
+/* 鼠标光斑（1014）：三层圆盘跟着鼠标，后两层慢一点，拖出一小段尾巴；只透过网点的位置显示（遮罩是整窗固定的网点，圆盘只做位移，不重画）。
+   颜色跟着 --fx-h 在薄荷、天蓝、淡紫之间走。--spot-wash 是不经过网点的一层淡光（深色默认有一点）。 */
+.fx-spot,.fx-wash{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:0;transition:opacity .9s ease}
+.fx-spot{-webkit-mask-image:radial-gradient(circle,var(--mask-cutout) var(--spot-r),transparent calc(var(--spot-r) + var(--spot-fr)));mask-image:radial-gradient(circle,var(--mask-cutout) var(--spot-r),transparent calc(var(--spot-r) + var(--spot-fr)));-webkit-mask-size:var(--dot-gap) var(--dot-gap);mask-size:var(--dot-gap) var(--dot-gap);-webkit-mask-position:0 calc(0px - var(--sy,0px));mask-position:0 calc(0px - var(--sy,0px))}
+.fx-spot.on,.fx-wash.on{opacity:1;transition-duration:.25s}
+.fx-wash.on{opacity:var(--spot-wash)}
+.fx-spot i,.fx-wash i{position:absolute;left:0;top:0;width:calc(var(--spot-size) * 1px);height:calc(var(--spot-size) * 1px);border-radius:50%;will-change:transform;
+  background:radial-gradient(closest-side,var(--spot-col),var(--spot-col-mid) 46%,var(--spot-col-0) 100%)}
+.fx-spot i:nth-child(2){width:calc(var(--spot-size) * 1.14px);height:calc(var(--spot-size) * 1.14px);opacity:.55;
+  background:radial-gradient(closest-side,var(--spot-col2),var(--spot-col2-0) 100%)}
+.fx-spot i:nth-child(3){width:calc(var(--spot-size) * 1.3px);height:calc(var(--spot-size) * 1.3px);opacity:.32;
+  background:radial-gradient(closest-side,var(--spot-col3),var(--spot-col3-0) 100%)}
+.fx-wash i{width:calc(var(--spot-size) * 1.6px);height:calc(var(--spot-size) * 1.6px);background:radial-gradient(closest-side,var(--wash-col),var(--wash-col-0))}
+/* 右上角背景（1014）：画法在 backdrops.js（「柔光」：2D 画布上的四团软光）。
+   只在右上角的三角区域里，边缘是柔的；颜色在薄荷、天蓝、淡紫之间轮换。整体浓淡 --aura-a。 */
+/* 右上角的光盖在鼠标光斑上面（光斑在 z-index 0）：光斑走进彩色区就被半透明的光罩住、染上同样的颜色，不会像一块固定颜色贴在上面 */
+.fx-backdrop{position:fixed;inset:0;z-index:1;pointer-events:none;opacity:var(--aura-a)}
+.fx-backdrop canvas{position:absolute;pointer-events:none}
+.fx-backdrop .bd-full{left:0;top:0;width:100%;height:100%}
+.fx-aurora{position:fixed;z-index:0;pointer-events:none;transition:--o1 1.4s ease,--o2 1.4s ease,--o3 1.4s ease}
+.fx-aurora i{position:absolute;border-radius:50%;mix-blend-mode:var(--orb-blend);will-change:transform}
+.fx-aurora{left:-12%;right:-12%;top:-150px;height:470px;opacity:var(--aur-a);-webkit-mask-image:linear-gradient(var(--mask-cutout) 38%,transparent);mask-image:linear-gradient(var(--mask-cutout) 38%,transparent)}
+.fx-aurora i{top:40px;height:330px}
+.fx-aurora i:nth-child(1){left:-2%;width:46%;background:radial-gradient(closest-side,var(--o1),color-mix(in srgb,var(--o1) 50%,transparent) 50%,transparent);animation:aur1 26s ease-in-out infinite alternate}
+.fx-aurora i:nth-child(2){left:28%;width:48%;top:0;background:radial-gradient(closest-side,var(--o2),color-mix(in srgb,var(--o2) 50%,transparent) 50%,transparent);animation:aur2 31s ease-in-out infinite alternate}
+.fx-aurora i:nth-child(3){left:58%;width:44%;background:radial-gradient(closest-side,var(--o3),color-mix(in srgb,var(--o3) 50%,transparent) 50%,transparent);animation:aur3 23s ease-in-out infinite alternate}
+.fx-aurora i:nth-child(4){left:80%;width:30%;top:10px;background:radial-gradient(closest-side,var(--o1),color-mix(in srgb,var(--o1) 50%,transparent) 50%,transparent);animation:aur1 29s ease-in-out infinite alternate-reverse}
+@keyframes aur1{0%{transform:translateX(0) scaleY(1)}100%{transform:translateX(9%) scaleY(.82)}}
+@keyframes aur2{0%{transform:translateX(0) scaleY(.9)}100%{transform:translateX(-10%) scaleY(1.08)}}
+@keyframes aur3{0%{transform:translateX(0) scaleY(1.05)}100%{transform:translateX(-7%) scaleY(.86)}}
+/* Idle decorative motion is one static frame; active work keeps its indicators. */
+:root:not(.st-run):not(.fx-active) .fx-aurora i,
+:root:not(.st-run) .tp-ring::before,:root:not(.st-run) .tp-glow::before,
+:root:not(.st-run) .sdot.live::after,.nd.idle i.m,.nd.idle i.h{animation-play-state:paused!important}
+.fx-paused *,.fx-paused *::before,.fx-paused *::after{animation-play-state:paused!important;transition:none!important}
+/* 大屏上整页（顶栏、左栏、右栏）最宽 --page-max，多出来的宽度左右平分，内容在窗口中间（10/30 Ken：大屏首屏看着奇怪） */
+.dash{--page-max:1440px;position:relative;z-index:2;min-height:100vh;display:flex;flex-direction:column;padding:48px max(32px,calc((100vw - var(--page-max)) / 2)) 0}
+/* 顶上 48 一直留给窗口按钮（全屏也一样高，10/5 Ken：全屏时顶上太挤）。往下滚以后，滚上去的内容在这一条里渐渐变模糊：
+   两层模糊叠起来，越往上越糊，不盖白色（Ken 10/16：不要白色的渐变，只要渐变的模糊）。 */
+.drag-strip{position:fixed;left:0;right:0;top:0;height:48px;z-index:3}
+.drag-strip::before,.drag-strip::after{content:"";position:absolute;inset:0;opacity:0;pointer-events:none;transition:opacity .3s var(--ease)}
+.drag-strip::before{-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);-webkit-mask-image:linear-gradient(var(--mask-cutout) 30%,transparent);mask-image:linear-gradient(var(--mask-cutout) 30%,transparent)}
+.drag-strip::after{-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);-webkit-mask-image:linear-gradient(var(--mask-cutout),transparent 75%);mask-image:linear-gradient(var(--mask-cutout),transparent 75%)}
+html.scrolled .drag-strip::before,html.scrolled .drag-strip::after{opacity:1}
+/* 抽屉、确认框开着时后面的页面不跟着滚 */
+html:has(dialog[open]:not(.closing)){overflow:hidden}
+.dtop{flex:none;display:flex;align-items:center;justify-content:space-between;gap:32px;height:40px;position:relative}
+.dbrand{display:flex;align-items:center;gap:12px;min-width:0}
+.brand-tile{width:40px;height:40px;flex:none;display:grid;place-items:center;border-radius:10px;background:linear-gradient(180deg,var(--brand-top) 0%,var(--brand-bottom) 100%);color:var(--brand-ink);box-shadow:inset 0 0 0 .5px var(--brand-highlight)}
+.brand-tile .i{width:22px;height:22px}
+.dbrand b{display:block;font-size:22px;line-height:26px;font-weight:700;letter-spacing:-.01em}
+.dbrand small{display:block;font-size:12px;line-height:14px;color:var(--ink-3)}
+.gpt{display:inline-flex;align-items:center;gap:2px;height:40px;padding:0 14px 0 20px;border:0;border-radius:40px;background:var(--accent);color:var(--accent-ink);font-size:17px;font-weight:700;cursor:pointer;white-space:nowrap;transition:background-color .15s,transform .12s var(--ease)}
+.gpt:hover{background:var(--accent-hover)}
+/* 「打开 ChatGPT」后面的小箭头：表示会去别的地方打开；悬停时往右上轻轻挪一点。
+   10/4 放大：图标 21px（箭头本身约 9px，和 17px 粗体字的分量相当）；图标框两边各有约 6px 空白，所以间距 2、右内边距 14，看上去和左边一样宽 */
+.gpt .gpt-i{width:21px;height:21px;stroke-width:2.2;transition:translate .35s var(--ease)}
+.gpt:hover .gpt-i{translate:2px -2px}
+.gpt:active{transform:scale(.97)}
+.dbody{flex:1 0 auto;display:flex;align-items:flex-start;gap:32px;margin:0 -24px;padding:32px 24px 0}
+/* 左右各多留 32：任务面板外圈的光晕、卡片悬停的投影和放大都不被切掉（内容宽度不变） */
+.dmain{flex:1;min-width:0;align-self:stretch;display:flex;flex-direction:column;gap:32px;margin:0 -32px;padding:0 32px 56px;container-type:inline-size}
+/* 底部固定留 56px；滚动状态和悬停不会改变留白。 */
+/* 右栏（10/6 Ken 选「乙」）：三个标题（进行中、已完成、设置）都跟着页面滚走；右栏的卡片从第一张（ChatGPT 连接）起停在窗口按钮那一条下面。
+   右栏拉到和左栏一样高，卡片才有地方停。卡片比窗口还高时 app.js 把 --rail-top 设成负数：先跟着滚，底边露出来再停 */
+/* 右栏宽度跟着窗口走（10/30）：网页 1024 及以下 356，到 1536 长到 452，再宽不变；左右各多出的 32 是给卡片投影留的 */
+.drail{width:calc(clamp(356px,18.75vw + 164px,452px) + 64px);flex:none;align-self:stretch;display:flex;flex-direction:column;gap:16px;margin:0 -32px;padding:0 32px 56px}
+.rail-stick{position:sticky;top:var(--rail-top,48px);display:flex;flex-direction:column;gap:16px}
+.col{display:flex;flex-direction:column;gap:16px;flex:none}
+.col.grow-col{flex:1;min-height:0}
+/* 两栏标题用同一个样式：左边任务面板和右边连接卡的上边对齐 */
+.col-h{display:flex;align-items:center;gap:24px;flex:none}
+.col-h button,.col-h h2{margin:0;padding:0;border:0;background:none;font-size:26px;line-height:32px;font-weight:400;letter-spacing:-.01em;color:var(--ink-3);cursor:pointer;white-space:nowrap;transition:color .2s}
+.col-h button[aria-selected="true"],.col-h h2{font-weight:600;color:var(--ink)}
+.col-h button:not([aria-selected="true"]):hover{color:var(--ink-2)}
+.col-h h2{cursor:default}
+
+/* ---------- 任务面板：内边距 32，区块间距 32；在跑时外圈流光转动 ---------- */
+/* 进行中的大面板也和别的卡片一样：悬停才有投影、放大一点、上浮 1px（整块连流光一起动，不挤下面的内容） */
+.tp{position:relative;isolation:isolate;flex:none;border-radius:16px;box-shadow:var(--card-shadow);transition:box-shadow .45s var(--ease),scale .45s var(--ease),translate .45s var(--ease)}
+.tp:hover{box-shadow:var(--card-shadow-hover);scale:calc(1 + (var(--lift) - 1) * .6);translate:0 calc(var(--lift-y) * -1px)}
+.tp-in{position:relative;z-index:1;display:flex;flex-direction:column;gap:32px;padding:32px;border-radius:16px;background:var(--panel);box-shadow:inset 0 0 0 var(--hair) var(--line)}
+.tp.run .tp-in{box-shadow:inset 0 0 0 var(--hair) var(--line)}
+.tp.wait .tp-in{box-shadow:inset 0 0 0 1px var(--o-line),0 0 0 4px var(--o-soft)}
+/* 在跑（1014）：一束光沿边框转圈。
+   · 匀速：转动用 app.js 按面板周长生成的关键帧（tpspin-u），长边、短边、圆角上光跑得一样快。
+   · 外圈光晕：不用模糊滤镜，用八块渐变（四条边 + 四个圆角）拼出一圈「贴着边框、往外均匀变淡」的遮罩，所以四周一样亮。
+   · 内侧：1px 亮边 + 往里一点点的光（--spill-a）。
+   · 颜色：头部是现在的颜色 --fx-h，尾巴渐变到 --fx-h2；最前面的光点（core）比「亮度」再亮一点（--core-dl），跟着「亮度」「鲜艳」一起变。
+     头和尾之间的空档用同色透明（--c-tail0），不用 transparent（透明黑）：有的显卡渲染会在淡出处混出一圈灰。
+     窗口不在前台也照常转（只在窗口最小化、被完全挡住时浏览器自己停）。 */
+.tp{--r:16px;--gl:calc(var(--glow-size) * 1px);--sp:14px;
+  --k0:var(--mask-cutout);--k1:rgb(0 0 0 / .55);--k2:rgb(0 0 0 / .3);--k3:rgb(0 0 0 / .14);--k4:rgb(0 0 0 / .05);
+  --c-core:oklch(min(1,calc(var(--comet-l) + var(--core-dl))) calc(var(--comet-c) * var(--core-c)) var(--fx-h));--c-tail0:oklch(var(--comet-l) var(--comet-c) var(--fx-h2) / 0);--c-head:oklch(calc(var(--comet-l) + .03) var(--comet-c) var(--fx-h) / .95);
+  --c-head0:oklch(var(--comet-l) var(--comet-c) var(--fx-h) / 0);--c-tail:oklch(var(--comet-l) var(--comet-c) var(--fx-h2) / .5);
+  --comet:conic-gradient(from 0deg,var(--c-core) 0turn,var(--c-head0) .02turn,var(--c-tail0) calc((1 - var(--tail)) * 1turn),var(--c-tail) calc((1 - var(--tail) * .6) * 1turn),var(--c-head) calc((1 - var(--tail) * .16) * 1turn),var(--c-core) 1turn)}
+.tp-ring,.tp-glow{position:absolute;pointer-events:none;overflow:hidden;border-radius:var(--r);transition:opacity .25s ease}
+.tp.swapping .tp-ring,.tp.swapping .tp-glow{opacity:0}
+.tp-ring{inset:0;z-index:2;padding:var(--ring-w,1px);opacity:var(--ring-a);
+  -webkit-mask:linear-gradient(var(--mask-cutout) 0 0) content-box,linear-gradient(var(--mask-cutout) 0 0);-webkit-mask-composite:xor;
+  mask:linear-gradient(var(--mask-cutout) 0 0) content-box exclude,linear-gradient(var(--mask-cutout) 0 0)}
+.tp-glow{inset:calc(var(--gl) * -1);z-index:-1;border-radius:calc(var(--r) + var(--gl));opacity:var(--glow-a);
+  -webkit-mask-image:linear-gradient(to top,var(--k0),var(--k1) 8%,var(--k2) 22%,var(--k3) 42%,var(--k4) 68%,transparent),linear-gradient(to bottom,var(--k0),var(--k1) 8%,var(--k2) 22%,var(--k3) 42%,var(--k4) 68%,transparent),linear-gradient(to left,var(--k0),var(--k1) 8%,var(--k2) 22%,var(--k3) 42%,var(--k4) 68%,transparent),linear-gradient(to right,var(--k0),var(--k1) 8%,var(--k2) 22%,var(--k3) 42%,var(--k4) 68%,transparent),radial-gradient(circle at 100% 100%,transparent calc(var(--r) - .5px),var(--k0) var(--r),var(--k1) calc(var(--r) + var(--gl) * .08),var(--k2) calc(var(--r) + var(--gl) * .22),var(--k3) calc(var(--r) + var(--gl) * .42),var(--k4) calc(var(--r) + var(--gl) * .68),transparent calc(var(--r) + var(--gl))),radial-gradient(circle at 0 100%,transparent calc(var(--r) - .5px),var(--k0) var(--r),var(--k1) calc(var(--r) + var(--gl) * .08),var(--k2) calc(var(--r) + var(--gl) * .22),var(--k3) calc(var(--r) + var(--gl) * .42),var(--k4) calc(var(--r) + var(--gl) * .68),transparent calc(var(--r) + var(--gl))),radial-gradient(circle at 100% 0,transparent calc(var(--r) - .5px),var(--k0) var(--r),var(--k1) calc(var(--r) + var(--gl) * .08),var(--k2) calc(var(--r) + var(--gl) * .22),var(--k3) calc(var(--r) + var(--gl) * .42),var(--k4) calc(var(--r) + var(--gl) * .68),transparent calc(var(--r) + var(--gl))),radial-gradient(circle at 0 0,transparent calc(var(--r) - .5px),var(--k0) var(--r),var(--k1) calc(var(--r) + var(--gl) * .08),var(--k2) calc(var(--r) + var(--gl) * .22),var(--k3) calc(var(--r) + var(--gl) * .42),var(--k4) calc(var(--r) + var(--gl) * .68),transparent calc(var(--r) + var(--gl)));
+  mask-image:linear-gradient(to top,var(--k0),var(--k1) 8%,var(--k2) 22%,var(--k3) 42%,var(--k4) 68%,transparent),linear-gradient(to bottom,var(--k0),var(--k1) 8%,var(--k2) 22%,var(--k3) 42%,var(--k4) 68%,transparent),linear-gradient(to left,var(--k0),var(--k1) 8%,var(--k2) 22%,var(--k3) 42%,var(--k4) 68%,transparent),linear-gradient(to right,var(--k0),var(--k1) 8%,var(--k2) 22%,var(--k3) 42%,var(--k4) 68%,transparent),radial-gradient(circle at 100% 100%,transparent calc(var(--r) - .5px),var(--k0) var(--r),var(--k1) calc(var(--r) + var(--gl) * .08),var(--k2) calc(var(--r) + var(--gl) * .22),var(--k3) calc(var(--r) + var(--gl) * .42),var(--k4) calc(var(--r) + var(--gl) * .68),transparent calc(var(--r) + var(--gl))),radial-gradient(circle at 0 100%,transparent calc(var(--r) - .5px),var(--k0) var(--r),var(--k1) calc(var(--r) + var(--gl) * .08),var(--k2) calc(var(--r) + var(--gl) * .22),var(--k3) calc(var(--r) + var(--gl) * .42),var(--k4) calc(var(--r) + var(--gl) * .68),transparent calc(var(--r) + var(--gl))),radial-gradient(circle at 100% 0,transparent calc(var(--r) - .5px),var(--k0) var(--r),var(--k1) calc(var(--r) + var(--gl) * .08),var(--k2) calc(var(--r) + var(--gl) * .22),var(--k3) calc(var(--r) + var(--gl) * .42),var(--k4) calc(var(--r) + var(--gl) * .68),transparent calc(var(--r) + var(--gl))),radial-gradient(circle at 0 0,transparent calc(var(--r) - .5px),var(--k0) var(--r),var(--k1) calc(var(--r) + var(--gl) * .08),var(--k2) calc(var(--r) + var(--gl) * .22),var(--k3) calc(var(--r) + var(--gl) * .42),var(--k4) calc(var(--r) + var(--gl) * .68),transparent calc(var(--r) + var(--gl)));
+  -webkit-mask-size:calc(100% - 2 * (var(--gl) + var(--r))) var(--gl),calc(100% - 2 * (var(--gl) + var(--r))) var(--gl),var(--gl) calc(100% - 2 * (var(--gl) + var(--r))),var(--gl) calc(100% - 2 * (var(--gl) + var(--r))),calc(var(--gl) + var(--r)) calc(var(--gl) + var(--r)),calc(var(--gl) + var(--r)) calc(var(--gl) + var(--r)),calc(var(--gl) + var(--r)) calc(var(--gl) + var(--r)),calc(var(--gl) + var(--r)) calc(var(--gl) + var(--r));
+  mask-size:calc(100% - 2 * (var(--gl) + var(--r))) var(--gl),calc(100% - 2 * (var(--gl) + var(--r))) var(--gl),var(--gl) calc(100% - 2 * (var(--gl) + var(--r))),var(--gl) calc(100% - 2 * (var(--gl) + var(--r))),calc(var(--gl) + var(--r)) calc(var(--gl) + var(--r)),calc(var(--gl) + var(--r)) calc(var(--gl) + var(--r)),calc(var(--gl) + var(--r)) calc(var(--gl) + var(--r)),calc(var(--gl) + var(--r)) calc(var(--gl) + var(--r));
+  -webkit-mask-position:50% 0,50% 100%,0 50%,100% 50%,0 0,100% 0,0 100%,100% 100%;mask-position:50% 0,50% 100%,0 50%,100% 50%,0 0,100% 0,0 100%,100% 100%;
+  -webkit-mask-repeat:no-repeat;mask-repeat:no-repeat}
+/* 一张小锥形渐变放大 4 倍再转：只靠合成转动，不重画面板 */
+.tp-ring::before,.tp-glow::before{content:"";position:absolute;left:50%;top:50%;width:calc(var(--d,1200px) / 4);aspect-ratio:1;translate:-50% -50%;scale:4;background:var(--comet);animation:tpspin calc(var(--glow-speed) * 1s) linear infinite;animation-name:var(--spin,tpspin);animation-delay:var(--glow-delay,0ms)}
+@keyframes tpspin{to{rotate:1turn}}
+/* 标题至少留 220 宽；放不下时「运行中」换到标题和说明下面（10/5 Ken：窄的时候标题一个字一行） */
+.tp-h{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:12px 16px;padding:8px 0}
+.tp-t{flex:1 1 220px;min-width:0}
+.tp-t h3{margin:0;font-size:22px;line-height:26px;font-weight:700;overflow-wrap:anywhere}
+.tp-t p{margin:6px 0 0;font-size:14px;line-height:17px;color:var(--ink-3)}
+.tp-h .stat{margin-top:4px}
+.tp-f{display:flex;align-items:center;gap:24px;padding-top:32px;border-top:var(--hair) solid var(--line)}
+.tp-empty{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:12px;min-height:236px}
+.tp-empty h3{margin:0;font-size:22px;line-height:26px;font-weight:700}
+.tp-empty p{margin:0;font-size:14px;color:var(--ink-3)}
+.tp-note{margin:0;font-size:13px;color:var(--ink-3)}
+/* 等你处理：浅橙底一块，在面板标题下面 */
+.wb{position:relative;display:flex;flex-direction:column;gap:8px;padding:16px 44px 16px 16px;border-radius:12px;background:var(--o-soft);box-shadow:inset 0 0 0 var(--hair) var(--o-line)}
+.wb.done{background:var(--g-soft);box-shadow:inset 0 0 0 var(--hair) var(--g-line)}
+.confirm-stack{display:flex;flex-direction:column;gap:12px;margin:0 0 16px}
+.confirm-card{position:relative;padding:16px;border:1px solid var(--o);border-radius:12px;background:var(--panel);box-shadow:var(--shadow-sm);display:flex;flex-direction:column;gap:7px}
+.confirm-card>b{padding-right:110px;font-size:15px;font-weight:700;line-height:1.45}
+.confirm-card p{margin:0;font-size:13px;line-height:1.55;color:var(--ink-2)}
+.confirm-card .confirm-risk{color:var(--o-ink)}
+.confirm-from{color:var(--ink-3)}
+.confirm-exp{position:absolute;top:16px;right:16px;color:var(--ink-3);font-size:11px;line-height:1.4}
+.confirm-acts{display:flex;align-items:center;gap:8px;margin-top:5px;flex-wrap:wrap}
+.confirm-acts .grow{flex:1}
+.confirm-error{font-size:13px;line-height:1.55;color:var(--o-ink)}
+.confirm-error .confirm-settings{margin-left:4px}
+/* 1082：答完以后卡片缩成一行结果（✓ 已允许 / 已过期），这时没有要用户做的事了，边框不再用表示「等你处理」的橙色。 */
+.confirm-card.compact{flex-direction:row;align-items:center;gap:8px;min-height:20px;padding:11px 16px;border-color:var(--line);color:var(--ink-3);font-size:13px}
+.confirm-card.compact.ok{color:var(--g-ink)}
+.confirm-mark{font-weight:700}
+.confirm-more{margin:0 2px;color:var(--ink-3);font-size:12px}
+.confirm-card.flash{animation:confirmFlash 1.4s ease-out 1 both}
+@keyframes confirmFlash{0%,18%{box-shadow:0 0 0 4px color-mix(in srgb,var(--o) 28%,transparent),var(--shadow-sm)}100%{box-shadow:var(--shadow-sm)}}
+.wb b{font-size:15px;font-weight:600;line-height:1.45;overflow-wrap:anywhere}
+.wb p{margin:0;font-size:13px;line-height:1.6;color:var(--ink-2)}
+.wb pre.cmd{margin:0;padding:8px 10px;max-height:120px;overflow:auto;border-radius:8px;background:var(--card);font:13px/1.5 var(--mono);white-space:pre-wrap;word-break:break-all}
+.wb-acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+.wb-x{position:absolute;top:10px;right:10px;width:26px;height:26px;display:grid;place-items:center;border:0;border-radius:8px;background:transparent;color:var(--ink-3);cursor:pointer}
+.wb-x:hover{background:var(--dismiss-hover);color:var(--ink)}
+.task-blocker{margin:0;padding:12px 14px;border:1px solid var(--o-line);border-radius:12px;background:var(--o-soft)}
+.task-blocker>b{display:block;color:var(--o-ink);font-size:14px;line-height:1.45}
+.task-blocker>pre{margin:7px 0 0;padding:7px 9px;border-radius:8px;background:var(--card);font:12px/1.45 var(--mono);white-space:pre-wrap;word-break:break-word;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden}
+.task-blocker>p{margin:6px 0 0;color:var(--ink-2);font-size:12px}
+.task-blocker-options{display:grid;gap:5px;margin-top:9px}
+.task-blocker-options>div{display:grid;grid-template-columns:minmax(80px,auto) 1fr;gap:8px 12px;align-items:baseline}
+.task-blocker-options strong{font-size:12px}
+.task-blocker-options small{color:var(--ink-3);font-size:12px}
+.task-blocker-options .checkpoint-action{justify-self:start;padding:0;border:0;background:none;font-size:12px;font-weight:600}
+.task-blocker-options .checkpoint-action:hover{text-decoration:underline}
+/* 时间线：从早到晚，每步 56 高 */
+/* 1028：竖线和圆圈的描边一样粗（Ken 10/7：竖线看着比圈粗）。原来竖线是 0.5px 宽的色块、圈是 0.5px 的边框，
+   放大到 125% 以上时色块按小数宽度画（看着粗、发虚），边框按整像素取整（细），就不一样了。现在两样都用 1px 的边框画，取整一样。 */
+.tl{--tl-w:1px;list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.tl li{position:relative;display:grid;grid-template-columns:20px minmax(0,1fr) auto;column-gap:12px;min-height:56px}
+.tl li:last-child{min-height:0}
+.tl li:not(:last-child)::after{content:"";position:absolute;left:calc(10px - var(--tl-w) / 2);top:20px;bottom:0;width:0;border-left:var(--tl-w) solid var(--line-2)}
+.tl li.ok:not(:last-child)::after,.tl li.tl-more::after{border-left-color:var(--g)}
+.nd{width:20px;height:20px;display:grid;place-items:center;border-radius:50%;border:var(--tl-w,1px) solid var(--line-2);background:var(--card);color:var(--g)}
+.nd .i{width:11px;height:11px;stroke-width:2.6}
+.nd.ok{border-color:var(--g);background:var(--g-soft)}
+/* 1028：在跑的那一步（Ken 10/7：原来那个不如呼吸灯）。灰圈上一段绿弧：从一头长出来，长到大半圈，尾巴再一下收上去，
+   整个同时在转（Material 那种转圈）。没有底色，没有中间的点。弧和圈一样粗，正好压在圈上。 */
+.nd.run{position:relative}
+.nd.run svg{position:absolute;inset:calc(-1 * var(--tl-w,1px));width:20px;height:20px;overflow:visible;animation:ndspin 1.6s linear infinite}
+.nd.run circle{fill:none;stroke:var(--g);stroke-width:var(--tl-w,1px);stroke-linecap:round;stroke-dasharray:1 200;animation:ndarc 1.4s ease-in-out infinite}
+@keyframes ndarc{0%{stroke-dasharray:1 200;stroke-dashoffset:0}50%{stroke-dasharray:42 200;stroke-dashoffset:-16}100%{stroke-dasharray:42 200;stroke-dashoffset:-59}}
+/* 等 ChatGPT 下一步：圈和两根针都是竖线那个浅灰（Ken 10/7：改浅）；两根针一样长，在圆心那头完全重合，没有圆心点。
+   针用不透明的同色（--line-2-solid），重合的地方不会叠深。长的那根 2.4 秒一圈，另一根慢 12 倍。 */
+.nd.idle{position:relative;border-color:var(--line-2-solid)}
+.nd.idle i{position:absolute;left:50%;top:50%;width:1.2px;height:6.6px;margin:-6px 0 0 -.6px;border-radius:.6px;background:var(--line-2-solid);transform-origin:50% calc(100% - .6px)}
+.nd.idle i.m{animation:ndspin 2.4s linear infinite}
+.nd.idle i.h{animation:ndspin 28.8s linear infinite;animation-delay:-9.6s}
+@keyframes ndspin{to{transform:rotate(360deg)}}
+.tl li.idle .tl-b b{color:var(--ink-3)}
+/* 首页整块时间线可点 */
+.tl-link{display:block;margin:0 -10px;padding:8px 10px 2px;border-radius:12px;cursor:pointer;outline-offset:-2px;transition:background-color .2s}
+.tl-link:hover{background:var(--line-soft)}
+.tl-more-t{font-size:13px;color:var(--ink-2);text-decoration:underline;text-decoration-color:var(--line-2);text-underline-offset:3px}
+.tl-link:hover .tl-more-t{color:var(--ink)}
+@media(prefers-reduced-motion:reduce){.nd.run svg,.nd.run circle,.nd.idle i{animation:none}.nd.run circle{stroke-dasharray:15 200}.nd.idle i.h{transform:rotate(120deg)}}
+.nd.fail{border-color:var(--o);background:var(--o-soft);color:var(--o-ink)}
+.tl-b{min-width:0;padding-bottom:14px}
+.tl-b b{display:block;font-size:15px;line-height:18px;font-weight:500;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tl li.run .tl-b b{font-weight:400;color:var(--ink)}
+.tl li.idle .tl-b b{font-weight:400;color:var(--ink-3)}
+.tl-b small{display:block;margin-top:4px;font-size:13px;line-height:calc(16 / 13);color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tl-tm{font:13px/18px var(--mono);color:var(--ink-3);font-variant-numeric:tabular-nums;white-space:nowrap}
+.tl-tm.run{color:var(--g-ink)}
+.tl-more{min-height:40px!important}
+.tl-more .tbtn{font-weight:500;font-size:13px;line-height:21px}
+/* 同时在做的其它任务 */
+.others{display:flex;flex-direction:column;gap:12px}
+.orow{position:relative;display:flex;align-items:center;gap:14px;min-height:64px;padding:12px 18px 12px 20px;border:var(--hair) solid var(--line);border-radius:14px;background:var(--card);color:var(--ink);text-align:left;cursor:pointer;box-shadow:inset 0 var(--hair) 0 var(--glass-hi),var(--card-shadow);transition:box-shadow .45s var(--ease),scale .45s var(--ease),translate .45s var(--ease),transform .45s var(--ease)}
+.orow:hover{z-index:2;box-shadow:inset 0 var(--hair) 0 var(--glass-hi),var(--card-shadow-hover);scale:calc(1 + (var(--lift) - 1) * .6);translate:0 calc(var(--lift-y) * -1px)}
+.orow:active{transform:scale(.985);transition-duration:.12s}
+.orow-t{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.orow b{min-width:0;font-size:15px;line-height:20px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.orow small{min-width:0;font-size:13px;line-height:16px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+.orow .i{color:var(--ink-3);transition:translate .3s var(--ease)}
+.orow:hover .i{translate:2px 0}
+/* 最近完成 */
+.recent{display:flex;flex-direction:column;gap:16px;flex:none;min-height:0}
+.recent-h{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.recent-h h4{margin:0;font-size:17px;line-height:20px;font-weight:400}
+.more{padding:0;border:0;background:none;font-size:13px;color:var(--ink-3);cursor:pointer;white-space:nowrap}
+.more:hover{color:var(--ink)}
+.rl{display:flex;flex-direction:column;margin:0 -12px}
+.rr{position:relative;display:grid;grid-template-columns:24px minmax(140px,260px) minmax(0,190px) minmax(max-content,1fr) auto 12px;align-items:center;gap:16px;height:62px;padding:0 12px;border:0;border-radius:12px;background:transparent;color:var(--ink);text-align:left;cursor:pointer;flex:none;transition:background-color .3s ease,box-shadow .4s var(--ease),scale .4s var(--ease),translate .4s var(--ease),transform .4s var(--ease)}
+.rr::after{content:"";position:absolute;left:12px;right:12px;bottom:0;height:var(--hair);background:var(--line);transition:opacity .25s}
+.rr:hover{z-index:1;background:var(--card);box-shadow:inset 0 0 0 var(--hair) var(--line),inset 0 var(--hair) 0 var(--glass-hi),var(--card-shadow-hover);scale:calc(1 + (var(--lift) - 1) * .5);translate:0 calc(var(--lift-y) * -1px)}
+html.glass .rr:hover{background:color-mix(in srgb,var(--glass) calc(var(--glass-mix) * 1%),transparent);-webkit-backdrop-filter:blur(calc(var(--glass-blur) * 1px)) saturate(1.6);backdrop-filter:blur(calc(var(--glass-blur) * 1px)) saturate(1.6)}
+.rr:hover::after,.rr:has(+ .rr:hover)::after{opacity:0}
+.rr:active{transform:scale(.99);transition-duration:.12s}
+.rl .rr:last-child::after{display:none}
+.rr-ic{width:24px;height:24px;display:grid;place-items:center;border-radius:50%}
+.rr-ic .i{width:12px;height:12px;stroke-width:2.2}
+.rr-ic.ok{background:var(--g-soft);color:var(--g)}
+.rr-ic.stop{background:var(--fill);color:var(--ink-3)}
+.rr-ic.fail{background:var(--o-soft);color:var(--o-ink)}
+.rr b{font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rr-src{font-size:14px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rr-res{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rr-res.ok{color:var(--g-ink)}
+.rr-res.stop{color:var(--ink-2)}
+.rr-res.fail{color:var(--o-ink)}
+.rr-tm{font-size:13px;color:var(--ink-3);text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+/* 鼠标放上去（或键盘选中）右边滑出一个小箭头：能点开看详情。位置一直留着，出现时不挤动时间 */
+.rr-go{display:grid;place-items:center;margin-left:-6px;color:var(--ink-3);opacity:0;transform:translateX(-4px);transition:opacity .2s var(--ease),transform .3s var(--ease)}
+.rr-go .i{width:12px;height:12px;stroke-width:2.2}
+.rr:hover .rr-go,.rr:focus-visible .rr-go{opacity:1;transform:none}
+@container (max-width:696px){.rr{grid-template-columns:24px minmax(0,1fr) auto auto 12px}.rr-src{display:none}}
+
+/* ---------- 右栏卡片 ---------- */
+.card{position:relative;background:var(--card);border:var(--hair) solid var(--line);border-radius:16px;box-shadow:inset 0 var(--hair) 0 var(--glass-hi),var(--card-shadow);flex:none;transition:box-shadow .45s var(--ease),scale .45s var(--ease),translate .45s var(--ease),transform .45s var(--ease)}
+.card:hover{z-index:2;box-shadow:inset 0 var(--hair) 0 var(--glass-hi),var(--card-shadow-hover);scale:var(--lift);translate:0 calc(var(--lift-y) * -1px)}
+/* 权限卡带着引导气泡或展开了「文件范围」菜单时，压在下面几张卡片上面 */
+.pc:has(.permission-hint,.scope .menu){z-index:4}
+.rc:active,.cc:has(.cc-main:active){transform:scale(.982);transition-duration:.12s}
+.cc{display:flex;flex-direction:column;overflow:hidden}
+.cc-main{display:flex;flex-direction:column;gap:16px;padding:20px 20px 0;border:0;background:none;text-align:left;cursor:pointer;color:var(--ink)}
+.cc-main:hover .cc-n b{color:var(--ink-2)}
+.cc-h{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:15px;line-height:18px}
+.cc-h .stat{gap:6px}
+.cc-a{display:flex;align-items:center;gap:12px;min-width:0}
+.cc-n{min-width:0;display:flex;flex-direction:column;gap:2px}
+.cc-n b{font-size:14px;line-height:17px;font-weight:600}
+.cc-n small{font-size:12px;line-height:14px;color:var(--ink-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cc-f{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:28px;padding:16px 20px 20px;font-size:13px;color:var(--ink-3)}
+.cc-f.empty{min-height:0;padding:0 0 20px}
+.cc-l{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pc{display:flex;flex-direction:column;gap:8px;padding:20px 20px 12px}
+.pc h3{margin:0;font-size:15px;line-height:18px;font-weight:400}
+.pr{display:flex;align-items:center;gap:12px;height:40px;margin:0 -8px;padding:0 8px;border-radius:10px;cursor:pointer;outline-offset:-2px}
+.pr{transition:background-color .2s,transform .3s var(--ease)}
+.pr:hover{background:var(--line-soft)}
+.pr:active{transform:scale(.985);transition-duration:.12s}
+.pr-l{flex:1;min-width:0;display:flex;align-items:center;gap:8px;font-size:14px;white-space:nowrap}
+.pr-chev{color:var(--ink-3)}
+.pr-v{font-size:13px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px}
+.pr .switch{margin-left:4px}
+.always-allowed{display:flex;flex-direction:column;gap:7px;margin:0;padding:0;border-top:0}
+.always-allowed h4{margin:0;color:var(--ink-2);font-size:12px;font-weight:600}
+.always-allowed-row{display:flex;align-items:center;gap:10px;min-height:34px}
+.always-allowed-copy{display:flex;flex:1;min-width:0;flex-direction:column;gap:2px}
+.always-allowed-copy b{overflow:hidden;color:var(--ink);font-size:12px;font-weight:500;text-overflow:ellipsis;white-space:nowrap}
+.always-allowed-copy small,.always-allowed-empty{margin:0;color:var(--ink-3);font-size:11px;line-height:1.4}
+.always-allowed-row .tbtn{flex:none;padding:4px 0;color:var(--o-ink);font-size:12px}
+.rc{display:flex;align-items:center;gap:8px;width:100%;padding:20px;text-align:left;font-size:15px;line-height:18px;color:var(--ink);cursor:pointer}
+.rc span{flex:1}
+.rc .i.xs{color:var(--ink-3)}
+/* 文件范围胶囊和下拉 */
+.scope{position:relative;flex:none}
+.scope-btn{display:inline-flex;align-items:center;gap:4px;max-width:170px;height:26px;padding:0 8px 0 12px;border:0;border-radius:30px;background:var(--fill-2);color:var(--ink);font-size:13px;cursor:pointer}
+.scope-btn:hover{background:var(--line)}
+.scope-lbl{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.scope-chev{color:var(--ink-2);transform:rotate(90deg)}
+.scope .menu{position:absolute;right:0;top:calc(100% + 6px);z-index:30;min-width:230px;max-width:320px;padding:5px;border-radius:12px;border:var(--hair) solid var(--line);background:var(--card);box-shadow:var(--pop-shadow)}
+.scope .mi{display:flex;align-items:center;gap:7px;width:100%;height:32px;padding:0 12px 0 8px;border:0;border-radius:7px;background:transparent;color:var(--ink);font-size:14px;text-align:left;cursor:pointer}
+.scope .mi:hover,.scope .mi:focus-visible{background:var(--fill);outline:none}
+.scope .mi .ck{width:14px;flex:none;display:grid;place-items:center}
+.scope .mi .lbl{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.scope .mi .i{color:var(--ink-2)}
+.scope .msep{height:var(--hair);margin:5px 8px;background:var(--line)}
+
+/* ---------- 右侧抽屉：设置首页 → 详情页；帮助与反馈；任务过程 ----------
+   10/30（Ken：上下和右边留出一点边，像一张浮在界面里的卡）：抽屉离窗口的上、下、右边各空 --drawer-gap（在 :root 里，半格网点），
+   四个角都圆：右边两个角挨着窗口边，跟窗口的圆角同心，是窗口圆角减去这条缝（--drawer-radius）；左边两个角跟窗口的角一样大（--drawer-radius-left），都在 :root 里。
+   阴影四周都有（--drawer-shadow，皮肤可以自己定）。抽屉是浮起来的，不跟网点对齐（见文件末尾「对齐网点」）。 */
+dialog.drawer{position:fixed;inset:var(--drawer-gap) var(--drawer-gap) var(--drawer-gap) auto;width:440px;max-width:calc(100vw - 96px - var(--drawer-gap));height:auto;max-height:none;margin:0;padding:0;border:0;border-radius:var(--drawer-radius-left) var(--drawer-radius) var(--drawer-radius) var(--drawer-radius-left);background:var(--drawer-bg);color:var(--ink);box-shadow:0 0 0 var(--hair) var(--drawer-edge),var(--drawer-shadow);overflow:hidden}
+dialog.drawer[open]{display:flex;flex-direction:column;animation:drSlide .5s cubic-bezier(.16,1,.3,1),drFade .22s ease-out}
+dialog.drawer.closing{z-index:60;animation:drSlideOut .26s cubic-bezier(.5,0,.75,0) forwards,drFadeOut .26s ease-in forwards;pointer-events:none;box-shadow:0 0 0 200vmax var(--backdrop),0 0 0 var(--hair) var(--drawer-edge),var(--drawer-shadow)}
+dialog.drawer::backdrop{background:var(--backdrop);animation:bdIn .35s ease}
+/* 抽屉浮起来以后，底下那条缝里看得到页面；首页权限卡下面那个黑色小提示（.permission-hint）会从缝里露出一截，抽屉开着时先藏起来，关上就回来 */
+html:has(dialog.drawer[open]) .permission-hint{visibility:hidden}
+@keyframes drSlide{from{transform:translateX(64px)}to{transform:none}}
+@keyframes drFade{from{opacity:0}to{opacity:1}}
+@keyframes drSlideOut{to{transform:translateX(48px)}}
+@keyframes drFadeOut{to{opacity:0}}
+@keyframes bdIn{from{opacity:0}}
+@keyframes bdOut{to{opacity:0}}
+.drawer-h{flex:none;display:flex;align-items:center;gap:8px;height:68px;padding:0 24px;border-bottom:var(--hair) solid var(--line)}
+.drawer-h h2{flex:1;min-width:0;margin:0;font-size:17px;line-height:21px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ibt{width:34px;height:34px;flex:none;display:grid;place-items:center;border:0;border-radius:10px;background:var(--fill);color:var(--ink);cursor:pointer}
+.ibt:hover{background:var(--fill-2)}
+.drawer-b{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:24px;padding:24px 24px 40px;outline:none}
+/* 抽屉里的内容只横着进来（打开、进详情从右往左；返回从左往右），不再往上浮 */
+.drawer-b.enter>*,.drawer-b.enter-back>*{animation:drItem .34s cubic-bezier(.16,1,.3,1) both}
+.drawer-b.enter-back>*{animation-name:drItemBack}
+.drawer-b.enter>*:nth-child(2),.drawer-b.enter-back>*:nth-child(2){animation-delay:.03s}
+.drawer-b.enter>*:nth-child(3),.drawer-b.enter-back>*:nth-child(3){animation-delay:.055s}
+.drawer-b.enter>*:nth-child(n+4),.drawer-b.enter-back>*:nth-child(n+4){animation-delay:.075s}
+@keyframes drItem{from{opacity:0;transform:translateX(18px)}to{opacity:1;transform:none}}
+@keyframes drItemBack{from{opacity:0;transform:translateX(-18px)}to{opacity:1;transform:none}}
+/* 设置首页 */
+.sg{display:flex;flex-direction:column;margin:0 -10px;padding:0 10px}
+.sg h4{margin:0 0 6px;font-size:13px;line-height:16px;font-weight:700;color:var(--ink-2)}
+.sg+.sg{margin-top:4px}
+/* 设置项（10/4 放松一点）：上下各 14，标题和说明都用整数行高，一行正好 68，分割线落在整像素上不会忽深忽浅；
+   分割线从文字那一列开始（不从图标下面开始），线少一截，看着不乱 */
+.si{position:relative;display:flex;align-items:center;gap:12px;min-height:64px;padding:14px 0}
+.si::after{content:"";position:absolute;left:42px;right:0;bottom:0;height:var(--hair);background:var(--line);pointer-events:none}
+.si[role="button"]{cursor:pointer;margin:0 -10px;padding-left:10px;padding-right:10px;border-radius:12px}
+.si[role="button"]::after{left:52px;right:10px}
+.sg .si:last-child::after,.si[role="button"]:hover::after,.si:has(+ .si[role="button"]:hover)::after{opacity:0}
+.si[role="button"]:hover{background:var(--fill)}
+.si .tile{width:30px;height:30px}
+.si .tile.dark{width:32px;height:32px}
+.si-t{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.si-t b{font-size:15px;line-height:18px;font-weight:400}
+.si-t small{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:13px;line-height:18px;color:var(--ink-3)}
+.si-t small .sdot{width:6px;height:6px}
+.si-v{font-size:14px;color:var(--ink-2);white-space:nowrap}
+.si-chev{color:var(--ink-3)}
+/* 详情页：名字 + 总开关 → 这是什么 → 结果（开关一拨就变，淡淡闪一下） */
+.dp-h{display:flex;align-items:center;gap:12px}
+.dp-h b{flex:1;font-size:17px;font-weight:600}
+.dp-desc{margin:-8px 0 0;font-size:14px;line-height:1.65;color:var(--ink-2)}
+.dp-res{display:flex;align-items:flex-start;gap:10px;padding:14px 16px;border-radius:12px;background:var(--fill);color:var(--ink-2)}
+.dp-res.ok{background:var(--g-soft);color:var(--g-ink)}
+.dp-res.warn{background:var(--o-soft);color:var(--o-ink)}
+.dp-res>.i{margin-top:1px}
+.dp-res>div{flex:1;min-width:0}
+.dp-res b{display:block;font-size:15px;line-height:1.45;font-weight:600}
+.dp-res small{display:block;margin-top:2px;font-size:13px;color:var(--ink-2)}
+.dp-res .btn{margin-top:-4px}
+/* 1070（Claude）：有说明又有按钮时，按钮换到说明下面一行，不把说明挤成窄条（英文「Replace Automatically」很宽） */
+.dp-res.stack{flex-wrap:wrap}.dp-res.stack>div{flex:1 1 calc(100% - 40px)}.dp-res.stack>.btn{margin:2px 0 0 28px}
+/* 1081（Claude，Ken 10/27）：几种情况各占一行，中间空一点；几个按钮排一行；正在连的时候是转圈，不是警告色。 */
+.dp-res small+small{margin-top:6px}
+.dp-res-acts{display:flex;flex-wrap:wrap;gap:8px}.dp-res-acts .btn{margin:0}
+.dp-res.stack>.dp-res-acts{flex:1 1 100%;margin:4px 0 0 28px}
+.dp-res>.sdot.spin{width:14px;height:14px;margin-top:4px;border-width:2px;flex:none}
+/* 开关后结果条忽闪两下（底色往字的颜色靠一点），不画描边 */
+.dp-res{position:relative;isolation:isolate}
+.dp-res::before{content:"";position:absolute;inset:0;z-index:-1;border-radius:inherit;background:currentColor;opacity:0;pointer-events:none}
+.dp-res.flash::before{animation:resBlink 1.1s ease-out 1 both}
+@keyframes resBlink{0%{opacity:0}16%{opacity:.13}36%{opacity:.02}56%{opacity:.13}100%{opacity:0}}
+.ybar{display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border-radius:12px;background:var(--y-bg);border:var(--hair) solid var(--y-line);color:var(--y-ink);font-size:13px;line-height:1.6}
+.ybar .i{margin-top:2px}
+.dp-note{margin:0;font-size:13px;line-height:1.6;color:var(--ink-2)}
+.dp-note .tbtn{font-size:13px}
+.dp-foot{margin:0;font-size:13px;line-height:1.6;color:var(--ink-3)}
+.dp-acts{display:flex;flex-wrap:wrap;gap:8px}
+.risk{display:flex;flex-direction:column}
+.risk-h{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-bottom:10px;border-bottom:var(--hair) solid var(--line)}
+.risk-h h4{margin:0;font-size:15px;font-weight:600}
+.risk-h span{font-size:13px;font-weight:600}
+.risk.off .risk-row{opacity:.55}
+.risk .dp-note{padding-top:10px}
+.risk-row{display:flex;align-items:flex-start;gap:14px;padding:13px 0;border-bottom:var(--hair) solid var(--line)}
+.risk-row .txt{flex:1;min-width:0}
+.risk-row b{font-size:15px;font-weight:600}
+.risk-row .cmds{display:flex;flex-wrap:wrap;gap:2px 10px;margin-top:2px}
+.risk-row code{font:12px/1.5 var(--mono);color:var(--ink-3);white-space:nowrap}
+.risk-row span{display:block;margin-top:3px;font-size:13px;line-height:1.55;color:var(--ink-2)}
+.risk-row span.warn-text{color:var(--o-ink)}
+.risk-row em{margin-right:6px;font-style:normal;color:var(--ink-3)}
+.risk-row .switch{margin-top:3px}
+/* 从「还有 1 项没开通 · 去开通」跳过来时，目标那一行忽闪两下：圆角色块比这一行往外多出一点，不画描边；
+   等抽屉滑进来（约 .3 秒）再闪，两下共 1.4 秒（Ken 10/4：比 1 秒再长三分之一到一半） */
+.risk-row,.common-row{position:relative;isolation:isolate}
+.risk-row::before,.common-row::before{content:"";position:absolute;inset:-1px -12px;z-index:-1;border-radius:12px;background:var(--flash-bg);opacity:0;pointer-events:none}
+.risk-row.flash::before,.common-row.flash::before{animation:rowBlink 1.4s ease-out .3s 1 both}
+@keyframes rowBlink{0%{opacity:0}14%{opacity:1}34%{opacity:.15}52%{opacity:1}100%{opacity:0}}
+.kv{display:flex;flex-direction:column;border-top:var(--hair) solid var(--line)}
+.kvr{display:flex;align-items:center;gap:12px;min-height:46px;padding:8px 0;border-bottom:var(--hair) solid var(--line);font-size:14px}
+.kvr .k{width:112px;flex:none;color:var(--ink-2)}
+.kvr .v{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* 1052 补丁 2（Claude，10/16）：信息表里能点的一行（浏览器控制页的「连接方式」）：右边小箭头；悬停底色往左右各伸出 10，上下让开分割线。
+   伸出去的那 10 用左右两道同色投影画（键盘停上去时再各加一圈 2px 的框），不把 ::before 本身伸出去：投影不算进排版宽度，这一行和信息表不会多出横向溢出。 */
+.kvr.kv-go{position:relative;isolation:isolate;cursor:pointer}
+.kvr.kv-go::before{content:"";position:absolute;inset:3px 0;z-index:-1;border-radius:10px;background:var(--fill);box-shadow:-10px 0 0 var(--fill),10px 0 0 var(--fill);opacity:0;transition:opacity .15s}
+.kvr.kv-go:hover::before,.kvr.kv-go:focus-visible::before{opacity:1}
+.kvr.kv-go:focus-visible{outline:none}
+.kvr.kv-go:focus-visible::before{box-shadow:-10px 0 0 var(--fill),10px 0 0 var(--fill),-10px 0 0 2px var(--ink),10px 0 0 2px var(--ink)}
+.kv-chev{color:var(--ink-3)}
+@media (prefers-reduced-motion:reduce){.kvr.kv-go::before{transition:none}}
+.opt{display:flex;align-items:flex-start;gap:12px;width:100%;padding:14px 16px;border:var(--hair) solid var(--line);border-radius:12px;background:var(--card);text-align:left;cursor:pointer}
+.opt:hover{background:var(--fill)}
+.opt.on{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.opt-ck{width:18px;height:18px;flex:none;display:grid;place-items:center;margin-top:1px;border:var(--hair) solid var(--line-2);border-radius:50%}
+.opt.on .opt-ck{border-color:var(--accent);background:var(--accent);color:var(--accent-ink)}
+.opt-ck .i{width:11px;height:11px;stroke-width:2.6}
+.opt-t b{display:block;font-size:15px;font-weight:600}
+.opt-t small{display:block;margin-top:3px;font-size:13px;line-height:1.55;color:var(--ink-3)}
+/* 0009（Claude）：设置 → 通用 → 多语言 那一页的三项 */
+.language-opts{display:grid;gap:8px}
+.language-opts .opt{align-items:center}
+.language-opts .opt-ck{margin-top:0}
+/* 帮助与反馈 */
+.hp{display:flex;flex-direction:column;gap:10px}
+.hp h4{margin:0;font-size:13px;line-height:16px;font-weight:700;color:var(--ink-2)}
+.hp-row{display:flex;flex-direction:column;align-items:flex-start;gap:8px}
+.hp-h{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.hp-tag{font-size:12px;color:var(--ink-3)}
+.hp-row p{margin:0;font-size:13px;line-height:1.6;color:var(--ink-3)}
+.rp{display:flex;flex-direction:column;border-top:var(--hair) solid var(--line)}
+.rp-i{display:flex;align-items:flex-start;gap:10px;padding:11px 0;border-bottom:var(--hair) solid var(--line)}
+.rp-i>div{flex:1;min-width:0}
+.rp-i b{display:block;font-size:14px;line-height:19px;font-weight:500}
+.rp-i small{display:block;margin-top:2px;font-size:13px;line-height:1.5;color:var(--ink-3)}
+.rp-i.action small,.rp-i.failed small{color:var(--o-ink)}
+.ri{width:18px;height:18px;flex:none;display:grid;place-items:center;border-radius:50%}
+.ri .i{width:11px;height:11px;stroke-width:2.6}
+.ri.ok{background:var(--g-soft);color:var(--g)}
+.ri.warn{background:var(--o-soft);color:var(--o-ink)}
+.ri.pend{border:var(--hair) solid var(--line-2)}
+.ri .spinner{width:12px;height:12px}
+.rp-tag{font-size:12px;color:var(--g-ink);white-space:nowrap}
+.rp-sum{margin:10px 0 0;font-size:13px;color:var(--ink-2)}
+.rp .dp-acts{margin-top:8px}
+.faq,.tech{border-bottom:var(--hair) solid var(--line)}
+.faq summary,.tech summary{list-style:none;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;font-size:15px;cursor:pointer}
+.faq summary::-webkit-details-marker,.tech summary::-webkit-details-marker{display:none}
+.faq summary .i,.tech summary .i{color:var(--ink-3);transition:rotate .15s}
+.faq[open] summary .i,.tech[open] summary .i{rotate:90deg}
+.faq p{margin:0 0 12px;font-size:13px;line-height:1.65;color:var(--ink-2)}
+.tech{border-top:var(--hair) solid var(--line)}
+.tech summary{font-size:13px;color:var(--ink-3)}
+.tech .kv{border-top:0}
+.tech .dp-acts{padding:12px 0}
+/* 任务详情 */
+/* 1081（Claude，Ken 10/27 12:18）：最上面的结果卡是这一页的视觉中心，用 .dp-res 的样子（跟连接页、浏览器控制页的结果卡一样）：
+   状态 15px 粗体带颜色，结果 14px 正文色，「你要做」跟结果之间一条同色细线；进行中用会呼吸的绿点，右边「停止这个任务」。
+   下面「来自」「开始」「用量」用 .kv 的信息行（细线隔开、左边灰字），字长了换行、不截断；
+   「回到对话」「改关联」「关联原对话」一律放在对话名下面、跟对话名左对齐，不随对话名长短一会儿在右边一会儿在下面。 */
+.td-res{padding:16px 18px}
+.td-res:not(.ok):not(.warn){color:var(--ink)}
+.td-res>.i{margin-top:2px}
+.td-res>.td-dot{display:grid;place-items:center;width:18px;height:22px;flex:none}
+.td-res p{margin:0}
+.td-res .td-sum{margin-top:6px;font-size:14px;line-height:1.6;color:var(--ink);overflow-wrap:anywhere}
+.td-res .td-ua{display:flex;align-items:baseline;gap:12px;margin-top:12px;padding-top:11px;border-top:var(--hair) solid color-mix(in srgb,currentColor 24%,transparent);font-size:14px;line-height:1.6;font-weight:600;color:var(--ink)}
+.td-res .td-ua>span{flex:none;font-size:13px;font-weight:400;color:var(--ink-2)}
+.td-res .td-ua.none{font-weight:400;color:var(--ink-2)}
+.td-res .td-note{margin-top:6px;font-size:13px;line-height:1.55;color:var(--ink-2)}
+.td-res .td-fix{display:flex;flex-direction:column;align-items:flex-start;gap:12px;margin-top:14px}
+.td-res .td-fix .rt-fig{display:block;width:100%;height:auto;aspect-ratio:16/9}
+.td-res .td-fix .btn{margin-top:0}
+.td-facts .kvr{align-items:flex-start;padding:12px 0}
+.td-facts .kvr .k{width:64px;line-height:22px}
+.td-facts .kvr .v{display:flex;flex-direction:column;align-items:flex-start;gap:10px;line-height:22px;white-space:normal;overflow:visible}
+.td-facts .td-v{min-width:0;overflow-wrap:anywhere}
+.td-facts .td-v small{display:block;font-size:12px;line-height:18px;color:var(--ink-3);font-variant-numeric:tabular-nums}
+.td-facts .td-acts{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.drawer .tl-b b,.drawer .tl-b small{white-space:normal;overflow-wrap:anywhere}
+.files{display:flex;flex-direction:column;border-top:var(--hair) solid var(--line)}
+.file{display:flex;align-items:center;gap:10px;min-height:42px;padding:6px 0;border-bottom:var(--hair) solid var(--line);font-size:13px}
+.file .mono{flex:1;min-width:0;overflow-wrap:anywhere}
+.file-ic{display:grid;place-items:center;flex:none;width:28px;height:28px;border-radius:8px;background:var(--fill-2)}
+.file-ic .lead{color:var(--ink-3);fill:currentColor;stroke:var(--fill-2);stroke-width:1.5}
+.file-n{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.file-n b{font-weight:500;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.file-n small{font-size:12px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.file-k{font-weight:400;color:var(--ink-3)}
+.file-a{display:flex;align-items:center;gap:2px;flex:none}
+.file-a .ibtn{display:grid;place-items:center;width:28px;height:28px;border:0;border-radius:7px;background:transparent;color:var(--ink-2);cursor:pointer}
+.file-a .ibtn:hover{background:var(--fill);color:var(--ink)}
+
+/* ---------- 右下角更新气泡 ---------- */
+.bubble{position:fixed;right:16px;bottom:16px;z-index:60;display:flex;flex-direction:column;gap:8px;width:320px;padding:16px;border:var(--hair) solid var(--line);border-radius:16px;background:var(--card);box-shadow:var(--pop-shadow);animation:bbIn .24s var(--ease)}
+.bubble b{font-size:15px;line-height:1.4;font-weight:600}
+.bubble p{margin:0;font-size:13px;line-height:1.55;color:var(--ink-2)}
+.bubble p.bb-meta{font-size:12px;color:var(--ink-3)}
+.bubble p.bb-warn{color:var(--o-ink)}
+.bubble p.bb-warn strong{font-weight:600}
+/* 1023：「刷新工具」示意图（16:9，等比缩放） */
+.bubble .rt-fig{display:block;width:100%;height:auto;aspect-ratio:16/9;margin:2px 0 4px}
+.rt-fig text{font-family:inherit}
+.rt-bg{fill:var(--fill-2)}
+.rt-card{fill:var(--card);stroke:var(--line-2);stroke-width:1}
+.rt-sep{stroke:var(--line);stroke-width:1}
+.rt-path{font-size:10px;fill:var(--ink-3)}
+.rt-title{font-size:13px;font-weight:600;fill:var(--ink)}
+.rt-label{font-size:11px;font-weight:600;fill:var(--ink)}
+.rt-mute{font-size:11px;fill:var(--ink-3)}
+.rt-pill{fill:var(--fill-2)}
+.rt-hit{fill:var(--o-soft);stroke:var(--o);stroke-width:1.5}
+.rt-hit-t{font-size:11px;font-weight:600;fill:var(--o-ink)}
+.rt-cursor{fill:var(--ink);stroke:var(--card);stroke-width:1;stroke-linejoin:round}
+.bb-acts{display:flex;justify-content:flex-end;gap:8px;margin-top:4px}
+.bb-bar{height:4px;overflow:hidden;border-radius:2px;background:var(--fill-2)}
+.bb-bar i{display:block;height:100%;background:var(--g);transition:width .3s}
+@keyframes bbIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+/* 0010（Claude，#56）：气泡最高到窗口顶上拖动区（48 点）下面再留 8 点，放不下就在里面滚，「好」那排按钮一直在底下。 */
+.bubble{max-height:calc(100vh - 72px)}
+.bubble .bb-body{display:flex;flex-direction:column;gap:8px;min-height:0;overflow:auto;overscroll-behavior:contain}
+.bubble .bb-acts{flex:none}
+/* 0010（Claude）：助手文件夹路径只在斜杠后面断行（app.js 的 pathWrapHTML 一段一个 span），不把 chrome-helper 拆成 chrome-he / lper 或 chrome- / helper。 */
+.helper-folder-guide .path{word-break:normal;overflow-wrap:anywhere}.helper-folder-guide .path .path-seg{white-space:nowrap}
+/* 1070（Claude）：手动装、换 Chrome 插件的图示步骤（app.js 的 extSteps / extFig）。左图右字；图是 160×90 的示意，颜色全用 token。 */
+.xg{list-style:none;margin:4px 0 0;padding:0;display:flex;flex-direction:column;gap:14px;counter-reset:xg}
+.xg-step{display:grid;grid-template-columns:clamp(112px,34%,144px) minmax(0,1fr);gap:14px;align-items:start;counter-increment:xg}
+.xg-fig{display:block;width:100%;height:auto;aspect-ratio:16/9}
+.xg-fig text{font-family:inherit}
+.xg-body{display:flex;flex-direction:column;align-items:flex-start;gap:8px;min-width:0}
+.xg-t{font-size:14px;line-height:1.5;font-weight:600;color:var(--ink)}
+.xg-t::before{content:counter(xg);display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;margin-right:7px;border-radius:50%;background:var(--fill-2);color:var(--ink-2);font-size:11px;font-weight:700;line-height:1;vertical-align:1px}
+.xg-acts{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px}
+.xg-addr{display:inline-flex;align-items:center;gap:4px;min-width:0}
+.xg-addr code{font:12px/1.4 var(--mono);color:var(--ink-2);user-select:all;-webkit-user-select:all}
+.xg-copy{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:7px;color:var(--ink-3)}
+.xg-copy:hover{background:var(--fill);color:var(--ink)}
+.xg-pathbox{display:flex;align-items:flex-start;gap:4px;align-self:stretch;margin:0;padding:6px 4px 6px 10px}
+.xg-pathtext{flex:1;min-width:0;padding-top:2px;word-break:normal;overflow-wrap:anywhere}.xg-pathtext .path-seg{white-space:nowrap}
+.xg-tip{font-size:12px;line-height:1.5;color:var(--ink-3)}
+/* 1070（Claude）：换新版的弹框，「一键换成新版」放在原因下面，手动步骤退到它后面 */
+.xg-auto{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:2px 0 16px}
+dialog#modal p.xg-or{margin:0 0 6px;font-size:13px;color:var(--ink-3)}
+.helper-folder-guide>.xg-pathbox+.dp-acts{margin-top:-2px}
+/* 示意图里的部件 */
+.xf-mute{font-size:8px;fill:var(--ink-3)}
+.xf-mute-s{font-size:7.5px;fill:var(--ink-3)}
+.xf-name{font-size:8.5px;font-weight:650;fill:var(--ink)}
+.xf-addr{font:600 7.6px var(--mono);fill:var(--o-ink)}
+.xf-hit-t{font-size:8.5px;font-weight:600;fill:var(--o-ink)}
+.xf-hit-s{font-size:7.5px;font-weight:600;fill:var(--o-ink)}
+.xf-btn{fill:var(--accent)}
+.xf-btn-t{font-size:7.5px;font-weight:600;fill:var(--accent-ink)}
+.xf-on{fill:var(--accent)}
+.xf-knob{fill:var(--card)}
+.xf-ring{fill:none;stroke:var(--o);stroke-width:1.5}
+.xf-dot{fill:var(--line-2)}
+.xf-ph{fill:var(--fill-2)}
+.xf-ph2{fill:var(--line-2)}
+.xf-side{fill:var(--fill-2)}
+.xf-ink3{fill:none;stroke:var(--ink-3);stroke-width:1.3;stroke-linecap:round;stroke-linejoin:round}
+.xf-o{fill:none;stroke:var(--o-ink);stroke-width:1.4;stroke-linecap:round;stroke-linejoin:round}
+.xf-ink3f{fill:var(--ink-3)}
+.xf-of{fill:var(--o)}
+
+/* ---------- 弹窗、提示 ---------- */
+dialog#modal{border:0;padding:26px 26px 22px;border-radius:18px;background:var(--card);color:var(--ink);width:480px;max-width:calc(100vw - 48px);max-height:calc(100vh - 64px);overflow:auto;box-shadow:var(--modal-shadow)}
+dialog#modal::backdrop{background:var(--backdrop);-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px)}
+dialog#modal h2{margin:0 0 8px;font-size:20px;line-height:1.35;font-weight:650;letter-spacing:-.01em}
+dialog#modal h3{margin:20px 0 6px;font-size:15px;font-weight:650}
+dialog#modal p{margin:0 0 10px;font-size:14px;line-height:1.65;color:var(--ink-2)}
+dialog#modal .actions{margin-top:14px;display:flex;flex-wrap:wrap;gap:8px}
+dialog#modal .actions.ask{justify-content:flex-end;margin-top:18px}
+/* Chrome 网上应用店：两步、等连上的那一行 */
+dialog#modal p.cs-wait{display:flex;align-items:center;gap:8px;color:var(--ink-3);font-size:13px}
+dialog#modal p.cs-profile .tbtn,dialog#modal p.cs-again .tbtn{margin-left:4px;font-size:13px}
+/* 1081（Claude）：选 Chrome 用户，一行一个 */
+dialog#modal .cs-profiles{display:flex;flex-direction:column;gap:8px;margin-top:14px}
+dialog#modal .cs-profiles .btn{width:100%;height:40px;justify-content:flex-start;border-radius:10px;padding:0 14px;font-size:14px}
+/* 应用店装插件（Ken 10/26）：两张小图画的是 Chrome 里的样子——Chrome 打开的插件页面、Chrome 弹出的框，要点的按钮用主题绿圈出来。
+   蓝色按钮照 Chrome 的蓝；页面底色、线条跟着 ChatHand 的浅色深色走。图只是示意，意思写在图下面那句里。 */
+dialog#modal[data-kind="chrome-store"]{width:540px}
+dialog#modal .cs-pics{--cs-blue:#0B57D0;--cs-blue-ink:#FFFFFF;--cs-page:var(--card);--cs-frame:var(--fill-2);--cs-dlg-shadow:rgba(0,0,0,.18);display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:6px 0 14px}
+dialog#modal .cs-pics figure{margin:0;display:flex;flex-direction:column;gap:8px;min-width:0}
+dialog#modal .cs-pics figcaption{font-size:13px;line-height:1.5;color:var(--ink)}
+dialog#modal .cs-win{display:flex;flex-direction:column;height:112px;border-radius:10px;overflow:hidden;background:var(--cs-page);box-shadow:0 0 0 1px var(--line-2)}
+dialog#modal .cs-bar{display:flex;align-items:center;gap:4px;flex:none;height:20px;padding:0 8px;background:var(--cs-frame)}
+dialog#modal .cs-bar i{width:6px;height:6px;border-radius:50%;background:var(--ink-4)}
+dialog#modal .cs-bar b{flex:1;height:9px;margin-left:6px;border-radius:5px;background:var(--cs-page)}
+dialog#modal .cs-page{position:relative;flex:1;display:flex;flex-direction:column;gap:7px;padding:12px 10px}
+dialog#modal .cs-item{display:flex;align-items:center;gap:6px;margin-bottom:5px}
+dialog#modal .cs-item img{flex:none;border-radius:5px}
+dialog#modal .cs-item b{flex:1;min-width:0;font-size:12px;font-weight:650;color:var(--ink);overflow:hidden;text-overflow:ellipsis}
+dialog#modal .cs-ln{display:block;height:6px;width:78%;border-radius:3px;background:var(--fill-2)}
+dialog#modal .cs-ln.s{width:52%}
+dialog#modal .cs-pics em,dialog#modal .cs-dbtns i{flex:none;font-style:normal;font-size:11px;font-weight:600;line-height:1;padding:5px 9px;border-radius:99px;white-space:nowrap}
+dialog#modal .cs-pics em{background:var(--cs-blue);color:var(--cs-blue-ink)}
+dialog#modal .cs-pics .cs-hl{box-shadow:0 0 0 2px var(--cs-page),0 0 0 4px var(--g)}
+dialog#modal .cs-under>.cs-ln{opacity:.5}
+dialog#modal .cs-dlg{position:absolute;left:10px;right:18px;top:7px;display:flex;flex-direction:column;gap:5px;padding:9px 10px;border-radius:8px;background:var(--cs-page);box-shadow:0 6px 16px var(--cs-dlg-shadow),0 0 0 1px var(--line-2)}
+dialog#modal .cs-dlg b{font-size:11px;font-weight:650;color:var(--ink)}
+dialog#modal .cs-dlg .cs-ln{height:5px}
+dialog#modal .cs-dbtns{display:flex;justify-content:flex-end;gap:6px;margin-top:3px}
+dialog#modal .cs-dbtns i{color:var(--cs-blue);box-shadow:0 0 0 1px var(--line-2)}
+@media (max-width:600px){dialog#modal .cs-pics{grid-template-columns:1fr}}
+dialog#modal p.hint{font-size:13px;color:var(--ink-3)}
+dialog#modal select{width:100%;height:36px;padding:0 10px;border-radius:10px;border:var(--hair) solid var(--line-2);background:var(--card);color:var(--ink);font:inherit;font-size:14px}
+dialog#modal h2+select{margin:4px 0 14px}
+dialog#modal input{width:100%;height:38px;padding:0 12px;border:0;border-radius:10px;background:var(--fill);color:var(--ink);font:inherit;font-size:14px;outline:none}
+dialog#modal input:focus{box-shadow:inset 0 0 0 1.5px var(--ink)}
+dialog#modal label{display:block;margin:12px 0 6px;font-size:13px;color:var(--ink-3)}
+dialog#modal pre{max-height:320px;overflow:auto;margin:0;padding:10px 12px;border-radius:10px;background:var(--fill);font:13px/1.5 var(--mono);white-space:pre-wrap}
+dialog#modal hr{margin:16px 0;border:0;border-top:var(--hair) solid var(--line)}
+dialog#modal .notice{padding:10px 12px;border-radius:10px;background:var(--o-soft);color:var(--o-ink)}
+dialog#modal .add{color:var(--g-ink)}
+dialog#modal .del{color:var(--o-ink)}
+.dialog-close{position:absolute;top:14px;right:14px;width:28px;height:28px;border:0;border-radius:50%;background:transparent;color:var(--ink-3);font-size:20px;line-height:1;cursor:pointer}
+.dialog-close:hover{background:var(--fill);color:var(--ink)}
+/* 浮动提示（toast）：1082（Claude，Ken 10/28）从黑色胶囊改成浅色毛玻璃卡片，窗口底部居中，最宽 480，长句折行、左对齐。
+   深色模式跟着变成深色玻璃。整块不接鼠标，盖住的按钮照样点得到。出错的句子前面一个橙色小圆圈（.toast-warn）。 */
+.toast{position:fixed;left:50%;bottom:24px;z-index:1200;transform:translateX(-50%);display:flex;align-items:flex-start;gap:8px;width:max-content;max-width:min(480px,calc(100vw - 48px));padding:10px 16px;border:var(--hair) solid var(--toast-line);border-radius:14px;background:var(--toast-bg);color:var(--ink);font-size:14px;line-height:20px;font-weight:500;text-align:left;word-break:keep-all;overflow-wrap:anywhere;text-wrap:pretty;box-shadow:inset 0 var(--hair) 0 var(--toast-hi),var(--toast-shadow);-webkit-backdrop-filter:var(--toast-blur);backdrop-filter:var(--toast-blur);pointer-events:none}
+.toast.toast-warn{padding-left:12px}
+.toast .toast-icon{width:16px;height:16px;margin:2px 0;color:var(--o-ink);stroke-width:2}
+/* 右下角的更新卡片开着、窗口又不够宽时（不到 1184，最宽 480 的提示居中会压到卡片），提示改到卡片左边那块空地的正中。
+   卡片 right 16 + 宽 320，再空 16；左边留 24。 */
+@media (max-width:1183px){body:has(>#bubble:not([hidden]))>.toast{left:calc(50% - 164px);max-width:min(480px,calc(100% - 376px))}}
+
+/* ---------- 减少动态效果：都改成直接出现 ---------- */
+@media (prefers-reduced-motion:reduce){
+  .tp-ring::before,.tp-glow::before,.sdot.live::after,.nd.run i,.fx-aurora i{animation:none}
+  .fx-spot,.fx-wash{display:none}
+  dialog.drawer[open],dialog.drawer.closing,dialog.drawer::backdrop,.bubble,.drawer-b.enter>*,.drawer-b.enter-back>*{animation:none}
+  .card,.orow,.rr,.value-header,.value-header::before{transition:none}
+  .card:hover,.orow:hover,.rr:hover,.tp:hover{scale:none;translate:none}
+  .tp{transition:none}
+  .common-row.flash::before,.risk-row.flash::before{animation:none;opacity:1}
+  .dp-res.flash::before{animation:none;opacity:.1}
+  .permission-hint{animation:none}
+  .switch::after{transition:none}
+}
+/* 0011（Claude）：设置向导换成了 H10 那一套（wizard.js 输出 .h10-button、.h10-card 这些，样子在 h10.css 和 wizard.css）。
+   原来这里给向导里没有 class 的 button / input / label / p 套的通用样式（胶囊按钮、42 高的输入框、13px 的段落、块状 label）都拿掉了，
+   留着的话会把完成页的单选框撑成整行宽、把标题下面那句压成 13px。 */
+/* 教程截图放大的弹窗：wizard.js 把它建在 body 下面（不在 #setupWizard 里），浏览器默认给它黑边和直角，这里换成和其他弹窗一样的圆角白底 */
+:where(dialog.tutorialZoom){border:0;padding:16px 18px 14px;border-radius:16px;background:var(--surface);color:var(--ink);box-shadow:0 20px 60px var(--tutorial-shadow)}
+:where(dialog.tutorialZoom)::backdrop{background:var(--tutorial-backdrop);-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px)}
+:where(dialog.tutorialZoom) img{border-radius:8px;border:var(--hair) solid var(--line)}
+:where(dialog.tutorialZoom) p{margin:10px 0 0;font-size:14px;color:var(--ink-2)}
+
+
+
+/* 1012 主窗：保留两栏和抽屉框架，只补本轮状态和控件。 */
+.tp.wait .tp-in{box-shadow:inset 0 0 0 1px var(--o)}
+.tp.paused .tp-in{box-shadow:inset 0 0 0 var(--hair) var(--line)}
+/* 空状态（没有任务 / 连不上 / 正在连接 / 已暂停）：从上往下排，顺序都是 图标 → 标题 → 一句说明 → 操作（推荐的几句话，或按钮）。
+   1052 补丁 2（Claude，10/16）：插画离标题 18、标题离说明 6、说明离下面的几句 20；整块在卡片里上下居中、上下留白一样，
+   卡片按网点补齐多出来的几像素也平分到上下（上面留 24 是给插画外圈的光环留地方，不被卡片边裁掉）。 */
+.tp-empty{flex:1 0 auto;align-items:center;justify-content:center;text-align:center;min-height:0;gap:0;padding:24px 0}
+.tp-empty>.empty-art{margin:0 0 18px}
+.tp-empty>p{margin-top:6px;line-height:20px;text-wrap:balance}
+.tp-empty>p.dp-note{margin-top:6px}
+/* 1060（Claude，10/17。Ken 选 32）：说明和示例句之间原来 20，太挤 */
+.tp-empty>.prompt-list{margin-top:32px}
+.tp-empty>.dp-acts{margin-top:22px;justify-content:center}
+.tp-empty>.dp-acts+.tbtn{margin-top:12px}
+.tp-empty>.btn,.tp-empty>.spinner{margin-top:22px}
+.tp.idle .tp-in{overflow:hidden}
+/* 10/30（Ken：空卡片太矮，宽屏上又宽又扁）：空着的卡片按自己的宽度长高，约 16:9（56cqi，cqi 是左栏宽度），高度取网点间距的整数倍。
+   最矮不低于里面的内容；最高不把下面的「最近完成」挤出第一屏：317 = 卡片上边 168 + 下面的间距、空的「最近完成」和底边留白 149；
+   有完成过的任务时多给三行（每行 60，共 476）。上面压着待确认的卡片时不加高，内容多高就多高。 */
+.tp.idle>.tp-in{min-height:round(down,min(56cqi,100vh - 317px),var(--gu,12px))}
+.dmain:has(.recent .rr) .tp.idle>.tp-in{min-height:round(down,min(56cqi,100vh - 476px),var(--gu,12px))}
+.col:has(>.confirm-stack)>.tp.idle>.tp-in{min-height:0}
+.empty-art{position:relative;width:64px;height:64px;flex:none;display:grid;place-items:center;isolation:isolate;color:var(--ink-3)}
+.empty-art::before{content:none}
+.empty-art::after{content:"";position:absolute;inset:0;z-index:-1;border-radius:19px;background:linear-gradient(180deg,var(--card),var(--fill));box-shadow:inset 0 0 0 var(--hair) var(--line),inset 0 1px 0 var(--glass-hi),var(--tile-shadow)}
+.empty-art svg{width:28px;height:28px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.empty-art.warn{color:var(--o-ink)}
+.empty-art.warn::after{background:linear-gradient(180deg,var(--card),var(--o-soft));box-shadow:inset 0 0 0 var(--hair) var(--o-line),inset 0 1px 0 var(--glass-hi),var(--tile-shadow)}
+.connection-strip{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;background:var(--o-soft);border:var(--hair) solid var(--o-line);border-radius:10px;color:var(--o-ink);font-size:13px}
+.command-needed{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border:var(--hair) solid var(--o-line);border-radius:10px;color:var(--o-ink);font-size:14px}
+.tl .nd-label{font-size:11px;color:var(--ink-2);white-space:nowrap;margin-left:-14px}
+.step-in{animation:step-in .26s var(--ease) both}
+@keyframes step-in{from{opacity:0;translate:0 4px}to{opacity:1;translate:0 0}}
+.pc-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.pc-head h3{display:flex;align-items:center;flex-wrap:wrap;gap:6px}
+.custom-tag{font-size:11px;padding:2px 5px;background:var(--fill-2);color:var(--ink-2);border-radius:4px}
+.tier-seg{display:flex;gap:2px;padding:3px;background:var(--fill-2);border-radius:8px;flex:none}
+.tier-seg button{padding:4px 8px;border:0;border-radius:6px;background:none;color:var(--ink-2);font-size:12px;line-height:16px;cursor:pointer}
+.tier-seg button[aria-pressed="true"]{color:var(--ink)}
+.pr{gap:10px}
+.pr-state{font-size:11px;color:var(--o-ink);white-space:nowrap}
+.pr .pr-chev{margin-left:0}
+.setup-pending{display:block;width:100%;border:0;border-top:var(--hair) solid var(--line);padding:12px 0 0;background:none;color:var(--ink-2);text-align:left;font-size:12px;cursor:pointer}
+/* 权限卡下面的引导气泡：黑色（深色模式灰色）小气泡，挂在权限卡下沿，箭头在左边、对着卡片里的图标那一列；盖在下面的卡片上，不占位置 */
+.permission-hint{position:absolute;top:calc(100% + 11px);left:10px;right:10px;z-index:5;display:flex;align-items:flex-end;gap:12px;padding:11px 11px 11px 14px;border-radius:12px;background:var(--tip-bg);color:var(--tip-ink);box-shadow:var(--tip-shadow);animation:tipIn .55s var(--ease) .35s both}
+.permission-hint::before{content:"";position:absolute;bottom:calc(100% - 1px);left:22px;width:16px;height:8px;background:var(--tip-bg);clip-path:polygon(50% 0,100% 100%,0 100%)}
+.permission-hint p{flex:1;margin:0;font-size:13px;line-height:20px;color:var(--tip-ink)}
+.permission-hint .nw{white-space:nowrap}
+/* 1081（Claude）：「知道了」按钮的字原来是 12.5px，不在字号表里，跟小按钮一样改成 13px。 */
+.permission-hint .btn{flex:none;height:28px;padding:0 12px;border:0;border-radius:999px;background:var(--tip-btn);color:var(--tip-ink-strong);font-size:13px;font-weight:600;box-shadow:none}
+.permission-hint .btn:hover{background:var(--tip-btn-hover)}
+@keyframes tipIn{from{opacity:0;translate:0 -6px}to{opacity:1;translate:0 0}}
+.common{display:flex;flex-direction:column;gap:0}
+.common h4{margin:0 0 8px;font-size:15px;font-weight:600}
+.common-row{display:flex;align-items:flex-start;gap:12px;padding:13px 0;border-bottom:var(--hair) solid var(--line)}
+.common-row>div{flex:1;min-width:0}
+.common-row b{font-size:15px;font-weight:600}
+.common-row p{margin:4px 0 0;font-size:13px;color:var(--ink-2);line-height:1.55}
+.common-row small{display:block;margin-top:4px;font-size:13px;color:var(--ink-3);line-height:1.55}
+.common-row p.warn-text{color:var(--o-ink)}
+.risk-icon{padding-top:3px;color:var(--ink-2)}
+.risk-row span.risk-level,.risk-row span.unusable-tag{display:inline-block;vertical-align:middle;margin:0 0 0 6px;padding:1px 6px;border-radius:4px;font-size:11px;line-height:17px}
+.risk-row span.risk-level.extreme{background:var(--o);color:var(--extreme-ink)}
+.risk-row span.risk-level.high{background:var(--o-soft);color:var(--o-ink)}
+.risk-row span.risk-level.medium,.risk-row span.unusable-tag{background:var(--fill-2);color:var(--ink-2)}
+.repair-progress{height:5px;border-radius:4px;background:var(--fill-2);overflow:hidden}
+.repair-progress i{display:block;height:100%;border-radius:4px;background:var(--g-sw)}
+.repair-progress.indeterminate i{animation:repair-progress 1.3s ease-in-out infinite}
+@keyframes repair-progress{from{translate:-100% 0}to{translate:340% 0}}
+.repair-summary{display:flex;align-items:flex-start;gap:10px;font-size:14px;line-height:1.6}
+.repair-summary b{font-weight:500}
+.ok-text{color:var(--g-ink)}
+.rp section+section{margin-top:18px}
+/* 检查结果分了组（已修复 / 需要你处理 / 其余正常）时，组标题自己就是分隔：上面不再画线，和结论句隔开 18px */
+.rp:has(>section,>details){border-top:0;margin-top:8px}
+.rp>details:first-child{margin-top:0}
+.rp>section>h4{margin:0 0 2px}
+.repair-normal{margin-top:18px}
+.repair-normal summary{font-size:13px;color:var(--ink-2);cursor:pointer}
+.repair-normal h4{margin:12px 0 0}
+.bb-status{display:flex;align-items:center;gap:10px}
+#modal.ask-modal{width:400px;padding:26px}
+.ask-icon{width:44px;height:44px;display:grid;place-items:center;border-radius:12px;background:var(--fill-2);color:var(--ink);margin-bottom:18px}
+.ask-icon .i{width:24px;height:24px}
+.ask-warning{padding:12px 14px;border:var(--hair) solid var(--o-line);border-radius:10px;background:var(--o-soft);color:var(--o-ink);font-size:14px;line-height:1.6;margin-top:14px}
+#modal.ask-modal .actions.ask{display:flex;flex-wrap:nowrap;gap:10px;margin-top:24px}
+#modal.ask-modal .actions.ask .btn{flex:1;min-width:0;min-height:40px}
+/* 0012（Claude）：弹框按钮下面一行小字（「让 ChatGPT 帮我加」会打开 Work、话已填好）。 */
+#modal.ask-modal .ask-note{margin:12px 0 0;font-size:12px;line-height:1.5;color:var(--ink-3);text-align:left}
+@media(prefers-reduced-motion:reduce){.step-in,.repair-progress.indeterminate i{animation:none}}
+/* ---------- 工作量：图表用独立薄荷色；其余沿用窗口变量 ---------- */
+#valueHeader:empty{display:none}
+#valueHeader{flex:0 1 auto;min-width:0;max-width:360px;margin-left:auto}
+.dtop:has(#valueHeader:not(:empty)) .dbrand{flex:none}
+.value-header{position:relative;isolation:isolate;display:flex;flex-direction:column;align-items:flex-end;gap:1px;width:auto;max-width:100%;min-width:0;padding:6px 10px;border:0;border-radius:12px;background:transparent;color:var(--ink);text-align:right;cursor:pointer;font-variant-numeric:tabular-nums;transition:transform .3s var(--ease)}
+.value-header::before{content:"";position:absolute;inset:0;z-index:-1;border-radius:inherit;background:var(--glass);box-shadow:inset 0 0 0 var(--hair) var(--glass-line),inset 0 var(--hair) 0 var(--glass-hi),var(--pill-shadow);-webkit-backdrop-filter:blur(16px) saturate(1.7);backdrop-filter:blur(16px) saturate(1.7);opacity:0;scale:.96;transition:opacity .3s ease,scale .4s var(--ease)}
+.value-header:hover::before,.value-header:focus-visible::before{opacity:1;scale:1}
+.value-header:active{transform:scale(.97);transition-duration:.12s}
+.value-head-number{white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;font-size:17px;line-height:21px}
+.value-head-number small{font-size:13px;font-weight:400;color:var(--ink-3)}
+.value-head-number b{font-weight:600}
+.value-head-bottom{display:flex;align-items:center;justify-content:flex-end;gap:4px;max-width:100%;min-width:0;font-size:12px;line-height:16px;color:var(--ink-3)}
+.value-head-sub{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.value-head-bottom .i{width:12px;height:12px}
+.value-head-quota{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;line-height:13px;font-weight:400;color:var(--ink-3)}
+.value-task,.value-task-detail{font-size:13px;color:var(--ink-3);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.value-summary,.value-daily,.value-stats,.value-lifetime,.value-settings{min-width:0;font-variant-numeric:tabular-nums}
+.value-summary{display:flex;flex-direction:column;gap:12px}
+.value-quota-note{margin:-6px 0 0;font-size:12px;line-height:16px;color:var(--ink-3)}
+.value-kicker{margin:0;font-size:13px;color:var(--ink-3);overflow-wrap:anywhere}
+.value-total{display:flex;align-items:baseline;gap:4px;flex-wrap:wrap;margin:0;line-height:1.2}
+.value-total span,.value-total strong{font-size:17px;font-weight:600}
+.value-total span{font-weight:400;color:var(--ink-3)}
+.value-total b{font-size:30px;font-weight:700}
+.value-share{display:flex;align-items:baseline;gap:4px 8px;flex-wrap:wrap;font-size:15px;line-height:1.6}
+.value-share>span{overflow-wrap:anywhere}
+.value-share small{font-size:12px;color:var(--ink-3);white-space:nowrap}
+.value-share small.value-note-wrap{max-width:100%;white-space:normal;overflow-wrap:anywhere}
+.value-quota{margin-top:4px}
+.value-quota-track{height:10px;border-radius:5px;background:var(--fill-2);overflow:hidden}
+.value-quota-track i{display:block;height:100%;border-radius:5px;background:var(--quota-ch)}
+.value-quota-ticks{display:flex;justify-content:space-between;margin-top:8px;font-size:12px;color:var(--ink-3)}
+.value-api{margin:0;font-size:13px;color:var(--ink-3)}
+.value-daily h3,.value-stats h3,.value-lifetime h3,.value-settings h3{margin:0;font-size:13px;font-weight:600;color:var(--ink-2);overflow-wrap:anywhere}
+.value-section-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+.value-legend{display:flex;align-items:center;gap:3px;font-size:11px;color:var(--ink-3);white-space:nowrap}
+.value-legend i{width:11px;height:11px;border-radius:3px}
+.heat-0{background:var(--heat-0)}.heat-1{background:var(--heat-1)}.heat-2{background:var(--heat-2)}.heat-3{background:var(--heat-3)}.heat-4{background:var(--heat-4)}
+.value-heat{width:max-content;max-width:100%;font-variant-numeric:tabular-nums}
+.value-days{display:grid;grid-auto-flow:column;grid-template-rows:repeat(7,11px);grid-template-columns:repeat(var(--value-cols),11px);gap:3px}
+.value-day{position:relative;width:11px;height:11px;padding:0;border:0;border-radius:3px;cursor:default}
+.value-day.future{visibility:hidden}
+.value-day:hover,.value-day:focus-visible{outline:1px solid var(--ink);outline-offset:2px;z-index:2}
+.value-tip{display:none;position:absolute;bottom:calc(100% + 8px);left:calc(100% + 8px);z-index:3;width:max-content;max-width:210px;padding:8px 12px;border-radius:9px;background:var(--ink);color:var(--win);font-size:12px;line-height:1.5;text-align:left;box-shadow:var(--pop-shadow);pointer-events:none}
+.value-tip b,.value-tip>span{display:block;font-weight:500}
+.value-day.flip .value-tip{left:auto;right:calc(100% + 8px)}
+.value-day:hover .value-tip,.value-day:focus-visible .value-tip{display:block}
+.value-months{display:grid;grid-template-columns:repeat(var(--value-cols),11px);gap:3px;margin-top:10px;font-size:12px;line-height:16px;color:var(--ink-3)}
+.value-months span{grid-row:1;white-space:nowrap}
+.value-stat-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:12px}
+.value-stat{display:flex;flex-direction:column;gap:4px;padding:14px;border-radius:12px;background:var(--fill);min-width:0}
+.value-stat b{font-size:20px;font-weight:600;line-height:1.2;overflow-wrap:anywhere}
+.value-stat small{font-size:13px;line-height:1.5;color:var(--ink-3);overflow-wrap:anywhere}
+.value-lifetime>div{display:flex;align-items:center;gap:12px;margin-top:12px}
+.value-lifetime>div>.i{width:32px;height:32px;padding:8px;border-radius:6px;background:var(--fill);color:var(--ink-2)}
+.value-lifetime p{display:flex;flex-direction:column;gap:4px;min-width:0;margin:0}
+.value-lifetime b{font-size:17px;font-weight:500;overflow-wrap:anywhere}
+.value-lifetime small{font-size:13px;color:var(--ink-3);overflow-wrap:anywhere}
+.value-explanation{border-top:var(--hair) solid var(--line);padding-top:16px;font-size:13px;color:var(--ink-2)}
+.value-explanation summary{display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer;list-style:none}
+.value-explanation summary::-webkit-details-marker{display:none}
+.value-explanation[open] summary .i{rotate:90deg}
+.value-explanation p{margin:12px 0 0;line-height:1.7;overflow-wrap:anywhere}
+.value-settings .si{flex-wrap:wrap}
+.value-settings .si-t{min-width:120px}
+.value-settings .si-t b,.value-settings .si-t small{overflow-wrap:anywhere}
+.value-settings select{flex:none;max-width:100%;width:auto;min-width:96px;margin:0;padding:6px 9px;border:var(--hair) solid var(--line-2);border-radius:8px;background:var(--card);color:var(--ink);font:13px var(--font)}
+.value-settings select:disabled{opacity:.5}
+.value-reset{display:flex;gap:8px;flex-wrap:wrap}
+.value-reset-error{margin:8px 0 0;font-size:13px;color:var(--o-ink);line-height:1.5}
+.value-empty{margin:0;font-size:14px;line-height:1.7;color:var(--ink-2);overflow-wrap:anywhere}
+
+/* ---------- 1014 精修 ---------- */
+/* 卡片边缘高光：鼠标靠近时，卡片描边上离鼠标最近的那一段亮起来，颜色就是光斑现在的颜色（--fx-h）。位置由 app.js 写 --mx/--my。 */
+.card::after,.tp-in::after,.orow::after{content:"";position:absolute;inset:0;z-index:3;border-radius:inherit;pointer-events:none;padding:1px;
+  background:radial-gradient(calc(var(--edge-size) * 1px) circle at var(--mx,-999px) var(--my,-999px),var(--edge-col),var(--edge-col-mid) 35%,var(--edge-col-0) 100%);
+  -webkit-mask:linear-gradient(var(--mask-cutout) 0 0) content-box,linear-gradient(var(--mask-cutout) 0 0);-webkit-mask-composite:xor;mask:linear-gradient(var(--mask-cutout) 0 0) content-box exclude,linear-gradient(var(--mask-cutout) 0 0);
+  opacity:0;transition:opacity .7s ease}
+html.fx-near .card::after,html.fx-near .tp-in::after,html.fx-near .orow::after{opacity:1;transition-duration:.25s}
+/* 点小卡片换到大面板：用页面过渡把小卡片「展开」成大面板、大面板「收起」成小卡片（app.js swapFocus）。不支持的系统直接换。 */
+:root{view-transition-name:none}
+::view-transition-group(*){animation-duration:.5s;animation-timing-function:cubic-bezier(.22,1,.36,1);overflow:clip;border-radius:16px}
+::view-transition-old(*){animation-duration:.16s;animation-timing-function:cubic-bezier(.4,0,1,1)}
+::view-transition-new(*){animation-duration:.34s;animation-delay:.08s;animation-timing-function:ease-out}
+@media (prefers-reduced-motion:reduce){::view-transition-group(*),::view-transition-old(*),::view-transition-new(*){animation:none!important}}
+
+/* ---------- 对齐网点（10/4 定为默认：12 点间距、打开。html.snap-grid 由 app.js 按 --grid-snap 切换；皮肤可以关、可以换间距） ----------
+   规则一句话：贴在桌面上的对齐，浮在上面的不管。
+   · 对齐：页面四边、两栏分界、每张卡片和每一行的四条边、卡片里内容的左边线（内边距取网点间距的整数倍，12 点时是 24 / 36）。
+   · 不对齐：文字的上下位置（行高照旧）；弹窗、抽屉、提示气泡、悬停中的卡片（浮起来离开网格是对的）。
+   网点落在网格线上：竖向从窗口顶边起；横向从左边距起。窗口宽度除不尽的零头左右平分（--gu-x 是左边分到的那一半，取整到 1px），
+   所以左右留白最多差 1px，网点跟着平移 --gu-x。卡片高度由 app.js 补到整数倍；有底栏的卡片，补出来的高度放在正文和底栏之间。 */
+html.snap-grid{--gu:calc(var(--dots-gap) * 1px);--gu-pad:round(32px,var(--gu));--gu-x:round(down,mod(100vw - 2 * var(--gu-pad),var(--gu)) / 2,1px)}
+html.snap-grid.bg-dots body,html.snap-grid.bg-dots-orb body{background-position:calc(var(--gu-x) - var(--gu) / 2) calc(var(--gu) / -2)}
+/* 网点跟着页面滚，光斑的遮罩是固定在窗口上的：app.js 把滚动距离除以间距的余数写进光斑自己的 --sy，遮罩跟着挪 */
+html.snap-grid .fx-spot{-webkit-mask-position:calc(var(--gu-x) - var(--gu) / 2) calc(var(--gu) / -2 - var(--sy,0px));mask-position:calc(var(--gu-x) - var(--gu) / 2) calc(var(--gu) / -2 - var(--sy,0px))}
+/* 大屏限宽：两边各多留的 --gu-cap 取网点间距的整数倍，内容的左边线还落在网点上 */
+html.snap-grid .dash{--gu-rem:mod(100vw - 2 * var(--gu-pad),var(--gu));--gu-cap:max(0px,round(down,(100vw - 2 * var(--gu-pad) - var(--gu-rem) - var(--page-max)) / 2,var(--gu)));padding:round(48px,var(--gu)) calc(var(--gu-pad) + var(--gu-rem) - var(--gu-x) + var(--gu-cap)) 0 calc(var(--gu-pad) + var(--gu-x) + var(--gu-cap))}
+html.snap-grid .dtop{height:round(40px,var(--gu))}
+html.snap-grid .dbody{gap:round(32px,var(--gu));padding-top:round(32px,var(--gu))}
+html.snap-grid .dmain{gap:round(32px,var(--gu))}
+html.snap-grid .col,html.snap-grid .drail,html.snap-grid .rail-stick,html.snap-grid .recent{gap:round(16px,var(--gu))}
+html.snap-grid .others{gap:round(12px,var(--gu))}
+html.snap-grid .drail{width:calc(round(down,clamp(round(356px,var(--gu)),18.75vw + 168px,456px),var(--gu)) + 64px)}
+html.snap-grid .col-h{height:round(32px,var(--gu))}
+html.snap-grid .recent-h{min-height:round(up,20px,var(--gu))}
+/* 卡片高度补齐多出来的几像素放到底栏上面：底栏离卡片下边永远一样远（单行卡片本来就上下居中） */
+html.snap-grid .tp-f,html.snap-grid .cc-f,html.snap-grid .setup-pending{margin-top:auto}
+html.snap-grid .tp-in{padding:round(32px,var(--gu));gap:round(32px,var(--gu))}
+html.snap-grid .cc-main{padding:round(20px,var(--gu)) round(20px,var(--gu)) 0;gap:round(16px,var(--gu))}
+html.snap-grid .cc-f{padding:round(16px,var(--gu)) round(20px,var(--gu)) round(20px,var(--gu))}
+html.snap-grid .pc{padding:round(20px,var(--gu)) round(20px,var(--gu)) round(12px,var(--gu))}
+html.snap-grid .rc{padding:round(20px,var(--gu))}
+html.snap-grid .orow{padding:round(12px,var(--gu)) round(18px,var(--gu)) round(12px,var(--gu)) round(20px,var(--gu))}
+html.snap-grid .rr{height:round(62px,var(--gu));padding:0 var(--rl-out)}
+/* 完成列表的行比栏宽往外多出一截（悬停底色用）：这一截也取整数倍，行的左右边落在网点上，文字仍从栏的边开始 */
+html.snap-grid{--rl-out:round(12px,var(--gu))}
+html.snap-grid .rl{margin:0 calc(var(--rl-out) * -1)}
+html.snap-grid .rr::after{left:var(--rl-out);right:var(--rl-out)}
+
+/* ---------- 色块（10/5）----------
+   图标底、分段控件、统计格、悬停底、返回/关闭按钮底都用 --fill / --fill-2。以前写死成浅灰，改了窗口、卡片这些底色以后会和底色糊在一起。
+   现在从它所在那块底色（--under，各容器自己声明）算：底色里混一点 --fill-ink（默认就是正文色），浅色里比底色稍深、深色里稍浅。
+   --fill-mix 是混多少（「颜色」卡里的「色块深浅」，浅深各一份），--fill-2 是它的 1.7 倍。皮肤可以把 --fill-ink 换成带色调的颜色（钛灰）。 */
+:root{--under:var(--win)}
+dialog.drawer{--under:var(--drawer-bg)}
+dialog#modal,.card,.orow,.prompt-pill{--under:var(--card)}
+.tp-in{--under:var(--panel)}
+.bubble,.scope .menu{--under:var(--surface)}
+:root,dialog.drawer,dialog#modal,.card,.orow,.tp-in,.bubble,.scope .menu,.prompt-pill{--fill:color-mix(in srgb,var(--under),var(--fill-ink) calc(var(--fill-mix) * 1%));--fill-2:color-mix(in srgb,var(--under),var(--fill-ink) calc(var(--fill-mix) * 1.7%))}
+/* 窄窗口：任务副标题里的「今天 08:49 开始」「约 1632 万 token」各自不拆开（1052 起 token 数在副标题里，底栏只放按钮） */
+.tp-t .nw{white-space:nowrap}
+/* 减少动态：卡片边缘高光、列表行分隔线的淡入淡出也不做（以前只有钛灰自己全停，现在所有皮肤一样） */
+@media (prefers-reduced-motion:reduce){.card::after,.tp-in::after,.orow::after,.rr::after{transition:none}}
+
+/* 1015 微动效 */
+.seg,.tier-seg{position:relative;isolation:isolate}
+.seg::before,.tier-seg::before{content:"";position:absolute;top:3px;bottom:3px;left:0;width:var(--seg-w,0px);transform:translateX(var(--seg-x,0px));background:var(--card);border-radius:7px;box-shadow:0 1px 2px var(--segment-shadow);pointer-events:none;z-index:0}
+.tier-seg::before{border-radius:6px;box-shadow:0 1px 3px var(--segment-shadow)}
+.seg.seg-ready::before,.tier-seg.seg-ready::before{transition:transform .32s var(--ease),width .32s var(--ease)}
+.seg button,.tier-seg button{position:relative;z-index:1;transition:color .2s var(--ease)}
+dialog#modal[open]:not(.closing){animation:micro-modal-in .22s var(--ease)}
+dialog#modal[open]:not(.closing)::backdrop{animation:micro-mask-in .2s var(--ease)}
+dialog#modal.closing{animation:micro-modal-out .16s var(--ease) forwards}
+dialog#modal.closing::backdrop{animation:micro-mask-out .16s var(--ease) forwards}
+@keyframes micro-modal-in{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:scale(1)}}
+@keyframes micro-modal-out{from{opacity:1;transform:scale(1)}to{opacity:0;transform:scale(.96)}}
+@keyframes micro-mask-in{from{opacity:0}to{opacity:1}}
+@keyframes micro-mask-out{from{opacity:1}to{opacity:0}}
+.scope .menu{transform-origin:top right;animation:micro-scope-in .18s var(--ease)}
+@keyframes micro-scope-in{from{opacity:0;transform:translateY(-4px) scale(.96)}to{opacity:1;transform:translateY(0) scale(1)}}
+.scope-chev{transition:transform .2s var(--ease)}
+.scope-btn[aria-expanded="true"] .scope-chev{transform:rotate(270deg)}
+.switch::after{transition:width .2s var(--ease),transform .25s var(--ease)}
+.switch:active::after{width:16px}
+.switch[aria-checked="true"]:active::after{transform:translateX(9.6px)}
+.dp-h .switch:active::after{width:21.2px}
+.dp-h .switch[aria-checked="true"]:active::after{transform:translateX(12.8px)}
+.nd.ok svg{stroke-dasharray:40;stroke-dashoffset:0}
+.stat{transition:color .3s var(--ease)}
+.sdot{transition:background-color .3s var(--ease)}
+@media (prefers-reduced-motion:reduce){
+ .seg::before,.tier-seg::before,.seg button,.tier-seg button,.scope-chev,.switch::after,.stat,.sdot{transition:none!important}
+ dialog#modal[open],dialog#modal.closing,dialog#modal::backdrop,.scope .menu{animation:none!important}
+}
+/* 设置抽屉：外观一行（左边名字，右边分段按钮） */
+.sg.sg-inline{flex-direction:row;align-items:center;justify-content:space-between;gap:12px}
+.sg.sg-inline h4{margin:0}
+/* 10/30（Ken）：外观的三个按钮只放图标（太阳、月亮、半边涂黑的圆），名字在鼠标提示和读屏里；选中那格的白底照旧滑过去 */
+.appearance-seg button{width:34px;padding:0;display:inline-flex;align-items:center;justify-content:center}
+/* 缺省图的圈和波纹（10/5 Ken：圆角矩形、更浅；晚上：默认不动，三圈间距一样）。
+   静止的圈离图标 16 / 32 / 48（app.js 里写在每个圈上）。波纹平时不画，--wave-motion 为 1 时由 app.js 的 waveSync 用 Web Animations 驱动 */
+:root{--wave-motion:0;--wave-count:3;--wave-gap:150;--wave-trend:1;--wave-rest:2.8;--wave-dur:1.6;--wave-size:48;--wave-a:.45;--wave-rings:.35}
+.empty-art>i{position:absolute;z-index:-2;box-sizing:border-box;pointer-events:none;border:1px solid var(--empty-ring)}
+.empty-art>.ew-ring{inset:calc(-1 * var(--ro));border-radius:calc(19px + var(--ro));opacity:calc(var(--wave-rings) * var(--ra))}
+.empty-art>.ew-wave{inset:0;border-radius:19px;opacity:0}
+
+/* ---------- 10/5：滚动条、回到顶部、背景停住 ----------
+   滚动条：系统的藏起来，app.js 在右边画一根细条（.sbar）——滚动时出现，停 1 秒淡掉；鼠标移到右边缘也出现，可以拖。
+   上下各缩进一截（不顶到窗口按钮那一条，也不贴底），比系统的短；颜色是正文色的两成，浅色深色都淡。 */
+.sbar{position:fixed;right:2px;top:56px;bottom:16px;width:12px;z-index:108;opacity:0;transition:opacity .35s var(--ease)}
+.sbar.on,.sbar:hover,.sbar.drag{opacity:1;transition-duration:.12s}
+.sbar i{position:absolute;right:3px;top:0;width:4px;min-height:24px;border-radius:3px;background:color-mix(in srgb,var(--ink) 20%,transparent);transition:width .15s var(--ease),background-color .15s var(--ease)}
+.sbar:hover i,.sbar.drag i{width:6px;background:color-mix(in srgb,var(--ink) 34%,transparent)}
+dialog.drawer .sbar{position:absolute}
+.drawer-b{scrollbar-width:none}
+.drawer-b::-webkit-scrollbar{display:none;width:0;height:0}
+/* 回到顶部：左下角，在皮肤按钮上面（正式版没有皮肤按钮时就在它的位置）。往下滚过三分之一屏才出现 */
+.to-top{position:fixed;left:12px;bottom:12px;z-index:109;width:32px;height:32px;display:grid;place-items:center;padding:0;border:var(--hair) solid var(--line);border-radius:50%;background:var(--card);color:var(--ink-2);box-shadow:var(--card-shadow);cursor:pointer;opacity:0;visibility:hidden;transform:translateY(6px) scale(.92);transition:opacity .25s var(--ease),transform .35s var(--ease),visibility 0s linear .35s,border-color .15s,color .15s}
+.to-top.on{opacity:1;visibility:visible;transform:none;transition-delay:0s}
+.to-top:hover{border-color:var(--line-2);color:var(--ink)}
+.to-top:active{transform:scale(.94)}
+.to-top svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+body:has(#ch-skin-tools) .to-top{bottom:52px}
+body:has(#ch-skin-panel:not([hidden])) .to-top{opacity:0;visibility:hidden}
+/* 背景不动（--bg-motion 为 0）：右上角背景只画一帧，旧的极光也停住（省电） */
+html.bg-still .fx-aurora i{animation-play-state:paused}
+@media (prefers-reduced-motion:reduce){.sbar,.sbar i,.to-top,.drag-strip::before,.drag-strip::after{transition:none!important}}
+
+/* 1021：首页卡片里的时间线行距收紧 */
+.tp .tl li{min-height:46px}
+.tp .tl li:last-child{min-height:0}
+
+/* 1021：已完成的筛选和搜索放一行 */
+.done-bar{display:grid;grid-template-columns:minmax(0,max-content) minmax(32px,1fr);align-items:center;gap:12px}
+.done-bar:has(>.mt-help){grid-template-columns:minmax(0,max-content) 32px minmax(32px,1fr)}
+.done-bar>.seg{min-width:0;max-width:100%;overflow-x:auto;white-space:nowrap}
+.done-bar>.seg button{flex-shrink:0}
+.done-bar>.mt-help{margin-left:0}
+.done-search{position:relative;display:flex;align-items:center;flex:none;justify-self:end;width:32px;max-width:100%;min-width:0;overflow:hidden;height:32px;margin-left:0;border-radius:10px;background:var(--fill-2);color:var(--ink-2);cursor:pointer;transition:width .28s var(--ease),background-color .2s,box-shadow .2s}
+.done-search .i{position:absolute;left:8px;pointer-events:none}
+.done-search:hover,.done-search.open,.done-search:focus-within{width:204px;color:var(--ink-3)}
+.done-search.open{background:var(--card);box-shadow:inset 0 0 0 var(--hair) var(--line-2)}
+.done-search input{width:100%;min-width:0;height:100%;padding:0 12px 0 32px;border:0;border-radius:10px;background:transparent;color:var(--ink);font:inherit;font-size:13px;outline:none;cursor:pointer;opacity:0;transition:opacity .2s}
+.done-search:hover input,.done-search.open input,.done-search:focus-within input{opacity:1;cursor:text}
+.done-search input::placeholder{color:var(--ink-3)}
+.done-search input:focus,.done-search input:focus-visible{outline:none}
+.done-search.open input{padding-right:34px}
+/* 1081（Claude）：收起时框只有 32px 宽，输入框左右留白加起来 44px，会比框宽出 12px（看不见，但算溢出）。收起时右边不留白。 */
+.done-search:not(.open):not(:hover):not(:focus-within) input{padding-right:0}
+.done-clear{position:absolute;right:6px;top:50%;translate:0 -50%;display:grid;place-items:center;width:22px;height:22px;padding:0;border:0;border-radius:50%;background:var(--fill-2);color:var(--ink-3);cursor:pointer}
+.done-clear:hover{color:var(--ink)}
+.done-search:not(.open) .done-clear{display:none}
+.done-search:focus-within{box-shadow:inset 0 0 0 var(--hair) var(--ink-3)}
+.done-search input::-webkit-search-cancel-button{-webkit-appearance:none}
+.empty .tbtn{margin-left:8px}
+
+/* 1021：进行中的任务按开始时间排、位置不动，点哪张展开哪张（待办十九） */
+.tasks{display:flex;flex-direction:column;gap:12px}
+html.snap-grid .tasks{gap:round(12px,var(--gu))}
+.orow[aria-expanded="false"]>.i:last-child{transform:rotate(90deg)}
+.tp-t[role="button"]{cursor:pointer;border-radius:8px}
+.tp-t[role="button"]:focus-visible{outline:2px solid var(--ink-3);outline-offset:4px}
+.tp-fold{flex:none;display:grid;place-items:center;width:28px;height:28px;margin:-4px -8px 0 4px;border:0;border-radius:8px;background:transparent;color:var(--ink-3);cursor:pointer}
+.tp-fold .i{transform:rotate(-90deg)}
+
+/* 1021：成果一行（待办二十） */
+.outs{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:16px}
+.outs-h{font-size:12px;color:var(--ink-3);flex:none}
+.outs-l{display:flex;gap:6px;flex-wrap:wrap;min-width:0}
+.out{position:relative;display:inline-flex;align-items:center;gap:7px;max-width:220px;height:30px;padding:0 10px 0 8px;border:var(--hair) solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font:inherit;font-size:13px;cursor:default;--out-bg:var(--card)}
+.out>span:first-of-type{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* 1026：前面的图标用面性（淡底色 + 描边），和后面两个线性的操作按钮分开（Ken 10/7） */
+.out>.lead{flex:none;color:var(--ink-3);fill:currentColor;stroke:var(--out-bg);stroke-width:1.5}
+.out-thumb{width:24px;height:24px;flex:none;object-fit:cover;border-radius:4px;background:var(--fill)}
+.out.more{cursor:pointer;color:var(--ink-2)}
+.out[role="button"]{cursor:pointer}
+/* 1026：操作按钮一直占着位置（平时淡一点，移上去才亮），卡片宽度不会因为鼠标进出变化——之前移上去撑宽、换行、移开又缩回，来回跳（Ken 10/7） */
+.out-acts{display:flex;align-items:center;gap:0;margin-right:-6px;opacity:.45;transition:opacity .12s}
+.out:hover,.out:focus-within{background:var(--fill);--out-bg:var(--fill)}
+.out:hover .out-acts,.out:focus-within .out-acts{opacity:1}
+.out-acts button{display:grid;place-items:center;width:24px;height:24px;border:0;border-radius:6px;background:transparent;color:var(--ink-2);cursor:pointer}
+.out-acts button:hover{background:var(--card);color:var(--ink)}
+.outs-dir{margin-left:auto;font-size:13px}
+@media(prefers-reduced-motion:reduce){.done-search,.done-search input{transition:none}}
+
+/* 1026：带说明的词：虚线下划线，移上去弹说明 */
+.term{text-decoration:underline dashed;text-decoration-color:var(--ink-3);text-underline-offset:3px;cursor:help;outline-offset:2px}
+#tip{position:fixed;z-index:200;max-width:280px;padding:7px 11px;border-radius:9px;background:var(--ink);color:var(--win);font-size:12px;line-height:1.55;pointer-events:none;box-shadow:var(--pop-shadow)}
+
+/* 1026：任务详情里「成果」挪到「结果」下面、「过程」上面（不用滑到底）；标题和别的模块一样用 h4，卡片里那个小「成果」字不再重复 */
+.hp-outs .outs{margin-top:0}
+.hp-outs .outs-h{display:none}
+/* 1026：展开的大卡，整条标题区（连同卡片顶上的留白）都能点收起；样式不变，不加灰底（Ken 10/7） */
+.tp-h.tp-hit{position:relative;cursor:pointer;outline:none}
+.tp-h.tp-hit::before{content:"";position:absolute;inset:-32px -32px -16px;border-radius:16px 16px 0 0}
+.tp-h.tp-hit:focus-visible::before{box-shadow:inset 0 0 0 2px var(--ink-3)}
+.tp-h.tp-hit .tp-fold{pointer-events:none}
+
+/* 1027：任务详情里的停住记录 */
+.stall-log{list-style:none;margin:0;padding:0;display:grid;gap:10px;font-size:13px;color:var(--ink-2)}
+.stall-log b{font-weight:600;color:var(--ink)}
+.stall-log p{margin:2px 0 0}
+
+/* 1050 isolated candidate: page sections reuse the current window tokens. */
+.permission-presets{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.permission-preset{display:flex;flex-direction:column;align-items:flex-start;gap:12px;min-width:0;padding:20px;border:1px solid var(--line);border-radius:14px;background:var(--card)}
+.permission-preset.current{border-color:var(--ink-2);box-shadow:0 0 0 .5px var(--ink-2)}
+.permission-preset h3{margin:0;font-size:17px;font-weight:600}
+.permission-preset p{margin:0 0 8px;color:var(--ink-2);font-size:13px;line-height:1.65}
+.permission-preset>.btn,.preset-current{margin-top:auto}
+.preset-current{display:flex;align-items:center;gap:6px;min-height:30px;color:var(--ink-2);font-size:13px}
+.sg.always-allowed{gap:0;margin:0 -10px;padding:0 10px}
+.sg.always-allowed h4{margin:0 0 4px;font-size:13px;color:var(--ink-3);font-weight:500}
+.always-allowed-row.si{min-height:56px;padding:14px 0}
+.always-allowed-row.si::after{left:0}
+.always-allowed-row .tbtn{padding:6px 0 6px 12px;color:var(--ink-2);font-size:13px}
+.always-allowed-row .tbtn:hover{color:var(--ink)}
+.always-allowed-empty{font-size:14px;color:var(--ink-3)}
+/* 进行中卡片（Ken 10/16）：左边过程占 2/3，右边成果占 1/3。成果不加底色、不加框，也不画分割线，靠留白和「成果 · N」小标题和左边分开（Ken 10/16：竖线太愣），悬停整行灰底。
+   两栏都有最高高度，真超出了才在底下渐隐（clipFade 加 .fade）；高度按窗口算，整张卡尽量不超过笔记本全屏时的一屏。 */
+.task-content{--tc-max:clamp(200px,calc(100vh - 440px),560px);display:grid;grid-template-columns:minmax(0,1fr);gap:20px 32px;align-items:start;min-width:0}
+/* 过程紧跟在标题下面时，跟标题之间少留一格网点；成果排到过程下面时，上下也收紧一点。
+   10/30 Ken：标题和过程中间夹着框（等你开权限、停住了的说明、遇到问题）的卡也一样收：标题到框、框到过程都少一格网点，跟标题直接到过程一个节奏；
+   两个框叠在一起时（比如「此命令需要开启权限」下面跟着一张拦下来的卡）中间只留一格，看得出是一起的。过程和底下那一栏之间不动。 */
+.tp-h+.task-content,.tp-h+:is(.wb,.command-needed,.task-blocker),.tp-in>:is(.wb,.command-needed,.task-blocker)+.task-content{margin-top:-12px}
+.tp:not(.idle)>.tp-in>:is(.wb,.command-needed,.task-blocker)+:is(.wb,.command-needed,.task-blocker){margin-top:-24px}
+.task-content.has-outputs{grid-template-columns:minmax(0,2fr) minmax(0,1fr)}
+.task-content>.tl-link{min-width:0;max-height:var(--tc-max);overflow:hidden}
+.task-content>.tl-link.fade,.task-output-list.fade{-webkit-mask-image:linear-gradient(to bottom,var(--mask-cutout) calc(100% - 56px),transparent);mask-image:linear-gradient(to bottom,var(--mask-cutout) calc(100% - 56px),transparent)}
+.task-outputs{min-width:0;align-self:stretch;padding:8px 0 0 24px}
+.task-outputs h4{margin:0 0 6px;color:var(--ink-3);font-size:13px;line-height:18px;font-weight:500}
+.task-output-list{display:flex;flex-direction:column;gap:2px;margin:0 -8px;max-height:calc(var(--tc-max) - 64px);overflow:hidden}
+.task-output{display:flex;align-items:center;gap:10px;min-width:0;min-height:36px;padding:0 4px 0 8px;border-radius:8px;cursor:pointer;transition:background-color .15s}
+.task-output>.i{width:16px;height:16px;flex:none;color:var(--ink-3)}
+.task-output:hover,.task-output:focus-within{background:var(--fill)}
+.output-name{min-width:0;flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:14px;color:var(--ink)}
+.output-name.split{display:flex;overflow:visible}
+.output-name.split>span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.output-name.split>span:last-child{flex:none}
+.output-reveal{display:grid;place-items:center;flex:none;width:28px;height:28px;padding:0;border:0;border-radius:6px;background:none;color:var(--ink-4);transition:color .15s;cursor:pointer}
+.task-output:hover .output-reveal,.task-output:focus-within .output-reveal{color:var(--ink-2)}
+.output-reveal:hover{color:var(--ink)}
+.output-more{margin-top:6px;color:var(--ink-2);font-size:13px}
+@container (max-width:760px){.task-content.has-outputs{grid-template-columns:minmax(0,1fr)}.task-outputs{padding:8px 0 0}}
+/* 1057（Claude，10/17。Ken：要细描边、悬停才有底色）：一圈发丝线（--hair，--line-2），悬停或键盘停在上面时铺 --fill-2、描边留着、字变深；按下再深一点（--line）。
+   10/30（Ken：底下不能镂空、透出网点，要一个固定的底色）：平时的底改成实心的卡片色（--card），不再透明。胶囊自己声明 --under 是卡片色，
+   11/1（Ken）：进行中空状态的三句推荐随任务面板底色，记一下空状态的按钮随窗口纯底色；两处都遮住网点，并跟皮肤同步。
+   --under 默认仍是卡片色，指定场景按所在区域覆盖；悬停和按下也从同一块实心底色计算。
+   首屏推荐的几句（1052 补丁 2，Claude，10/16）：按内容宽度排一行、居中、彼此隔 10，放不下就换行；高 36、左右各 14，图标 16 用 --ink-3，图标和字隔 6。
+   右上小箭头照旧只在悬停（或键盘停在上面）时出现，出现在前面那个小图标的位置、接替它：平时左右留白一样，悬停也不改宽度、不挤动旁边几个。 */
+.prompt-list{display:flex;flex-direction:row;flex-wrap:wrap;align-items:center;justify-content:center;gap:10px;width:100%}
+.prompt-pill{position:relative;display:flex;align-items:center;gap:6px;min-width:0;height:36px;padding:0 14px;border:var(--hair) solid var(--line-2);border-radius:999px;background:var(--under);font-size:14px;line-height:20px;color:var(--ink-2);cursor:pointer;transition:background-color .15s,border-color .15s,color .15s}
+.tp.idle .tp-empty>.prompt-list>.prompt-pill{--under:var(--panel)}
+.matter-empty .prompt-list>.prompt-pill{--under:var(--win)}
+.prompt-pill>span{white-space:nowrap}
+.prompt-pill>.i{flex:none;width:16px;height:16px;color:var(--ink-3);transition:opacity .18s,transform .18s}
+.prompt-pill:hover,.prompt-pill:focus-visible{background:var(--fill-2);color:var(--ink)}
+.prompt-pill:active{background:linear-gradient(var(--line),var(--line)) var(--under)}
+.prompt-pill>.prompt-arrow{position:absolute;left:14px;top:calc(50% - 8px);opacity:0;transform:translate(-2px,2px)}
+.prompt-pill:hover>.i:first-child,.prompt-pill:focus-visible>.i:first-child{opacity:0}
+.prompt-pill:hover>.prompt-arrow,.prompt-pill:focus-visible>.prompt-arrow{opacity:1;transform:none}
+@media (prefers-reduced-motion:reduce){.prompt-pill,.prompt-pill>.i{transition:none}}
+/* 毛玻璃任务面板：同一层玻璃色铺在窗口实心底上，按钮内不采样网点或光斑。
+   反馈色再盖在这块合成底色上，继续保留 150ms 的悬停节奏。 */
+@property --prompt-state{syntax:'<color>';inherits:false;initial-value:transparent}
+html.glass .tp.idle .tp-empty>.prompt-list>.prompt-pill{
+  --under:var(--win);--prompt-coat:color-mix(in srgb,var(--glass-panel) calc(var(--glass-mix) * 1%),transparent);
+  background:linear-gradient(var(--prompt-state),var(--prompt-state)),linear-gradient(var(--prompt-coat),var(--prompt-coat)) var(--under);
+  transition:--prompt-state .15s,border-color .15s,color .15s;
+}
+html.glass .tp.idle .tp-empty>.prompt-list>.prompt-pill:is(:hover,:focus-visible){--prompt-state:color-mix(in srgb,var(--fill-ink) calc(var(--fill-mix) * 1.7%),transparent)}
+html.glass .tp.idle .tp-empty>.prompt-list>.prompt-pill:active{--prompt-state:var(--line)}
+@media (prefers-reduced-motion:reduce){html.glass .tp.idle .tp-empty>.prompt-list>.prompt-pill{transition:none}}
+.value-summary{gap:0}
+.value-kicker{margin:0 0 4px;overflow-wrap:normal}
+.value-summary .value-quota{margin-top:12px}
+.value-quota-track{height:6px;border-radius:3px}
+.value-quota-track i{border-radius:3px}
+/* 1081：超过 100% 时条下的刻度，按比例摆在各自的位置；头一个靠左、最后一个靠右，不伸出条。 */
+.value-summary .value-quota-ticks{position:relative;display:block;height:16px;margin-top:6px;font-size:12px;line-height:16px;color:var(--ink-3);font-variant-numeric:tabular-nums}
+.value-summary .value-quota-ticks span{position:absolute;top:0;transform:translateX(-50%);white-space:nowrap}
+.value-summary .value-quota-ticks span:first-child{transform:none}
+.value-summary .value-quota-ticks span:last-child{transform:translateX(-100%)}
+/* 1081（Claude）：周额度、按 API 价两段各自整段排，放不下就整段换到下一行；一段比整行还长时（字放大、长译文）在段里折行。
+   原来两段都不许折行，长了会伸出抽屉。 */
+.value-meta{display:flex;flex-wrap:wrap;align-items:baseline;gap:0;margin:8px 0 0;color:var(--ink-3);font-size:13px;line-height:20px}
+.value-meta-api{padding-left:4px}
+#toast:has(.toast-undo){display:flex;align-items:center}
+/* 抽屉开着时提示放进抽屉，在抽屉里居中（抽屉自己是 fixed，这里用 absolute 跟着抽屉走） */
+#drawer>.toast{position:absolute;max-width:calc(100% - 48px)}
+#toast .toast-undo{flex:none;margin-left:12px;padding:0;color:inherit;text-decoration:underline;text-underline-offset:3px}
+.value-summary+.value-daily{margin-top:8px}
+/* 1052 补丁 2（Claude，10/16）：待办事项页和已完成用同一套：上面 .seg + 可收起搜索，行用 .rr 网格。
+   行里勾选框占状态点那一格，鼠标移上去、键盘停在上面、或者已经有勾选时才换成勾选框；其余几格是一个按钮（subgrid），点了看详情。
+   勾了才出现的批量条从上面滑出来，不把列表一下顶下去。
+   窗口窄（最小 980 宽时条只有 504）放不下一行：按钮整组换到第二行，「已选 N 条 · 全选 …… 取消选择」留在第一行，不让「取消选择」一个人掉下去。 */
+.matter-bar{container-type:inline-size;display:flex;align-items:center;flex-wrap:wrap;gap:8px;min-height:32px;font-size:13px;color:var(--ink-2);animation:matterBarIn .24s var(--ease) both}
+@keyframes matterBarIn{from{opacity:0;margin-bottom:-48px}}
+.matter-count{margin-right:4px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap}
+.matter-bar>.tbtn{padding:4px}
+.matter-bar>.matter-none{margin-left:auto}
+.matter-acts{display:contents}
+@container (max-width:599px){.matter-bar:has(>.matter-none)>.matter-acts{display:flex;flex-wrap:wrap;gap:8px;order:1;flex:0 0 100%}}
+@container (max-width:679px){.matter-bar:has(>.matter-none)>.matter-acts:has(>[data-action="matterUndoLast"]){display:flex;flex-wrap:wrap;gap:8px;order:1;flex:0 0 100%}}
+/* 1053 后（Claude，10/17）：行改两层（标题 / 状态 · 在等什么 · 来源），去掉状态点和编号，勾选框一直显示；
+   右边时间在鼠标移上去或键盘移到「处理」时换成「处理」（最近删除里是「恢复」）。 */
+/* 1056 后（Claude，10/17 12:59。Ken：两行太挤，上下留白跟「已完成」一样）：已完成一行 62 高、文字一行 21，上下各留约 20；
+   这里两行文字 42，行高 84，上下同样各 21。吸附网格时取到网格整数倍（向上取，不比 84 矮）。只有一行（没有在等什么也没有来源）时也是 84（1060 改，原来是 62）。 */
+.matter-row{grid-template-columns:16px minmax(0,1fr);gap:14px;height:auto;min-height:84px;padding-block:0;cursor:default}
+html.snap-grid .matter-row{height:auto;min-height:round(up,84px,var(--gu))}
+.matter-pick{display:grid;place-items:center;align-self:stretch;margin:0 -7px 0 -12px;padding-left:12px;padding-right:7px;cursor:pointer}
+.matter-pick>input{width:16px;height:16px;margin:0;accent-color:var(--accent);cursor:pointer}
+.matter-open{grid-column:2;align-self:stretch;display:grid;grid-template-columns:minmax(0,1fr) 64px auto;grid-template-rows:auto auto;align-content:center;column-gap:16px;row-gap:3px;min-width:0;padding:0;border:0;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
+.matter-open>b{grid-area:1/1;font-size:15px;line-height:21px}
+.matter-open>.mt-meta{grid-area:2/1;min-width:0;font-size:13px;line-height:18px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.matter-open>.rr-tm{grid-area:1/3/3/4;align-self:center;min-width:64px;transition:opacity .15s}
+.matter-open:not(:has(>.mt-meta)){grid-template-rows:auto;row-gap:0}
+/* 1060（Claude，10/17。Ken：单行的字偏上）：只有标题一行时，状态和时间原来跨两行（1/3），撑出一条约 10px 的隐形第二行，
+   标题被顶到上面。单行时让它们只占第一行，三样一起上下居中；行高和两行的一样，都是 84，不再有 62 的矮行。 */
+.matter-open:not(:has(>.mt-meta))>.mt-st,.matter-open:not(:has(>.mt-meta))>.rr-tm{grid-row:1}
+/* 状态一列：标题和时间（鼠标移上去是「处理」）中间，定宽 64、左对齐，上下居中；字号颜色和「已完成」的结果一列一样 */
+.matter-open>.mt-st{grid-area:1/2/3/3;align-self:center;font-size:14px;line-height:20px;white-space:nowrap}
+.mt-st{font-weight:500}
+.mt-st.fail{color:var(--o-ink)}
+.mt-st.ok{color:var(--g-ink)}
+.mt-st.stop{color:var(--ink-2)}
+.matter-open:focus-visible{outline:none}
+.matter-row:has(>.matter-open:focus-visible){outline:2px solid var(--ink);outline-offset:2px}
+.matter-row:has(.matter-pick>input:checked){background:var(--fill)}
+.matter-row:has(.matter-pick>input:checked)::after,.matter-row:has(+ .matter-row .matter-pick>input:checked)::after{opacity:0}
+.mt-go{position:absolute;right:12px;top:50%;translate:0 -50%;display:inline-flex;align-items:center;gap:3px;height:28px;padding:0 10px 0 12px;border-radius:999px;border:var(--hair) solid var(--line-2);background:var(--card);color:var(--ink);font:inherit;font-size:13px;font-weight:600;white-space:nowrap;cursor:pointer;opacity:0;pointer-events:none;transition:opacity .15s,background-color .15s}
+.mt-go .i{width:12px;height:12px;stroke-width:2.2;color:var(--ink-2)}
+.mt-go:hover{background:var(--fill)}
+.matter-row:hover .mt-go,.mt-go:focus-visible{opacity:1;pointer-events:auto}
+.matter-row:hover .matter-open>.rr-tm,.matter-row:has(.mt-go:focus-visible) .matter-open>.rr-tm{opacity:0}
+.mt-go:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){.matter-bar{animation:none}.mt-go,.matter-open>.rr-tm{transition:none}}
+.matter-detail{max-height:45vh;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere}
+/* 1052 R13（Claude）：事项详情按经过一条条显示 */
+.matter-history{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px;white-space:normal}
+.matter-history>li{padding-bottom:12px;border-bottom:1px solid var(--line)}
+.matter-history>li:last-child{border-bottom:0;padding-bottom:0}
+#modal .matter-history small{display:block;margin-bottom:4px;color:var(--ink-3);font-size:12px}
+#modal .matter-history p,#modal .matter-long>summary{margin:2px 0;font-size:13px;line-height:1.6;color:var(--ink-2);white-space:pre-wrap;overflow-wrap:anywhere}
+#modal .matter-history b{color:var(--ink);font-weight:600}
+/* 很长的一段先收起，点「展开」看全文 */
+.matter-long>summary{cursor:pointer;list-style:none}
+.matter-long>summary::-webkit-details-marker{display:none}
+.matter-long>summary::after{content:'展开';margin-left:6px;color:var(--ink-2);font-weight:600}
+.matter-long[open]>summary>span{display:none}
+.matter-long[open]>summary::after{content:'收起'}
+#modal .matter-long>p{margin-top:0}
+
+/* 1052（Claude）：任务卡里「停住了 / 等你回话 / 长时间无活动」的说明块，和「等你处理」同一种浅橙底；没有关闭按钮，右边不用留位置 */
+.wb.task-note{padding-right:16px}
+.wb.task-note b small{display:block;margin-top:2px;font-size:13px;line-height:1.45;font-weight:400;color:var(--ink-3)}
+.wb.task-note .task-progress{color:var(--ink)}
+/* 窗口窄、或者界面放大到 150% 时，底栏放不下就把「停止」换到第二行，不再挤出卡片（原来就有的问题，顺手修） */
+.tp-f{flex-wrap:wrap;row-gap:12px}
+/* 1052 C4-4（Claude）：设置里 Site 那一行下面的问题（顶上那条「已连上 Site … 断开」1069 去掉了） */
+.site-issue{display:flex;align-items:flex-start;gap:8px;margin:4px 0 8px;padding:10px 12px;border-radius:10px;background:var(--o-soft);color:var(--o-ink);font-size:13px;line-height:1.45}
+.site-issue>.i{flex:none;margin-top:1px}
+.site-issue>span{flex:1;min-width:0}
+.site-issue .tbtn{flex:none;color:var(--o-ink)}
+
+/* Authorization history is a read-only chronology; changes live in settings. */
+.permission-history-row{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:var(--hair) solid var(--line)}
+.permission-history-row>div{flex:1;min-width:0}
+.permission-history-row b{display:block;font-size:14px;font-weight:500;color:var(--ink)}
+.permission-history-row small{display:block;margin-top:4px;font-size:12px;color:var(--ink-3)}
+.permission-history-row small .tbtn{font:inherit;color:var(--ink-2);padding:0}
+.permission-history-row.revoked b,.permission-history-row.revoked small{color:var(--ink-3)}
+
+/* 1053 后 待办空状态（Claude，10/17）：一条都没有时的空状态卡片直接用「进行中」那一套（.tp.idle / .tp-empty / emptyIllustration / .prompt-pill），这里不另写。
+   下面是有事项时筛选行里的 ⓘ 和它弹出的说明卡：和右上角范围菜单同一种浮层（--card 底、细描边、--pop-shadow、同一个弹出动画），
+   三步竖排，用一根细线把三个序号串起来；左上角的小图标块用主题色淡底，表示这是介绍不是提醒。 */
+.mt-help{position:relative;flex:none;margin-left:auto}
+.mt-help+.done-search{margin-left:0}
+.done-help{display:grid;place-items:center;width:32px;height:32px;padding:0;border:0;border-radius:10px;background:var(--fill-2);color:var(--ink-2);cursor:pointer;transition:color .15s,background-color .15s}
+.done-help:hover,.done-help[aria-expanded="true"]{color:var(--ink)}
+.done-help[aria-expanded="true"]{background:var(--line)}
+.done-help:focus-visible{outline:2px solid var(--ink-3);outline-offset:2px}
+.mt-pop{--under:var(--surface);position:absolute;right:0;top:calc(100% + 8px);z-index:30;width:min(328px,calc(100vw - 48px));padding:16px 16px 14px;border-radius:14px;border:var(--hair) solid var(--line);background:var(--card);box-shadow:var(--pop-shadow);transform-origin:top right;animation:micro-scope-in .18s var(--ease);outline:none}
+/* 卡头只留一行标题（Ken 10/17：去掉前面的图标，字大一点） */
+.mt-pop-t{margin:0;font-size:16px;line-height:22px;font-weight:600;color:var(--ink);letter-spacing:0}
+.mt-flow{list-style:none;counter-reset:mt;margin:14px 0 0;padding:0;display:flex;flex-direction:column;gap:12px}
+.mt-flow>li{counter-increment:mt;position:relative;display:flex;flex-direction:column;gap:2px;padding-left:30px}
+.mt-flow>li::before{content:counter(mt);position:absolute;left:0;top:0;display:grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--fill-2);box-shadow:inset 0 0 0 var(--hair) var(--line);font-size:11px;line-height:1;font-weight:600;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.mt-flow>li:not(:last-child)::after{content:"";position:absolute;left:10px;top:24px;bottom:-10px;width:0;border-left:1px solid var(--line)}
+.mt-flow b{font-size:13px;line-height:20px;font-weight:600;color:var(--ink)}
+.mt-flow span{font-size:12px;line-height:18px;color:var(--ink-2);text-wrap:pretty}
+.mt-pop-foot{margin:14px 0 0;padding-top:12px;border-top:var(--hair) solid var(--line);font-size:12px;line-height:18px;color:var(--ink-3);text-wrap:balance}
+@media (prefers-reduced-motion:reduce){.mt-pop{animation:none}.done-help{transition:none}}
+/* 1053 后（Claude，10/17）：标签「待办事项」后面等你回的条数，小气泡。1–99 显示数字，超过 99 显示三个点；中性色 */
+.col-h button.has-badge{display:inline-flex;align-items:center;gap:6px}
+.tab-badge{display:inline-grid;place-items:center;box-sizing:border-box;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--fill-2);color:var(--ink-3);font-size:12px;line-height:1;font-weight:600;letter-spacing:0;font-variant-numeric:tabular-nums}
+/* Ken 10/17：气泡不要用强颜色，它只是个数，不是要你马上去点的提醒。用中性灰底，选中这个标签时字深一点 */
+.col-h button[aria-selected="true"] .tab-badge{color:var(--ink-2)}
+.tab-badge.more{grid-auto-flow:column;gap:2px;padding:0 5px}
+.tab-badge.more i{width:3px;height:3px;border-radius:50%;background:currentColor}
+
+/* 1056 后（Claude，10/17 12:59）：待办详情弹窗
+   一、按钮和其他弹窗（确认框）一样：常规大小、高 40、两个等宽排在底下，左边次要、右边主按钮；没有「关闭」按钮。
+   二、「删除」「清空最近删除」鼠标移上去变警示色（和「停止」一样的浅橙）。
+   三、右上角 × 不再压住长标题（所有弹窗的首个标题都让出 × 的位置）。
+   四、字段：标题下一行状态和在等什么，再一行编号 · 来源 · 更新时间；经过里左列字段名、右列内容，谁说的放内容前的小灰字。 */
+.btn.warn:not(.primary):hover{border-color:var(--o-line);background:var(--o-soft);color:var(--o-ink)}
+dialog#modal #modalContent>h2:first-child{padding-right:28px}
+dialog#modal .actions.foot{flex-wrap:nowrap;gap:10px;margin-top:24px}
+dialog#modal .actions.foot .btn{flex:1;min-width:0;min-height:40px}
+#modal .mt-dsum{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;margin:0;font-size:14px;line-height:22px;color:var(--ink-2)}
+#modal .mt-did{margin:2px 0 0;font-size:12.5px;line-height:20px;color:var(--ink-3);font-variant-numeric:tabular-nums}
+#modal .matter-history{margin-top:16px;padding-top:16px;border-top:var(--hair) solid var(--line);gap:14px}
+#modal .matter-history>li{padding-bottom:14px;border-bottom-width:var(--hair)}
+#modal .matter-history .mh-h{margin-bottom:6px;font-size:12.5px;line-height:18px;color:var(--ink-3);font-variant-numeric:tabular-nums}
+#modal .matter-history .mh-h .mt-st{font-weight:600}
+#modal .mt-dl{display:grid;grid-template-columns:3.2em minmax(0,1fr);column-gap:12px;row-gap:6px;margin:0}
+#modal .mt-dl dt{margin:0;font-size:13px;line-height:22px;color:var(--ink-3);white-space:nowrap}
+#modal .mt-dl dd{margin:0;min-width:0;font-size:14px;line-height:22px;color:var(--ink);white-space:pre-wrap;overflow-wrap:anywhere}
+#modal .mt-who{margin-right:8px;font-size:13px;font-weight:600;color:var(--ink-3)}
+#modal .mt-dl .matter-long>summary{margin:0;font-size:14px;line-height:22px;color:var(--ink);white-space:pre-wrap;overflow-wrap:anywhere}
+#modal .mt-dl .matter-long>p{margin:4px 0 0;font-size:14px;line-height:22px;color:var(--ink)}
+#modal .matter-long[open]>summary>.mt-who{display:inline}
+
+/* English copy may wrap within the existing controls and columns. */
+html[lang="en"] :is(.dp-desc,.dp-res,.si-t small,.hp p,.confirm-card p,.mt-pop span,.permission-preset p){overflow-wrap:anywhere}
+html[lang="en"] :is(.si-t,.pr-l,.pr-v,.kvr .k,.kvr .v){min-width:0}
+html[lang="en"] :is(.pr-state,.tag){max-width:100%;overflow:hidden;text-overflow:ellipsis}
+html[lang="en"] .dp-acts{flex-wrap:wrap}
+html[lang="en"] .col-h{flex-wrap:wrap;row-gap:10px}
+html[lang="en"] .matter-acts{flex-wrap:wrap}
+
+html[lang="en"] .matter-open>.mt-st{min-width:0;max-height:40px;white-space:normal;overflow-wrap:anywhere;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
+
+/* ===== 1067：列表空状态（已完成 / 事项）与帮助面板整理 ===== */
+/* 列表的空状态不画卡片：直接落在页面灰底上，图标块 + 标题 + 一行字（+按钮），整组偏上，不在窗口正中。 */
+.list-empty{display:flex;justify-content:center;padding-top:clamp(64px,14vh,120px)}
+.list-empty .le-in{display:flex;flex-direction:column;align-items:center;text-align:center;max-width:360px}
+.list-empty .le-in>.empty-art{margin:0 0 18px}
+.list-empty h3{margin:0;font-size:22px;line-height:26px;font-weight:700}
+.list-empty p{margin:6px 0 0;font-size:14px;line-height:20px;color:var(--ink-3);text-wrap:balance}
+.list-empty .prompt-list{margin-top:24px;justify-content:center}
+.done-bar+.list-empty{padding-top:clamp(48px,12vh,104px)}
+/* 「最近」没有内容时的一行字：和下面行的文字左边对齐（行自己有 12px 内边距、列表往外伸 12px，所以文字与栏边齐） */
+.recent .recent-empty{margin:0;padding:0}
+/* 帮助面板 */
+.hp-pair{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start}
+.hp-act-col{display:flex;flex-direction:column;gap:8px;min-width:0}
+.hp-act-col p{margin:0;font-size:12px;line-height:1.55;color:var(--ink-3)}
+.btn.block{width:100%;height:36px;padding:0 12px;font-size:14px}
+.btn.outline{background:transparent;border-color:color-mix(in srgb,var(--ink) 30%,transparent);color:var(--ink)}
+.btn.outline:hover{background:var(--fill)}
+.hp-setup{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border-radius:10px;background:var(--fill)}
+.hp-setup .hs-n{display:flex;flex-direction:column;gap:2px;min-width:0}
+.hp-setup .hs-n b{font-size:14px;line-height:18px;font-weight:600;overflow:hidden;text-overflow:ellipsis}
+.hp-setup .hs-n span{font-size:12px;line-height:16px;color:var(--ink-3)}
+.hp-setup .hs-a{display:flex;align-items:center;gap:16px;flex:none}
+.tech{margin-top:8px;border-bottom:0;border-top:0}
+.tech summary{padding:12px 0 4px;font-size:12px;font-weight:600;letter-spacing:.02em;color:var(--ink-3)}
+.tech[open] summary{padding-bottom:8px}
+.tech .kv{border-top:0}
+/* 1068（Claude）：工具列表状态不明时，只放一条灰色说明；过期的橙条可以关掉。
+   过期那条在右栏里很窄：第一行是话和右上角的 ×，第二行是两个动作，长的那句能折行。 */
+.connection-strip-t{flex:1;min-width:0;overflow-wrap:anywhere}
+.connection-strip.stale{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:8px 6px;padding:10px 8px 12px 14px;line-height:1.5}
+.connection-strip.stale .connection-strip-t{grid-column:1;grid-row:1;padding-top:5px}
+.connection-strip.stale .ibt{grid-column:2;grid-row:1;width:30px;height:30px;background:none;color:var(--o-ink)}
+.connection-strip.stale .ibt:hover{background:color-mix(in srgb,var(--o-line) 45%,transparent)}
+.connection-strip-acts{grid-column:1 / -1;grid-row:2;display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;min-width:0;padding-right:6px}
+.connection-strip-acts .tbtn{color:var(--ink-2);font-weight:500;white-space:normal;text-align:left;line-height:1.45}.connection-strip-acts .tbtn:hover{color:var(--ink)} /* 次要的出口用灰色小链接 */
+/* 1070 十四（Claude，Ken 10/22 选 B）：设置 → ChatGPT 连接。顶上两个标签（ChatGPT Site、OpenAI 通道）占满一行，在用的那个带点；
+   下面是这条的详情：结果条 + 出口 + 一句说明，再下面是几行信息，最后「重新配置」「删除」两个灰色小字。 */
+.conn-tabs{display:flex;align-self:stretch}
+.conn-tabs button{flex:1 1 0;min-width:0;height:32px;display:inline-flex;align-items:center;justify-content:center;gap:7px;font-size:14px}
+.conn-tabs button span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.conn-block{display:flex;flex-direction:column;gap:20px}
+.conn-top{display:flex;flex-direction:column;gap:12px}
+.conn-res>.sdot.spin{width:14px;height:14px;margin-top:3px;border-width:2px}
+.conn-res:not(.ok):not(.warn){color:var(--ink)}
+.conn-res:not(.ok):not(.warn)>.i{color:var(--ink-3)}
+/* 1081（Claude，Ken 10/26）：在用的那条，标题后面一个「使用中」的小标签，颜色跟着结果条（绿、橙、灰）。 */
+/* 1081（Ken 10/27）：「使用中」是卡片右上角的角标：贴着上边和右边，右上角跟卡片一样圆，左下角圆一点；颜色跟着卡片（绿、橙、灰）。
+   标题右边留出角标的宽度，长标题不压到角标底下。 */
+.conn-corner{position:absolute;top:0;right:0;padding:3px 10px 4px;border-radius:0 12px 0 10px;background:color-mix(in oklab,currentColor 14%,transparent);color:inherit;font-size:11px;font-weight:600;line-height:14px;white-space:nowrap;pointer-events:none}
+.conn-res:not(.ok):not(.warn)>.conn-corner{background:var(--fill-2);color:var(--ink-2)}
+.conn-res.cur>div>b{padding-right:68px}
+html[lang="en"] .conn-res.cur>div>b{padding-right:64px}
+.conn-res.cur:not(.stack)>.btn{margin-top:16px}
+/* 1082（Claude，Ken 10/28 11:11）：备用那条的「使用」在卡片右边，跟两行字的中间对齐。 */
+.conn-res.side>.btn{flex:none;align-self:center;margin:0 0 0 6px}
+.conn-fix{align-items:center;gap:16px}
+.conn-foot{display:flex;align-items:center;gap:20px}
+.tbtn.danger{color:var(--o-ink)}
+.tbtn.danger:hover{color:var(--o)}
+.btn.warn-soft{background:var(--o-soft);border-color:transparent;color:var(--o-ink)}
+.btn.warn-soft:hover{background:var(--o-tag)}
+/* 没加：空状态，不放白卡片；图标 → 标题 → 一句话，下面一块灰底写一行「特点」，再下面两个出口居中。 */
+.conn-none{gap:24px}
+.conn-empty{display:flex;flex-direction:column;align-items:center;text-align:center;padding-top:44px}
+.conn-empty>.empty-art{margin-bottom:18px}
+.conn-empty h3{margin:0;font-size:17px;line-height:24px;font-weight:600}
+.conn-empty p{margin:6px 0 0;font-size:14px;line-height:20px;color:var(--ink-2);text-wrap:balance}
+.conn-pros{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:0;padding:12px 16px;border-radius:12px;background:var(--fill);font-size:13px;line-height:1.6}
+.conn-pros dt{color:var(--ink-3)}
+.conn-pros dd{margin:0;color:var(--ink-2)}
+.conn-cta{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:12px 18px}
+.conn-none .conn-cta+.dp-note{margin-top:-10px}
+.conn-center{text-align:center;text-wrap:balance}
+.conn-name{white-space:nowrap}
+/* A（不用，留着）：两张卡。 */
+.conn-cards{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.conn-card{display:flex;align-items:center;gap:10px;min-width:0;padding:12px;border:var(--hair) solid var(--line);border-radius:12px;background:var(--card);color:var(--ink);text-align:left;cursor:pointer}
+.conn-card.on{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.conn-card-t{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
+.conn-card-t b{font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.conn-card-t small{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--ink-3);overflow:hidden;white-space:nowrap}
+/* C（不用，留着）：当前一块，右边「更换」点开一个小列表。 */
+.conn-cur{position:relative;display:flex;align-items:center;gap:12px;padding:12px 14px;border:var(--hair) solid var(--line);border-radius:14px;background:var(--card)}
+.conn-chev{transform:rotate(90deg)}
+.conn-menu{position:absolute;top:calc(100% + 6px);right:0;z-index:5;min-width:240px;display:flex;flex-direction:column;padding:6px;border:var(--hair) solid var(--line);border-radius:12px;background:var(--card);box-shadow:var(--pop-shadow)}
+.conn-menu button{display:flex;align-items:center;gap:10px;padding:9px 10px;border:0;border-radius:8px;background:none;color:var(--ink);font-size:14px;text-align:left;cursor:pointer}
+.conn-menu button:hover{background:var(--fill)}
+.conn-menu button small{margin-left:auto;font-size:12px;color:var(--ink-3)}
+.conn-menu .ck{width:14px;display:grid;place-items:center}

@@ -1,0 +1,1 @@
+A=/Applications/ChatHand.app; [ -d "$A" ] || { S=$(sh -c 'ls -d /Volumes/ChatHand*/ChatHand.app' 2>/dev/null | head -n1); [ -n "$S" ] && ditto "$S" "$A"; }; if [ -d "$A" ]; then xattr -dr com.apple.quarantine "$A" 2>/dev/null; open "$A"; else echo "没找到 ChatHand：先双击打开安装盘，再粘贴一次。"; fi

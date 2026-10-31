@@ -1,0 +1,759 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title data-local-text="documentTitle"></title>
+<style>
+/* 外框和圆角由 ChatGPT 画，这里只留内边距；底色透明；深浅色跟 ChatGPT 走（宿主给的主题优先，其次系统设置）。 */
+:root{--widget-ink:#171A18;--widget-secondary:#5F6661;--widget-note:#929994;--widget-fill:rgba(16,24,40,.06);--widget-button-line:rgba(16,24,40,.15);--widget-ok:#00987B;--widget-warn:#B4600B;--widget-warn-soft:rgba(255,123,0,.09);--widget-warn-line:rgba(180,96,11,.22);--widget-primary:#171A18;--widget-on-primary:#FFFFFF;--widget-switch-off:rgba(16,24,40,.16);--widget-knob:#FFFFFF;--widget-knob-shadow:rgba(16,24,40,.25);--widget-tl-ok:#00987B;--widget-tl-ok-soft:rgba(0,152,123,.10);--widget-line:rgba(16,24,40,.15);--widget-line-solid:rgba(16,24,40,.26);color-scheme:light}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--widget-ink:#EDEEF0;--widget-secondary:#A6A9B0;--widget-note:#7C8089;--widget-fill:rgba(255,255,255,.08);--widget-button-line:rgba(255,255,255,.16);--widget-ok:#00E2B8;--widget-warn:#EBA04E;--widget-warn-soft:rgba(255,123,0,.12);--widget-warn-line:rgba(235,160,78,.30);--widget-primary:#F2F3F5;--widget-on-primary:#0B0C0E;--widget-switch-off:rgba(255,255,255,.22);--widget-knob:#FFFFFF;--widget-knob-shadow:rgba(0,0,0,.4);--widget-tl-ok:#00E2B8;--widget-tl-ok-soft:rgba(0,226,184,.12);--widget-line:rgba(255,255,255,.14);--widget-line-solid:rgba(255,255,255,.28);color-scheme:dark}}
+:root[data-theme="dark"]{--widget-ink:#EDEEF0;--widget-secondary:#A6A9B0;--widget-note:#7C8089;--widget-fill:rgba(255,255,255,.08);--widget-button-line:rgba(255,255,255,.16);--widget-ok:#00E2B8;--widget-warn:#EBA04E;--widget-warn-soft:rgba(255,123,0,.12);--widget-warn-line:rgba(235,160,78,.30);--widget-primary:#F2F3F5;--widget-on-primary:#0B0C0E;--widget-switch-off:rgba(255,255,255,.22);--widget-knob:#FFFFFF;--widget-knob-shadow:rgba(0,0,0,.4);--widget-tl-ok:#00E2B8;--widget-tl-ok-soft:rgba(0,226,184,.12);--widget-line:rgba(255,255,255,.14);--widget-line-solid:rgba(255,255,255,.28);color-scheme:dark}
+html,body{background:transparent}
+body{margin:0;font:14px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif;color:var(--widget-ink)}
+.card{padding:18px 20px}
+.card.compact{padding:9px 20px}.card.compact>:not(#compact){display:none!important}.compact{display:flex;align-items:center;gap:7px;min-width:0;font-size:13px;color:var(--widget-secondary);white-space:nowrap}.compact .ck{flex:none;color:var(--widget-ok);font-size:12px;font-weight:700}.compact .ct{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.top{display:flex;justify-content:space-between;gap:14px;color:var(--widget-secondary);font-size:12px}
+.top strong{font-weight:600}
+.head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:6px 0 10px}
+h2{font-size:17px;line-height:1.4;font-weight:600;margin:0}
+.state{display:inline-flex;align-items:center;gap:6px;background:var(--widget-fill);padding:2px 10px;border-radius:999px;font-size:12px}
+.state.ok{color:var(--widget-ok)}.state.warn{color:var(--widget-warn)}
+.res{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:2px 0 12px;align-items:baseline}
+.res .k{font-size:12px;color:var(--widget-secondary);white-space:nowrap}
+.res .v{font-size:15px;line-height:1.5;word-break:break-word}
+.res .v.act{font-weight:600}
+.res .v.none{color:var(--widget-secondary)}
+.prog{display:flex;align-items:center;gap:12px;font-size:13px;color:var(--widget-secondary)}
+.bar{flex:1;height:6px;border-radius:3px;background:var(--widget-fill);overflow:hidden}
+.bar>i{display:block;height:100%;width:0;background:var(--widget-ok);border-radius:3px;transition:width .3s}
+.bar.warn>i{background:var(--widget-warn)}
+.now{margin-top:6px;font-size:13px;color:var(--widget-secondary);word-break:break-all}
+.alert{margin-top:12px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;background:var(--widget-warn-soft);border:1px solid var(--widget-warn-line);border-radius:12px;padding:8px 14px;color:var(--widget-warn);font-size:13px}
+.alert b{font-weight:600}
+p{color:var(--widget-secondary);margin:8px 0 0}
+ul{padding-left:0;list-style:none;margin:10px 0 0;color:var(--widget-secondary);font-size:13px}
+ul li{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+ul .dir{color:var(--widget-note)}
+button{font:inherit;font-size:13px;color:inherit;border:1px solid var(--widget-button-line);background:transparent;border-radius:8px;padding:4px 12px;cursor:pointer}
+#permissionButtons button{border-radius:999px}
+button.primary{background:var(--widget-primary);color:var(--widget-on-primary);border-color:var(--widget-primary)}
+button:disabled{opacity:.5;cursor:default}
+.foot{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;font-size:12px;color:var(--widget-note)}
+.auto{display:inline-flex;align-items:center;gap:8px;cursor:pointer;color:var(--widget-secondary);font-size:12px}
+/* 1025：开关样式，灰 = 关，绿 = 开（之前写成「：关」，看不出是状态还是按钮） */
+.switch{position:relative;flex:none;width:32px;height:18px;padding:0;border:0;border-radius:9px;background:var(--widget-switch-off);cursor:pointer;transition:background-color .2s}
+.switch>i{position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:var(--widget-knob);box-shadow:0 1px 2px var(--widget-knob-shadow);transition:transform .2s}
+.switch[aria-checked="true"]{background:var(--widget-ok)}
+.switch[aria-checked="true"]>i{transform:translateX(14px)}
+@media(prefers-reduced-motion:reduce){.switch,.switch>i{transition:none}}
+small{display:block;color:var(--widget-note);margin-top:10px;font-size:12px}
+[hidden]{display:none!important}
+#below{margin:8px 0 0;font-size:13px;color:var(--widget-secondary)}
+.blocker{margin-top:12px;padding:10px 12px;border:1px solid var(--widget-warn-line);border-radius:12px;background:var(--widget-warn-soft);font-size:13px}
+.blocker>b{display:block;color:var(--widget-warn);font-weight:600}
+.blocker pre{margin:6px 0 0;font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--widget-secondary);white-space:pre-wrap;word-break:break-word;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden}
+.blocker p{margin:5px 0 0;font-size:12px}
+.blocker-options{display:grid;gap:7px;margin-top:9px}
+.blocker-option{display:grid;grid-template-columns:max-content 1fr;gap:3px 10px;align-items:center}
+.blocker-option button{grid-row:1 / span 2}
+.blocker-option small{margin:0}
+.top,.foot{flex-wrap:wrap}.top>*{min-width:0;overflow-wrap:anywhere}.res{grid-template-columns:minmax(0,max-content) minmax(0,1fr)}.res .k{white-space:normal}.prog{flex-wrap:wrap}.bar{min-width:48px}.blocker-option{grid-template-columns:minmax(0,max-content) minmax(0,1fr)}button{white-space:normal;overflow-wrap:anywhere}h2,.state,.alert,.blocker-option{overflow-wrap:anywhere}
+#blockerReply{color:var(--widget-warn);font-weight:600}
+/* 1060（Claude）：总卡。结果带了 chathand/task_card 才加 .rich；颜色只上在状态那个词上，时间线照 ChatHand 窗口的样子（新的在上）。 */
+.rfoot{display:contents}
+.card.rich .head{flex-wrap:nowrap;margin:6px 0 2px}
+.card.rich h2{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card.rich .state{flex:none}
+.state.mute{color:var(--widget-secondary)}
+.card.rich #live,.card.rich #changes,.card.rich #alert,.card.rich #blockerStep,.card.rich #blockerError{display:none!important}
+.card.rich .blocker{background:transparent;border-color:var(--widget-line)}
+.card.rich .res{margin:10px 0 0}
+.rprog{position:relative;height:21px;overflow:hidden;font-size:13px;line-height:21px;color:var(--widget-secondary)}
+.rprog>span{position:absolute;left:0;right:0;top:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rprog>span.in{animation:rp-in .24s ease-out both}
+.rprog>span.out{animation:rp-out .24s ease-in both}
+@keyframes rp-in{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:none}}
+@keyframes rp-out{from{opacity:1;transform:none}to{opacity:0;transform:translateY(-9px)}}
+.rbody{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;margin-top:16px}
+@media(min-width:600px){.rbody.has-files{grid-template-columns:minmax(0,1.75fr) minmax(0,1fr);gap:28px}}
+.tl{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.tl li{position:relative;display:grid;grid-template-columns:20px minmax(0,1fr) auto;column-gap:12px;min-height:40px}
+.tl li:last-child{min-height:0}
+.tl li:not(:last-child)::after{content:"";position:absolute;left:9.5px;top:20px;bottom:0;width:0;border-left:1px solid var(--widget-line)}
+.tl li.ok:not(:last-child)::after,.tl li.tl-more::after{border-left-color:var(--widget-tl-ok)}
+.tl li.fresh{animation:tl-in .3s ease-out both}
+@keyframes tl-in{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+.nd{box-sizing:border-box;width:20px;height:20px;display:grid;place-items:center;border-radius:50%;border:1px solid var(--widget-line);color:var(--widget-tl-ok)}
+.nd .i{width:11px;height:11px;fill:none;stroke:currentColor;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+.nd.ok{border-color:var(--widget-tl-ok);background:var(--widget-tl-ok-soft)}
+.nd.run{position:relative}
+.nd.run svg{position:absolute;left:-1px;top:-1px;width:20px;height:20px;overflow:visible;animation:nd-spin 1.6s linear infinite}
+.nd.run circle{fill:none;stroke:var(--widget-tl-ok);stroke-width:1;stroke-linecap:round;stroke-dasharray:1 200;animation:nd-arc 1.4s ease-in-out infinite}
+@keyframes nd-arc{0%{stroke-dasharray:1 200;stroke-dashoffset:0}50%{stroke-dasharray:42 200;stroke-dashoffset:-16}100%{stroke-dasharray:42 200;stroke-dashoffset:-59}}
+@keyframes nd-spin{to{transform:rotate(360deg)}}
+.nd.idle{position:relative;border-color:var(--widget-line-solid)}
+.nd.idle i{position:absolute;left:50%;top:50%;width:1.2px;height:6.6px;margin:-6px 0 0 -.6px;border-radius:.6px;background:var(--widget-line-solid);transform-origin:50% calc(100% - .6px)}
+.nd.idle i.m{animation:nd-spin 2.4s linear infinite}
+.nd.idle i.h{animation:nd-spin 28.8s linear infinite;animation-delay:-9.6s}
+.nd.warn,.nd.fail{border-color:var(--widget-warn);background:var(--widget-warn-soft);color:var(--widget-warn)}
+.nd.stop{border-color:var(--widget-line-solid);color:var(--widget-secondary)}
+.nd.stop .i{width:8px;height:8px;fill:currentColor;stroke:none}
+.tl-b{min-width:0;padding-bottom:12px}
+.tl-b b{display:block;font-size:14px;line-height:20px;font-weight:500;color:var(--widget-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tl li.cur .tl-b b{font-weight:400;color:var(--widget-ink)}
+.tl-b small{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;margin:2px 0 0;font-size:12px;line-height:17px;color:var(--widget-note);overflow:hidden;overflow-wrap:break-word}
+.tl-tm{font:12px/20px ui-monospace,"SF Mono",Menlo,monospace;color:var(--widget-note);font-variant-numeric:tabular-nums;white-space:nowrap}
+.tl-tm.ok{color:var(--widget-tl-ok)}.tl-tm.warn{color:var(--widget-warn)}
+.tl-link{padding:0;border:0;background:none;border-radius:0;font-size:13px;line-height:20px;color:var(--widget-secondary);text-decoration:underline;text-decoration-color:var(--widget-line);text-underline-offset:3px;text-align:left}
+.tl-link:hover{color:var(--widget-ink)}
+.tl li.tl-resume .tl-b b{font-weight:400;color:var(--widget-note)}
+.tl li.tl-gap{display:block;min-height:0;padding-left:32px;font-size:12px;line-height:18px;color:var(--widget-note)}
+.files{min-width:0}
+.files h3{margin:0 0 4px;font-size:12px;line-height:20px;font-weight:500;color:var(--widget-note)}
+.file{display:flex;align-items:center;gap:8px;box-sizing:border-box;width:calc(100% + 12px);min-height:32px;margin:0 -6px;padding:0 6px;border:0;border-radius:8px;background:none;text-align:left;cursor:pointer;white-space:nowrap;overflow-wrap:normal}
+.file:hover,.file:focus-visible{background:var(--widget-fill);outline:none}
+.file .i{flex:none;width:15px;height:15px;fill:none;stroke:var(--widget-note);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.file .fn{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;font-size:13px;color:var(--widget-ink)}
+.file .fd{flex:none;max-width:45%;overflow:hidden;text-overflow:ellipsis;font-size:12px;color:var(--widget-note)}
+.file .fd.ok{color:var(--widget-tl-ok)}.file .fd.warn{color:var(--widget-warn)}
+.files .tl-link{margin-top:4px;font-size:12px}
+.files small{margin-top:4px}
+.card.rich .rfoot{display:flex;align-items:center;flex-wrap:wrap;gap:8px 12px;margin-top:16px}
+.ctl{display:inline-flex;align-items:center;flex-wrap:wrap;gap:8px}
+.ctl small{display:inline;margin:0}
+.rnote{display:inline-flex;align-items:center;flex-wrap:wrap;gap:8px;min-width:0;font-size:12px;color:var(--widget-secondary)}
+.card.rich .foot{margin:0}
+button.stop:hover{border-color:var(--widget-warn-line);background:var(--widget-warn-soft);color:var(--widget-warn)}
+button.danger{border-color:var(--widget-warn-line);color:var(--widget-warn)}
+@media(prefers-reduced-motion:reduce){.nd.run svg,.nd.run circle,.nd.idle i,.rprog>span,.tl li.fresh{animation:none}.nd.run circle{stroke-dasharray:15 200}.nd.idle i.h{transform:rotate(120deg)}}
+</style></head>
+<body><section class="card">
+<div id="compact" class="compact" hidden><span class="ck">✓</span><span class="ct" id="compactText"></span></div>
+<div class="top"><strong data-local-text="brand"></strong><span id="scope"></span></div>
+<div class="head"><h2 id="title" data-local-text="reading"></h2><span class="state" id="state" data-local-text="waitingData"></span></div>
+<div class="rprog" id="rprog" hidden></div>
+<div class="res" id="res" hidden><span class="k" data-local-text="resultLabel"></span><span class="v" id="result"></span><span class="k" data-local-text="actionLabel"></span><span class="v" id="action"></span></div>
+<div id="live" hidden><div class="prog"><span id="block"></span><div class="bar" id="barWrap"><i id="bar"></i></div></div><div class="now" id="now"></div></div>
+<div id="blocker" class="blocker" hidden><b id="blockerStep"></b><pre id="blockerError"></pre><p id="blockerWhy"></p><div id="blockerOptions" class="blocker-options"></div><p id="blockerReply"></p></div>
+<div id="permission" hidden><p id="permissionCause"></p><p id="permissionEffect"></p><p id="permissionRisk"></p><div id="permissionButtons" class="blocker-options"></div><small id="permissionExpiry"></small><p id="permissionResult" role="status"></p></div>
+<div class="rbody" id="rbody" hidden></div>
+<div class="alert" id="alert" hidden><span id="alertText"></span><span id="alertBtn"></span></div>
+<p id="summary" hidden></p><p id="cleanup" hidden></p><p id="below" class="below" hidden data-local-text="below"></p><ul id="changes"></ul>
+<div class="rfoot" id="rfoot"><span class="ctl" id="ctl" hidden></span><span class="rnote" id="rnote" role="status" hidden><span id="rnoteText"></span><span id="rnoteBtn"></span></span><div class="foot" id="foot" hidden><span id="note"></span></div></div>
+</section>
+<!-- CHATHAND_LOCAL_TEXT_INLINE -->
+<script>
+globalThis.__CHATHAND_TEXT_CATALOGS__={"zh":{"ui.taskWidget.documentTitle":"ChatHand 任务","ui.taskWidget.brand":"ChatHand · 任务","ui.taskWidget.reading":"正在读取任务","ui.taskWidget.waitingData":"等待数据","ui.taskWidget.resultLabel":"结果","ui.taskWidget.actionLabel":"你要做","ui.taskWidget.below":"任务已结束，结果见下方卡片。","ui.taskWidget.active":"进行中","ui.taskWidget.completed":"成功完成","ui.taskWidget.failed":"未完成","ui.taskWidget.cancelled":"已停止","ui.taskWidget.pendingApproval":"等待你在 ChatHand 中确认","ui.taskWidget.permissionChanged":"因文件范围变更已停止","ui.taskWidget.paused":"已暂停","ui.taskWidget.connectionLost":"因连接中断已停止","ui.taskWidget.expired":"任务已过期","ui.taskWidget.superseded":"已被新任务取代","ui.taskWidget.revoked":"未收到结果","ui.taskWidget.write":"写入","ui.taskWidget.edit":"修改","ui.taskWidget.createDirectory":"新建文件夹","ui.taskWidget.move":"移动","ui.taskWidget.rename":"重命名","ui.taskWidget.delete":"删除","ui.taskWidget.trash":"移到废纸篓","ui.taskWidget.restore":"恢复","ui.taskWidget.restoreTrash":"从废纸篓恢复","ui.taskWidget.copy":"复制","ui.taskWidget.read":"读取","ui.taskWidget.listDirectory":"查看文件夹","ui.taskWidget.search":"搜索","ui.taskWidget.runCommand":"运行命令","ui.taskWidget.commandResult":"查看命令结果","ui.taskWidget.begin":"开始","ui.taskWidget.browserOpen":"打开网页","ui.taskWidget.browserRead":"读取网页","ui.taskWidget.desktopOpen":"打开","ui.taskWidget.connectionCheck":"连接检查","ui.taskWidget.connected":"已连接","ui.taskWidget.checking":"正在核对","ui.taskWidget.receiptUnconfirmed":"结果待确认","ui.taskWidget.connectionVerified":"当前插件已完成读写核对","ui.taskWidget.connectionPending":"保留当前页面，连接状态尚待核对","ui.taskWidget.retryTip":"如显示 Message delivery timed out，请发送「继续」，不要点击「重试」。","ui.taskWidget.readWriteRecorded":"读写已记录","ui.taskWidget.probeReturned":"读写测试已完成","ui.taskWidget.localTask":"本机任务","ui.taskWidget.waitingCommand":"正在等待命令完成","ui.taskWidget.stalled":"已中断","ui.taskWidget.fullScope":"整台电脑","ui.taskWidget.workspaceScope":"工作区内","ui.taskWidget.done":"已完成。","ui.taskWidget.notDone":"未完成。","ui.taskWidget.seeReply":"请查看此回复中 ChatGPT 的说明。","ui.taskWidget.noAction":"无需操作。","ui.taskWidget.justStarted":"刚开始","ui.taskWidget.noStep":"（未记录）","ui.taskWidget.blockerReply":"如需补充说明，请在下方输入框回复。","ui.taskWidget.capability":"这项能力","ui.taskWidget.handled":"已处理","ui.taskWidget.awaitDecision":"等待确认","ui.taskWidget.permissionInWindow":"请在 ChatHand 窗口中处理此项。","ui.taskWidget.allow":"允许","ui.taskWidget.deny":"保持关闭","ui.taskWidget.cardExpired":"此卡片已过期","ui.taskWidget.confirmationExpired":"此确认已过期","ui.taskWidget.requestWithdrawn":"此请求已撤回","ui.taskWidget.allowed":"已允许","ui.taskWidget.denied":"未开启","ui.taskWidget.resultUnconfirmed":"结果待确认","ui.taskWidget.invalidPermission":"此卡片已失效，请查看 ChatHand 窗口","ui.taskWidget.processing":"正在处理","ui.taskWidget.denyPrompt":"我在 ChatHand 卡片上没有同意。先查原任务状态，换不用它的办法。","ui.taskWidget.answerPrompt":"我已在 ChatHand 卡片上作了选择。先查原任务状态，再接着做；结果不明的动作不要重放。","ui.taskWidget.answerUnconfirmed":"无法确认选择是否已生效，请先查看原任务状态，不要重复点击。","ui.taskWidget.bridgeUnavailable":"无法自动发送，请在下方输入框发送「继续」","ui.taskWidget.toolInflight":"AI 正在执行当前步骤，请在完成后再点击","ui.taskWidget.relayNotStarted":"未能自动继续，请在下方输入框发送「继续」","ui.taskWidget.relayAccepted":"已发送，等待任务继续","ui.taskWidget.relayUnknown":"无法确认是否已发送，不会重复发送","ui.taskWidget.relayRejected":"发送被 ChatGPT 拒绝","ui.taskWidget.relayUnconfirmed":"无法确认是否已继续，请查看原任务，不要重复点击。","ui.taskWidget.relayCancelled":"已取消，本块不再自动继续","ui.taskWidget.manualContinue":"手动继续","ui.taskWidget.manualBlockLimit":"同一块已中断 3 次，请先查看原因","ui.taskWidget.manualWaitDone":"命令已完成","ui.taskWidget.manualWaitOver":"等待时间已到，命令仍在运行","ui.taskWidget.manualStalled":"已中断","ui.taskWidget.manualNotConnected":"未能自动继续","ui.taskWidget.cancel":"取消","ui.taskWidget.waitCommandAuto":"正在等待命令完成 · 完成后自动继续","ui.taskWidget.waitCommandManual":"正在等待命令完成 · 完成后点击「手动继续」","ui.taskWidget.autoOffManual":"未开启自动继续","ui.taskWidget.autoOffPrompt":"未开启自动继续 · 请在下方输入框发送「继续」","ui.taskWidget.checkingPermission":"正在确认许可","ui.taskWidget.relayPreparing":"正在准备继续","ui.taskWidget.relayAwaiting":"已发送，等待 AI 继续","ui.taskWidget.relayUnknownNoRepeat":"无法确认是否已发送，请勿重复发送","ui.taskWidget.relayResumed":"已恢复","ui.taskWidget.stalledPrompt":"已中断 · 请在下方输入框发送「继续」","ui.taskWidget.invalidTask":"此卡片已失效，请查看原任务状态","ui.taskWidget.secondsAgo":"{count} 秒前","ui.taskWidget.minutesAgo":"{count} 分钟前","ui.taskWidget.hoursAgo":"{count} 小时前","ui.taskWidget.step":"{ago}：{action}","ui.taskWidget.compactProgress":"第 {block} 块 · {done}","ui.taskWidget.errorsHandled":"过程中出现 {count} 次错误，均已处理。","ui.taskWidget.errorsRecorded":"过程中记录到 {count} 次错误。","ui.taskWidget.cleanupUnconfirmed":"清理未确认：此任务运行的命令可能仍有进程未结束。","ui.taskWidget.blockProgress":"第 {block}/{total} 块","ui.taskWidget.blocksDone":"已完成 {count} 块","ui.taskWidget.lastStep":"最后一步：{step}","ui.taskWidget.reasonLastStep":"{reason} · {step}","ui.taskWidget.reasonNextStep":"{reason} · 下一步：{next}","ui.taskWidget.nextStep":"下一步：{next}","ui.taskWidget.blockerStep":"受阻步骤：{step}","ui.taskWidget.blockerError":"错误信息：{error}","ui.taskWidget.blockerWhy":"原因：{why}","ui.taskWidget.permissionQuestion":"允许「{name}」？","ui.taskWidget.permissionEffect":"作用：{effect}","ui.taskWidget.permissionRisk":"风险：{risk}","ui.taskWidget.permissionExpiry":"{count} 分钟内有效","ui.taskWidget.answeredElsewhere":"已在别处处理：{result}","ui.taskWidget.fileChangedRepeated":"{action} {name} · {count} 次","ui.taskWidget.fileChanged":"{action} {name}","ui.taskWidget.relayPromptSplit":"继续同一个 ChatHand 任务 {id}。这一块两次都没做完：先调用 task_status 看 last_checkpoint，把剩下的拆成更小的几步，每步做完记一次进度再接着做；已完成的操作不重做，结果不确定的先查。","ui.taskWidget.relayPromptDone":"命令跑完了。继续同一个 ChatHand 任务 {id}：先调用 task_status 看 last_checkpoint 和在等的命令，再用 command_result 看结果，接着做；已完成的操作不重做。","ui.taskWidget.relayPromptOver":"命令等到点了还没结束。继续同一个 ChatHand 任务 {id}：先调用 task_status 看 last_checkpoint 和在等的命令，用 command_result 查它现在的状态，再决定接着等还是换办法；已完成的操作不重做。","ui.taskWidget.relayPromptContinue":"继续同一个 ChatHand 任务 {id}。先调用 task_status 检查原任务和 last_checkpoint，再接着做；已完成的操作不重做，结果不确定的先查。","ui.taskWidget.countdown.done.split":"命令已完成 · {count} 秒后拆分为更小的步骤继续","ui.taskWidget.countdown.done.continue":"命令已完成 · {count} 秒后继续","ui.taskWidget.countdown.over.split":"命令仍在运行 · {count} 秒后拆分为更小的步骤继续","ui.taskWidget.countdown.over.continue":"命令仍在运行 · {count} 秒后继续","ui.taskWidget.countdown.again.split":"同一块再次中断 · {count} 秒后拆分为更小的步骤继续","ui.taskWidget.countdown.stalled.continue":"已中断 · {count} 秒后继续","ui.taskWidget.countdown.ready.split":"{count} 秒后拆分为更小的步骤继续","ui.taskWidget.countdown.ready.continue":"{count} 秒后继续","ui.taskWidget.autoLimitManual":"已自动继续 {count} 次","ui.taskWidget.autoLimitPrompt":"已自动继续 {count} 次 · 请在下方输入框发送「继续」","ui.taskWidget.resultWillContinue":"{result} · ChatGPT 将继续执行","ui.taskWidget.resultNotified":"{result} · 已通知 ChatGPT","ui.taskWidget.resultTellChatGPT":"{result} · 请回到 ChatGPT 让它继续","ui.taskWidget.stepTarget":"{ago}：{action} {target}","ui.taskWidget.compactProgressTotal":"第 {block}/{total} 块 · {done}","ui.taskWidget.progressRecorded":"进度已记录","ui.taskWidget.blocked":"受阻","ui.taskWidget.unknownState":"结果待核对","ui.taskWidget.allBlocksDone":"共 {total} 块，已全部完成","ui.taskWidget.stoppedAtBlock":"停止于第 {block}/{total} 块","ui.taskWidget.stoppedAtBlockNoTotal":"停止于第 {block} 块","ui.taskWidget.thinking":"正在规划下一步","ui.taskWidget.noNewStep":"此后无新操作","ui.taskWidget.blockN":"第 {block} 块","ui.taskWidget.earlierBlocks":"更早的 {count} 块","ui.taskWidget.omittedBlocks":"更早的 {count} 块未显示","ui.taskWidget.unknownDetail":"无法确认此步骤是否完成，继续前请先核对","ui.taskWidget.timelineLabel":"进度","ui.taskWidget.filesTitle":"生成的文件","ui.taskWidget.moreFiles":"显示其余 {count} 个","ui.taskWidget.omittedFiles":"另有 {count} 个未列出","ui.taskWidget.revealFile":"在访达中显示 {name}","ui.taskWidget.revealed":"已在访达中显示","ui.taskWidget.revealFailed":"无法在访达中显示","ui.taskWidget.continueAction":"继续","ui.taskWidget.stopAction":"停止","ui.taskWidget.stopConfirm":"确定停止","ui.taskWidget.stopOnlyThis":"仅停止此任务，其他任务不受影响","ui.taskWidget.stopping":"正在停止…","ui.taskWidget.stoppedOnlyThis":"此任务已停止，其他任务不受影响","ui.taskWidget.stopFailed":"停止失败，请在 ChatHand 窗口中停止","ui.taskWidget.controlRefreshed":"卡片已更新，请重新点击","ui.taskWidget.richAutoOffManual":"未开启自动继续","ui.taskWidget.richManualBlockLimit":"同一块已中断 3 次，请先查看原因","ui.taskWidget.richManualWaitDone":"命令已完成","ui.taskWidget.richManualWaitOver":"等待时间已到，命令仍在运行","ui.taskWidget.richManualStalled":"已中断，可从当前步骤继续","ui.taskWidget.richManualNotConnected":"未能自动继续","ui.taskWidget.richAutoLimitManual":"已自动继续 {count} 次","ui.taskWidget.richWaitCommandManual":"命令完成后，请点击「继续」","ui.taskWidget.richStalledPrompt":"请在下方输入框发送「继续」，从当前步骤恢复","ui.taskWidget.resumeHint":"如需继续，请在下方输入框发送「继续」","ui.taskWidget.resumedHere":"曾在此停止，已从此处继续","ui.taskWidget.resumeHintButton":"可从停止处继续，也可在下方输入框发送「继续」","ui.taskWidget.resumePrompt":"接着做刚才停下的那个任务，从停下的那一步开始。","ui.taskWidget.resumeSentCompact":"已请求 ChatGPT 继续，进度见下方新卡片","ui.taskWidget.resumeNotSent":"无法确认是否已发送。如对话中没有这条消息，请在下方输入框发送「继续」"},"en":{"ui.taskWidget.documentTitle":"ChatHand Task","ui.taskWidget.brand":"ChatHand · Task","ui.taskWidget.reading":"Loading task","ui.taskWidget.waitingData":"Waiting for data","ui.taskWidget.resultLabel":"Result","ui.taskWidget.actionLabel":"To do","ui.taskWidget.below":"Finished. See the card below for results.","ui.taskWidget.active":"In progress","ui.taskWidget.completed":"Completed","ui.taskWidget.failed":"Incomplete","ui.taskWidget.cancelled":"Stopped","ui.taskWidget.pendingApproval":"Waiting for confirmation in ChatHand","ui.taskWidget.permissionChanged":"Stopped: file access changed","ui.taskWidget.paused":"Paused","ui.taskWidget.connectionLost":"Stopped: connection lost","ui.taskWidget.expired":"Task expired","ui.taskWidget.superseded":"Replaced by new task","ui.taskWidget.revoked":"No result received","ui.taskWidget.write":"Write","ui.taskWidget.edit":"Edit","ui.taskWidget.createDirectory":"New folder","ui.taskWidget.move":"Move","ui.taskWidget.rename":"Rename","ui.taskWidget.delete":"Delete","ui.taskWidget.trash":"Move to Trash","ui.taskWidget.restore":"Restore","ui.taskWidget.restoreTrash":"Put Back","ui.taskWidget.copy":"Copy","ui.taskWidget.read":"Read","ui.taskWidget.listDirectory":"List folder","ui.taskWidget.search":"Search","ui.taskWidget.runCommand":"Run command","ui.taskWidget.commandResult":"Command output","ui.taskWidget.begin":"Start","ui.taskWidget.browserOpen":"Open page","ui.taskWidget.browserRead":"Read page","ui.taskWidget.desktopOpen":"Open","ui.taskWidget.connectionCheck":"Connection check","ui.taskWidget.connected":"Connected","ui.taskWidget.checking":"Checking","ui.taskWidget.receiptUnconfirmed":"Result pending","ui.taskWidget.connectionVerified":"Read & write verified for this plugin","ui.taskWidget.connectionPending":"Keep this page open; connection check pending","ui.taskWidget.retryTip":"If you see “Message delivery timed out”, send “continue” instead of clicking “Retry”.","ui.taskWidget.readWriteRecorded":"Read/write logged","ui.taskWidget.probeReturned":"Read/write test complete","ui.taskWidget.localTask":"Local task","ui.taskWidget.waitingCommand":"Waiting for command","ui.taskWidget.stalled":"Stalled","ui.taskWidget.fullScope":"Entire Mac","ui.taskWidget.workspaceScope":"Workspace only","ui.taskWidget.done":"Done.","ui.taskWidget.notDone":"Not finished.","ui.taskWidget.seeReply":"See ChatGPT’s note in this reply.","ui.taskWidget.noAction":"No action needed.","ui.taskWidget.justStarted":"Just started","ui.taskWidget.noStep":"(None recorded)","ui.taskWidget.blockerReply":"Reply in the chat box below if needed.","ui.taskWidget.capability":"this ability","ui.taskWidget.handled":"Handled","ui.taskWidget.awaitDecision":"Waiting on you","ui.taskWidget.permissionInWindow":"Handle this in the ChatHand window.","ui.taskWidget.allow":"Allow","ui.taskWidget.deny":"Keep Off","ui.taskWidget.cardExpired":"Card expired","ui.taskWidget.confirmationExpired":"Confirmation expired","ui.taskWidget.requestWithdrawn":"Request withdrawn","ui.taskWidget.allowed":"Allowed","ui.taskWidget.denied":"Off","ui.taskWidget.resultUnconfirmed":"Result pending","ui.taskWidget.invalidPermission":"Card expired—check the ChatHand window","ui.taskWidget.processing":"Processing","ui.taskWidget.denyPrompt":"I declined on the ChatHand card. Check task_status first and use an approach that doesn’t need it.","ui.taskWidget.answerPrompt":"I made a choice on the ChatHand card. Check task_status first and continue; do not replay actions with unknown results.","ui.taskWidget.answerUnconfirmed":"Couldn’t confirm your choice took effect. Check the task status first and don’t click again.","ui.taskWidget.bridgeUnavailable":"Couldn’t send automatically. Type “continue” in the chat box below","ui.taskWidget.toolInflight":"AI is running a step—wait for it to finish","ui.taskWidget.relayNotStarted":"Couldn’t auto-resume—send “continue” below","ui.taskWidget.relayAccepted":"Sent to continue task","ui.taskWidget.relayUnknown":"Send result unknown; won’t resend","ui.taskWidget.relayRejected":"Rejected by ChatGPT","ui.taskWidget.relayUnconfirmed":"Couldn’t confirm the task resumed. Check the task and don’t click again.","ui.taskWidget.relayCancelled":"Cancelled auto-continue for this block","ui.taskWidget.manualContinue":"Continue Manually","ui.taskWidget.manualBlockLimit":"Stopped 3× on this block. Check what went wrong first.","ui.taskWidget.manualWaitDone":"Command finished","ui.taskWidget.manualWaitOver":"Command still running","ui.taskWidget.manualStalled":"Stalled","ui.taskWidget.manualNotConnected":"Couldn’t resume automatically","ui.taskWidget.cancel":"Cancel","ui.taskWidget.waitCommandAuto":"Waiting for command · Auto-continues when done","ui.taskWidget.waitCommandManual":"Waiting for command · Click “Continue Manually” when done","ui.taskWidget.autoOffManual":"Auto-continue is off","ui.taskWidget.autoOffPrompt":"Auto-continue is off · Send “continue” below","ui.taskWidget.checkingPermission":"Verifying permission","ui.taskWidget.relayPreparing":"Resuming soon","ui.taskWidget.relayAwaiting":"Sent—waiting for AI","ui.taskWidget.relayUnknownNoRepeat":"Send result unknown; do not resend","ui.taskWidget.relayResumed":"Resumed","ui.taskWidget.stalledPrompt":"Stalled · Send “continue” below","ui.taskWidget.invalidTask":"Card expired—check the task status","ui.taskWidget.secondsAgo":"{count}s ago","ui.taskWidget.minutesAgo":"{count}m ago","ui.taskWidget.hoursAgo":"{count}h ago","ui.taskWidget.step":"{ago}: {action}","ui.taskWidget.compactProgress":"Block {block} · {done}","ui.taskWidget.errorsHandled":"{count} error(s) along the way, all handled.","ui.taskWidget.errorsRecorded":"{count} error(s) recorded along the way.","ui.taskWidget.cleanupUnconfirmed":"Cleanup not confirmed: some processes from this task’s commands may still be running.","ui.taskWidget.blockProgress":"Block {block}/{total}","ui.taskWidget.blocksDone":"{count} block(s) done","ui.taskWidget.lastStep":"Last: {step}","ui.taskWidget.reasonLastStep":"{reason} · {step}","ui.taskWidget.reasonNextStep":"{reason} · Next: {next}","ui.taskWidget.nextStep":"Next: {next}","ui.taskWidget.blockerStep":"Blocked at: {step}","ui.taskWidget.blockerError":"Error: {error}","ui.taskWidget.blockerWhy":"Why: {why}","ui.taskWidget.permissionQuestion":"Allow “{name}”?","ui.taskWidget.permissionEffect":"Does: {effect}","ui.taskWidget.permissionRisk":"Risk: {risk}","ui.taskWidget.permissionExpiry":"Valid for {count}m","ui.taskWidget.answeredElsewhere":"Answered elsewhere: {result}","ui.taskWidget.fileChangedRepeated":"{action} {name} · {count}×","ui.taskWidget.fileChanged":"{action} {name}","ui.taskWidget.relayPromptSplit":"Continue ChatHand task {id}. This block stalled twice: call task_status first to check last_checkpoint, split the remaining work into smaller steps, and record a checkpoint after each step; do not repeat completed actions, and verify any step with an unknown result first.","ui.taskWidget.relayPromptDone":"Command finished. Continue ChatHand task {id}: call task_status first to check last_checkpoint and the pending command, then call command_result to read its output and continue; do not repeat completed actions.","ui.taskWidget.relayPromptOver":"Command wait timed out while still running. Continue ChatHand task {id}: call task_status first to check last_checkpoint and the pending command, call command_result to check its current status, and decide whether to keep waiting or switch approaches; do not repeat completed actions.","ui.taskWidget.relayPromptContinue":"Continue ChatHand task {id}. Call task_status first to check the task and last_checkpoint, then continue; do not repeat completed actions, and verify any step with an unknown result first.","ui.taskWidget.countdown.done.split":"Command done · Continuing in smaller steps in {count}s","ui.taskWidget.countdown.done.continue":"Command done · Continuing in {count}s","ui.taskWidget.countdown.over.split":"Still running · Continuing in smaller steps in {count}s","ui.taskWidget.countdown.over.continue":"Still running · Continuing in {count}s","ui.taskWidget.countdown.again.split":"Stalled again · Continuing in smaller steps in {count}s","ui.taskWidget.countdown.stalled.continue":"Stalled · Continuing in {count}s","ui.taskWidget.countdown.ready.split":"Continuing in smaller steps in {count}s","ui.taskWidget.countdown.ready.continue":"Continuing in {count}s","ui.taskWidget.autoLimitManual":"Auto-continued {count}×","ui.taskWidget.autoLimitPrompt":"Auto-continued {count}× · Send “continue” below","ui.taskWidget.resultWillContinue":"{result} · ChatGPT will continue","ui.taskWidget.resultNotified":"{result} · Notified ChatGPT","ui.taskWidget.resultTellChatGPT":"{result} · Ask ChatGPT to continue","ui.taskWidget.stepTarget":"{ago}: {action} {target}","ui.taskWidget.compactProgressTotal":"Block {block}/{total} · {done}","ui.taskWidget.progressRecorded":"Progress saved","ui.taskWidget.blocked":"Blocked","ui.taskWidget.unknownState":"Needs checking","ui.taskWidget.allBlocksDone":"All {total} blocks done","ui.taskWidget.stoppedAtBlock":"Stopped at block {block}/{total}","ui.taskWidget.stoppedAtBlockNoTotal":"Stopped at block {block}","ui.taskWidget.thinking":"Working out the next step","ui.taskWidget.noNewStep":"No activity since","ui.taskWidget.blockN":"Block {block}","ui.taskWidget.earlierBlocks":"{count} earlier blocks","ui.taskWidget.omittedBlocks":"{count} earlier blocks not included","ui.taskWidget.unknownDetail":"Unclear whether this step finished—check before continuing","ui.taskWidget.timelineLabel":"Progress","ui.taskWidget.filesTitle":"Files created","ui.taskWidget.moreFiles":"{count} more","ui.taskWidget.omittedFiles":"{count} more not listed","ui.taskWidget.revealFile":"Show {name} in Finder","ui.taskWidget.revealed":"Shown in Finder","ui.taskWidget.revealFailed":"Couldn’t show in Finder","ui.taskWidget.continueAction":"Continue","ui.taskWidget.stopAction":"Stop","ui.taskWidget.stopConfirm":"Stop Task","ui.taskWidget.stopOnlyThis":"Only this task stops; others keep running","ui.taskWidget.stopping":"Stopping…","ui.taskWidget.stoppedOnlyThis":"Stopped—only this task","ui.taskWidget.stopFailed":"Couldn’t stop—use the ChatHand window","ui.taskWidget.controlRefreshed":"Card just updated—click again","ui.taskWidget.richAutoOffManual":"Auto-continue is off","ui.taskWidget.richManualBlockLimit":"Stopped 3× on this block. Check what went wrong first.","ui.taskWidget.richManualWaitDone":"Command finished","ui.taskWidget.richManualWaitOver":"Command still running","ui.taskWidget.richManualStalled":"Stalled. You can continue from this step.","ui.taskWidget.richManualNotConnected":"Couldn’t resume automatically","ui.taskWidget.richAutoLimitManual":"Auto-continued {count}×","ui.taskWidget.richWaitCommandManual":"Click “Continue” once the command finishes","ui.taskWidget.richStalledPrompt":"Send “continue” below to pick up from here","ui.taskWidget.resumeHint":"To pick up from here, send “continue” below","ui.taskWidget.resumedHere":"Stopped here, then continued","ui.taskWidget.resumeHintButton":"Resume from where it stopped, or send “continue” in the chat box below","ui.taskWidget.resumePrompt":"Continue the task I just stopped, starting from where it stopped.","ui.taskWidget.resumeSentCompact":"Asked ChatGPT to continue. See the new card below for progress.","ui.taskWidget.resumeNotSent":"Couldn’t confirm it was sent. If it’s not in the chat, send “continue” below"}};
+/* Shared local UI text runtime. Locale comes from the native shell only. */
+(function(root){
+ 'use strict';
+ const state=root.__CHATHAND_TEXT_STATE__||(root.__CHATHAND_TEXT_STATE__={locale:'zh',catalogs:{zh:{},en:{}},revision:0,listeners:new Set()});
+ const own=(object,key)=>Object.prototype.hasOwnProperty.call(object||{},key);
+ const localeOf=value=>/^en(?:[-_]|$)/i.test(String(value||''))?'en':'zh';
+ const escape=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+ const trustedMark=Symbol.for('ChatHand.localText.trusted');
+ const trusted=value=>Object.freeze({[trustedMark]:true,value:String(value??'')});
+ function template(key){const current=state.catalogs[state.locale]||{},fallback=state.catalogs.zh||{};return typeof current[key]==='string'&&current[key].trim().length?current[key]:typeof fallback[key]==='string'&&fallback[key].trim().length?fallback[key]:String(key);}
+ function format(key,params={},asHTML=false){const source=template(key);return source.split(/(\{[A-Za-z][A-Za-z0-9_]*\})/g).map(part=>{const match=/^\{([A-Za-z][A-Za-z0-9_]*)\}$/.exec(part);if(!match)return asHTML?escape(part):part;const name=match[1];if(!own(params,name))return part;const value=params[name];return asHTML?(value?.[trustedMark]===true?value.value:escape(value)):String(value?.[trustedMark]===true?value.value:value??'');}).join('');}
+ function t(key,params={}){return format(key,params,false);}
+ function html(key,params={}){return format(key,params,true);}
+ function installCatalogs(input={}){const incoming=input.catalogs||(own(input,'zh')||own(input,'en')?input:null);let changed=false;if(incoming)for(const locale of ['zh','en'])if(incoming[locale]&&typeof incoming[locale]==='object'){const next={...(state.catalogs[locale]||{})};for(const [key,value] of Object.entries(incoming[locale])){if(input.overwrite===false&&own(next,key))continue;if(next[key]!==value){next[key]=value;changed=true;}}state.catalogs[locale]=next;}if(own(input,'locale')){const next=localeOf(input.locale);if(state.locale!==next){state.locale=next;changed=true;}}if(root.document?.documentElement){root.document.documentElement.lang=state.locale==='en'?'en':'zh-CN';root.document.documentElement.dataset.localTextLocale=state.locale;}if(changed){state.revision++;if(input.overwrite!==false)for(const listener of [...state.listeners])listener(state);}return state;}
+ function subscribe(listener){state.listeners.add(listener);return ()=>state.listeners.delete(listener);}
+ const api={t,html,trusted,installCatalogs,update:installCatalogs,subscribe,get locale(){return state.locale;},get revision(){return state.revision;}};
+ t.html=html;root.ChatHandText=api;
+ if(root.__CHATHAND_TEXT_CATALOGS__)installCatalogs({catalogs:root.__CHATHAND_TEXT_CATALOGS__,overwrite:false});
+})(globalThis);
+
+</script>
+<!-- /CHATHAND_LOCAL_TEXT_INLINE -->
+<script>
+'use strict';
+
+// Root replaces the marker before this script with the shared inline runtime and catalogs.
+// Locale updates repaint text only: no polling, capability consumption or host actions.
+const textBindings=new Map();
+const T=(key,params={})=>window.ChatHandText.t('ui.taskWidget.'+key,params);
+function bindText(node,draw){textBindings.set(node,draw);draw();}
+function paintText(node,read){bindText(node,()=>{node.textContent=read();});}
+function richText(node,read,parts){bindText(node,()=>{
+ const value=String(read()??'');node.replaceChildren();
+ for(const [text,bold] of parts(value)){if(bold){const b=document.createElement('b');b.textContent=text;node.append(b);}else node.append(document.createTextNode(text));}
+});}
+function textNode(read){const node=document.createTextNode('');paintText(node,read);return node;}
+function pruneTextBindings(){for(const node of textBindings.keys())if(!node.isConnected)textBindings.delete(node);}
+function refreshText(){
+ document.documentElement.lang=window.ChatHandText.locale==='en'?'en':'zh-CN';
+ for(const [node,draw] of textBindings){if(node.isConnected)draw();else textBindings.delete(node);}
+ reportHeight();
+}
+
+// 1029：task_checkpoint 每块都会出进度卡；同一任务的旧进度卡靠 checkpoint_seq 自动收成一行。show_task 只在明确需要时展示任务卡；卡片自己定时查，原地更新。
+// 1052：有凭据的卡走私有 view；权限卡用 card_answer status 私下查；没凭据的卡（show_task）只能用 task_status(from_card)，会算成 AI 在动，只查 10 分钟。节奏见 pollGap（方案 A2 第 7–9 处）：
+// 平时：做到第几块、最近一步；预报说可能被多查：一行橙色提醒；停住了：橙色「别点重试，在下面输入框发继续」。
+// 收尾时 finish_task 也用这张卡：「结果」「你要做」两行由 ChatHand 程序给出。
+// 1049：合作式 checkpoint + 私有许可，只经官方 sendFollowUpMessage 发送；旧停住时自动发送已停用。
+// 1052 A4-4：进度卡只看不发，停住了才接：同一块第 1 次发「继续」，第 2 次让 AI 拆小，第 3 次只给按钮；每个任务最多自动发 5 次（ChatHand 计数）。
+// 停住时 AI 正在等一条命令的，命令跑完以前不发、不给按钮，跑完再发。发什么话按 view 里的 prompt_kind 选。
+// 卡自己出的错（查、换卡、发送、回报、取消）只记次数和错误码，ChatHand 要（report_errors）才随下一次 view 带上（card_errors，方案 A1）。
+const bornAt=Date.now();let cardBorn=bornAt,current=null,n=0,polls=0,timer=null,timerDue=0,cardKind=null,mySeq=null,originCheckpoint=null,initialWasDone=false,polledInitial=false,rendered=false,collapsed=false;const pending=new Map();
+// Capability stays in this component's closure: never DOM, widgetState or a user message.
+let cardNonce=null,cardSubmitted=false,permissionData=null,permissionTimer=null,permissionPoll=null,cardReadyAt=0,armTimer=null;
+let hostFlowCapability=null,hostFlowAttempted=false,hostFlowState=null,observationNonce=null;
+let relayToken=null,relayPermit=null,relayInterruptToken=null,relayGeneration=0,relaySending=false,relayTimer=null,relayInterrupting=false;
+const usedInterruptTokens=new Set();
+let cardErrN=0;const cardErrCodes=new Set();
+function noteCardError(e){cardErrN=Math.min(999,cardErrN+1);const c=String(e?.message||'');if(/^[A-Z][A-Z0-9_]{0,39}$/.test(c)&&cardErrCodes.size<5)cardErrCodes.add(c);}
+function privateMetadata(input){
+ if(!input||typeof input!=='object'||Array.isArray(input))return {};
+ const meta={};for(const value of [input,input._meta,input.call_tool_result?._meta,input.mcp_tool_result?._meta,input.call_tool_result?.result?._meta,input.mcp_tool_result?.result?._meta]){
+  if(value&&typeof value==='object'&&!Array.isArray(value))for(const key of ['chathand/card_nonce','chathand/relay_card_token','chathand/relay_permit_token','chathand/relay_interruption_token','chathand/host_flow_capability','chathand/observation_nonce','chathand/task_card','chathand/task_control_nonce','chathand/task_controls'])if(Object.hasOwn(value,key))meta[key]=value[key];
+ }return meta;
+}
+async function commitHostFlow(){
+ if(!hostFlowCapability||hostFlowAttempted)return;
+ if(typeof window.openai?.callTool!=='function'){hostFlowState='unconfirmed';renderHostFlow();return;}
+ hostFlowAttempted=true;const capability=hostFlowCapability;hostFlowCapability=null;hostFlowState='applying';renderHostFlow();
+ try{const raw=await window.openai.callTool('chathand_host_flow_commit',{capability});const r=raw?.structuredContent??raw;if(raw?.isError)throw Error(r?.code||'B_HOST_CAP_UNVERIFIED');hostFlowState=r?.app_flow_verified===true?'verified':'unconfirmed';}
+ catch{hostFlowState='unconfirmed';}renderHostFlow();
+}
+function renderHostFlow(){if(current?.task)return;rendered=true;paintText($('title'),()=>T("connectionCheck"));paintText($('state'),()=>hostFlowState==='verified'?T("connected"):hostFlowState==='applying'?T("checking"):T("receiptUnconfirmed"));paintText($('scope'),()=>hostFlowState==='verified'?T("connectionVerified"):T("connectionPending"));reportHeight();}
+function acceptMetadata(input){const meta=privateMetadata(input);const host=meta['chathand/host_flow_capability'];if(!hostFlowAttempted&&host?.version===1&&typeof host.capability==='string'&&/^[-_A-Za-z0-9]{43}$/.test(host.capability)&&Number(host.expires_at)>Date.now()){hostFlowCapability=host.capability;queueMicrotask(commitHostFlow);}if(typeof meta['chathand/observation_nonce']==='string')observationNonce=meta['chathand/observation_nonce'];if(!cardSubmitted&&typeof meta?.['chathand/card_nonce']==='string')cardNonce=meta['chathand/card_nonce'];const raw=meta?.['chathand/relay_card_token'];if(!cardSubmitted&&typeof raw==='string'&&/^[a-f0-9]{64}$/.test(raw)&&raw!==relayToken){relayToken=raw;relayPermit=null;relayGeneration++;clearTimeout(relayTimer);}const permit=meta?.['chathand/relay_permit_token'];if(typeof permit==='string'&&/^[a-f0-9]{64}$/.test(permit))relayPermit=permit;const interrupt=meta?.['chathand/relay_interruption_token'];if(typeof interrupt==='string'&&/^[a-f0-9]{64}$/.test(interrupt)&&!usedInterruptTokens.has(interrupt))relayInterruptToken=interrupt;acceptTaskCard(meta);}
+const names={active:"active",completed:"completed",failed:"failed",cancelled:"cancelled",pending_approval:"pendingApproval",permission_changed:"permissionChanged",paused:"paused",connection_lost:"connectionLost",expired:"expired",superseded:"superseded",revoked:"revoked"};
+const $=id=>document.getElementById(id);
+const VERB={write_file:"write",write_text:"write",edit_file:"edit",create_directory:"createDirectory",move_file:"move",move_path:"move",rename_file:"rename",delete_file:"delete",trash_path:"trash",restore_file:"restore",restore_trash:"restoreTrash",copy_file:"copy",read_text:"read",read_file:"read",list_directory:"listDirectory",search_text:"search",propose_command:"runCommand",command_result:"commandResult",begin_task:"begin",browser_open:"browserOpen",browser_read:"browserRead",desktop_action:"desktopOpen"};
+const retryTip=()=>T("retryTip");
+// 这句只在真有停住的苗头时出（Ken 10/16）：AI 这边 2 分钟没新动静、也不是在跑命令或等人，才提醒；一有新进度就收回。
+// 2 分钟取自 resume.mjs 的 MIN_STALL_MS；过了停住门槛由下面「停住了」那句接手。quiet 用服务端给的 quiet_ms 加本地经过的时间，不比两边时钟。
+const NEAR_STALL_MS=120000;let quietBase=null;
+function quietNow(s){if(!s)return 0;const q=Number(s.quiet_ms)||0;if(!quietBase||quietBase.last!==s.last_at||quietBase.q!==q)quietBase={last:s.last_at,q,at:Date.now()};return quietBase.q+(Date.now()-quietBase.at);}
+function setTheme(t){if(t==='light'||t==='dark')document.documentElement.dataset.theme=t;}
+function send(method,params){return new Promise((resolve,reject)=>{const id=++n,t=setTimeout(()=>{pending.delete(id);reject(Error('timeout'));},8000);pending.set(id,{resolve,reject,t});window.parent.postMessage({jsonrpc:'2.0',id,method,params},'*');});}
+async function call(name,args){const r=window.openai?.callTool?await window.openai.callTool(name,args):await send('tools/call',{name,arguments:args});acceptMetadata(r);if(r?.isError)throw Error(r?.structuredContent?.code||'error');return r?.structuredContent??r;}
+const ago=ms=>ms<60000?T("secondsAgo",{count:Math.max(1,Math.round(ms/1000))}):ms<3600000?T("minutesAgo",{count:Math.round(ms/60000)}):T("hoursAgo",{count:Math.round(ms/3600000)});
+function stepText(s){if(!s)return '';const v=(VERB[s.tool]?T(VERB[s.tool]):s.tool);return T(s.target?'stepTarget':'step',{ago:ago(Date.now()-s.at),action:String(v),target:s.target});}
+function alertLine(read,button){
+ const value=typeof read==='function'?read:()=>read;lastAlertKey=read?.key||null;
+ // 1060（Claude）：总卡上这句不放橙色框，放在「继续」「停止」旁边，灰字。
+ if(rich){richText($('rnoteText'),value,line=>line.split(/(「继续」)/).map(part=>[part,part==='「继续」']));$('rnoteBtn').replaceChildren();if(button)$('rnoteBtn').append(button);paintControls();return;}
+ $('alert').hidden=!value();richText($('alertText'),value,line=>line.split(/(「继续」)/).map(part=>[part,part==='「继续」']));$('alertBtn').replaceChildren();
+ if(button)$('alertBtn').append(button);
+}
+function groupChanges(list){const m=new Map();for(const c of list){const p=String(c.destination||c.path||'');if(!p)continue;const g=m.get(p)||{path:p,tool:c.tool,n:0};g.n++;g.tool=c.tool;m.delete(p);m.set(p,g);}return [...m.values()].reverse();}
+function normalize(input){if(input?.task)return input;if(input?.card==='checkpoint'&&input?.task_id)return {task:{...input,status:'active',title:null,last_checkpoint:input.checkpoint,blocker:input.checkpoint?.blocked||null},changes:input.changes,scope:input.scope};return input?.task_id?{task:input,changes:input.changes,scope:input.scope}:null;}
+// 卡的身份只在第一次拿到数据时确定：checkpoint / finish / show_task，之后轮询不会改身份。
+let fromFinish=false;
+const clip40=v=>[...String(v||'')].slice(0,40).join('');
+function renderCompact(cp,read,mark){collapsed=true;stopTimer();clearTimeout(relayTimer);relayGeneration++;relayToken=null;const card=document.querySelector('.card');card.classList.add('compact');$('compact').hidden=false;if(mark){const ck=$('compact').querySelector?.('.ck');if(ck)ck.textContent=mark;}paintText($('compactText'),read||(()=>T(cp?.total?'compactProgressTotal':'compactProgress',{block:cp?.block||'?',total:cp?.total,done:clip40(cp?.done)})));reportHeight();}
+// 1060（Claude）：总卡。结果的 _meta 带了 chathand/task_card 才画这一版，没带的旧结果照旧画（render 里原来那套）。
+// 标题、进度（数据变了才换字）、时间线（新的在上，照 ChatHand 窗口）、文件（点了在访达里显示）、「继续」「停止」。
+// 颜色只上在状态那个词和时间线的圆点上：进行中、成功完成绿；停住了、卡住了、没完成、结果待核对橙；停了、在等命令灰。
+// 按钮只看数据：task_card.controls 的 enabled，加上同一份 _meta 里的 task_control_nonce 和它的到期时间；凭据只在这个闭包里，不进 DOM。
+// 「继续」只在停住了、要人接的时候出（接力卡给了手动继续，或者停住了而数据允许 continue）；正常进行中不出，免得 AI 还在回的时候插一句。
+let taskCard=null,taskControlNonce=null,taskControls=null,rich=false,richManualId=null,lastAlertKey=null,stopArmed=false,stopArmTimer=null,stoppedHere=false,resumeBusy=false,resumeTried=false,resumeSentFor=null,controlBusy=false,ctlExpiry=null,tlOpen=false,filesOpen=false,progSig=null,tlPrimed=false,filesSig=null;
+const tlSeen=new Set();
+function cardFreshness(c){const at=(c?.timeline||[]).reduce((m,x)=>Math.max(m,Number(x?.at)||0),0);return [c?.terminal===true?1:0,Number(c?.progress?.checkpoint_seq)||0,at];}
+function acceptTaskCard(meta){
+ const c=meta['chathand/task_card'];
+ if(c&&typeof c==='object'&&!Array.isArray(c)&&c.protocol===1&&typeof c.task_id==='string'&&Array.isArray(c.timeline)){
+  const a=cardFreshness(c),b=taskCard?.task_id===c.task_id?cardFreshness(taskCard):null;
+  if(!b||a[0]>b[0]||a[0]===b[0]&&(a[1]>b[1]||a[1]===b[1]&&a[2]>=b[2]))taskCard=c;
+ }
+ const nonce=meta['chathand/task_control_nonce'],ctl=meta['chathand/task_controls'];
+ if(typeof nonce==='string'&&/^[a-f0-9]{64}$/.test(nonce)&&ctl&&typeof ctl==='object'&&typeof ctl.task_id==='string'){
+  const expires=Number(ctl.expires_at)||0;
+  if(!taskControls||taskControls.task_id!==ctl.task_id||expires>=taskControls.expires_at){taskControlNonce=nonce;taskControls={task_id:ctl.task_id,checkpoint_seq:ctl.checkpoint_seq,actions:Array.isArray(ctl.actions)?ctl.actions.filter(x=>x==='continue'||x==='stop'):[],expires_at:expires};}
+ }
+}
+// 1060（Claude）：卡片跟 ChatGPT 的语言走。宿主直接给的（window.openai.locale、hostContext.locale）优先；没给就用 ChatHand 在 widget_shell.i18n.locale 里带的。
+// 规则和 ChatHand 的 normalizeLocale 一样：en 开头是英文，其余中文。只换字，不动轮询和凭据。
+let hostLocaleSet=false;
+function applyHostLocale(value,fromHost){
+ if(typeof value!=='string'||!value.trim()||value.length>128||!fromHost&&hostLocaleSet)return;
+ if(fromHost)hostLocaleSet=true;
+ const next=/^en(?:[-_]|$)/i.test(value.trim())?'en':'zh';if(window.ChatHandText.locale!==next)window.ChatHandText.installCatalogs({locale:next});
+}
+// 接力卡上原来那几句提示里写的是「点「手动继续」」；总卡上那个按钮叫「继续」，换成对应的句子。
+const RICH_NOTE={autoOffManual:'richAutoOffManual',manualBlockLimit:'richManualBlockLimit',manualWaitDone:'richManualWaitDone',manualWaitOver:'richManualWaitOver',manualStalled:'richManualStalled',manualNotConnected:'richManualNotConnected',autoLimitManual:'richAutoLimitManual',waitCommandManual:'richWaitCommandManual',stalledPrompt:'richStalledPrompt'};
+function A(key,params){const read=()=>T(rich&&RICH_NOTE[key]?RICH_NOTE[key]:key,params);read.key=key;return read;}
+function setNote(read){paintText($('note'),read);if(rich)updateFoot();}
+function enterRich(){rich=true;document.querySelector('.card').classList.add('rich');$('rprog').hidden=false;$('rbody').hidden=false;
+ // 卡住时的「为什么」和可选的办法放到时间线下面，先看到卡在哪一步，再看怎么办。
+ $('rbody').after($('blocker'));}
+function updateFoot(){if(!rich)return;const note=!!$('note').textContent;$('foot').hidden=!note;$('rnote').hidden=!$('rnoteText').textContent&&!$('rnoteBtn').children.length;$('rfoot').hidden=$('ctl').hidden&&$('rnote').hidden&&!note;}
+const reducedMotion=()=>{try{return window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches===true;}catch{return false;}};
+const two=n=>String(n).padStart(2,'0');
+function clock(at){const d=new Date(at),now=new Date(Date.now()),hm=two(d.getHours())+':'+two(d.getMinutes());return d.toDateString()===now.toDateString()?hm:(d.getMonth()+1)+'/'+d.getDate()+' '+hm;}
+function richTone(card,t,cmdWait){
+ const s=card.status;
+ if(cmdWait||s==='stopped')return 'mute';
+ if(s==='waiting')return t.status==='pending_approval'?'warn':'mute';
+ if(['stalled','blocked','failed','unknown'].includes(s))return 'warn';
+ return ['active','completed'].includes(s)?'ok':'mute';
+}
+function progressLine(card){
+ const p=card.progress||{},b=Number(p.block)||0,total=Number(p.total)||0,s=card.status,next=String(p.next||'');
+ if(s==='completed')return total?{sig:'done:'+total,read:()=>T('allBlocksDone',{total})}:null;
+ if(['stopped','failed','unknown'].includes(s))return b?{sig:'stop:'+b+'/'+total,read:()=>total?T('stoppedAtBlock',{block:b,total}):T('stoppedAtBlockNoTotal',{block:b})}:null;
+ const head=()=>total?T('blockProgress',{block:b,total}):b?T('blocksDone',{count:b}):T('justStarted');
+ return {sig:'live:'+b+'/'+total+':'+next,read:()=>next?head()+' · '+T('nextStep',{next}):head()};
+}
+function setProgress(line){
+ const box=$('rprog');box.hidden=!line;if(!line){progSig=null;box.replaceChildren();return;}
+ if(line.sig===progSig)return;
+ const first=progSig===null;progSig=line.sig;const old=[...box.children],span=document.createElement('span');paintText(span,line.read);
+ if(!first&&!reducedMotion()){span.className='in';for(const o of old){o.className='out';setTimeout(()=>o.remove(),260);}}else for(const o of old)o.remove();
+ box.append(span);
+}
+const SVGNS='http://www.w3.org/2000/svg';
+const ICON={check:['M5 12.5l4.5 4.5L19 7.5'],x:['M7 7l10 10M17 7L7 17'],alert:['M12 6.5v7','M12 17.5h.01'],stop:['M6 6h12v12H6z'],file:['M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z','M14 3v5h5']};
+function svgIcon(name){const s=document.createElementNS(SVGNS,'svg');s.setAttribute('viewBox','0 0 24 24');s.setAttribute('class','i');s.setAttribute('aria-hidden','true');for(const d of ICON[name]||[]){const p=document.createElementNS(SVGNS,'path');p.setAttribute('d',d);s.append(p);}return s;}
+function nodeEl(kind){
+ const n=document.createElement('span');n.className='nd '+kind;n.setAttribute('aria-hidden','true');
+ if(kind==='run'){const s=document.createElementNS(SVGNS,'svg');s.setAttribute('viewBox','0 0 20 20');const c=document.createElementNS(SVGNS,'circle');c.setAttribute('cx','10');c.setAttribute('cy','10');c.setAttribute('r','9.5');s.append(c);n.append(s);}
+ else if(kind==='idle')for(const k of ['m','h']){const i=document.createElement('i');i.className=k;n.append(i);}
+ else n.append(svgIcon({ok:'check',fail:'x',warn:'alert',stop:'stop'}[kind]||'check'));
+ return n;
+}
+// 1060 0004（Claude）：这张卡是停了以后接着做的（task_card 带 continuity），从哪一刻接着做：就是这个新任务开始的时间。
+function resumeAt(t,card){if(!card?.continuity)return 0;const at=Number(t?.created_at)||0;return at>0?at:0;}
+// 「继续」只给这一页里刚点停的卡，发一次就收；重新打开的旧卡不给，免得接两遍。
+function canResume(card){return !!card&&stoppedHere&&card.terminal===true&&card.status==='stopped'&&!resumeTried&&!resumeSentFor&&typeof window.openai?.sendFollowUpMessage==='function';}
+// 时间线首行是「现在在哪」（在做=最近一步，没有就写在想下一步；停住、卡住、停了、出错各换圆点和颜色），下面每块一行写做完了什么。
+function nowRow(t,card,cmdWait){
+ const s=card.status,cps=(card.timeline||[]).filter(x=>x.kind==='checkpoint'),lastAt=Number(cps.at(-1)?.at)||0;
+ // 1060：接着做的任务带来了原来的进度、最近几步和文件；带来的步骤不算「现在在做」，时间从接着做那刻算。
+ const rb=resumeAt(t,card),own=x=>x&&(!rb||Number(x.at)>=rb)?x:null;
+ const rs=own((t.recent_steps||[]).at(-1)),cs=own((card.timeline||[]).filter(x=>x.kind==='step').at(-1));
+ const step=rs&&Number(rs.at)>=lastAt?rs:cs&&Number(cs.at)>=lastAt?cs:null;
+ const last=Math.max(lastAt,Number(step?.at)||0,rb),since=last?()=>ago(Date.now()-last):null,at=last?()=>clock(last):null;
+ const stepTitle=step?()=>{const v=VERB[step.tool]?T(VERB[step.tool]):String(step.tool||'');return step.target?v+' '+step.target:v;}:null;
+ const stopStep=String(card.stopped_at?.step||''),nextStep=String(card.progress?.next||'');
+ // 停下来的那一行：ChatHand 记的「停在哪」多半就是下一步本来要做的事，写成「下一步：…」，不让人以为它已经做了。
+ const stopTitle=!stopStep?()=>T('noStep'):stopStep===nextStep?()=>T('nextStep',{next:stopStep}):()=>stopStep;
+ const latest=[rs,cs].filter(Boolean).sort((a,b)=>(Number(b.at)||0)-(Number(a.at)||0))[0]||null;
+ const titleOf=x=>()=>{const v=VERB[x.tool]?T(VERB[x.tool]):String(x.tool||'');return x.target?v+' '+x.target:v;};
+ if(s==='completed')return null;
+ if(s==='stopped')return {key:'now:stop',node:'stop',title:stopTitle,text:stopStep,time:at};
+ if(s==='failed')return {key:'now:fail',node:'fail',title:stopTitle,text:stopStep,time:at,tone:'warn'};
+ // 结果不确定的是最后做的那个动作，不是下一步。
+ if(s==='unknown')return {key:'now:unknown',node:'warn',title:latest?titleOf(latest):stopTitle,text:latest?.target||stopStep,small:()=>T('unknownDetail'),time:since,tone:'warn'};
+ if(s==='blocked'){const b=String(t.blocker?.step||stopStep),err=t.blocker?.error;return {key:'now:blocked',node:'warn',title:b?()=>b:()=>T('noStep'),text:b,small:err?()=>T('blockerError',{error:String(err)}):null,time:since,tone:'warn'};}
+ // 在等命令：写是哪条命令（状态那里已经写了「在等命令跑完」）。
+ if(cmdWait&&latest)return {key:'now:wait',node:'idle',title:titleOf(latest),text:latest.target||'',time:since};
+ if(s==='waiting'||cmdWait){const d=String(t.wait_state?.detail||'');return {key:'now:wait',node:'idle',title:d?()=>d:cmdWait?()=>T('waitingCommand'):()=>t.wait_state?.label||T('pendingApproval'),text:d,time:since};}
+ const warn=s==='stalled';
+ return {key:'now:'+(warn?'stalled':'run'),node:warn?'warn':'run',title:stepTitle||(()=>warn?T('noNewStep'):T('thinking')),text:step?.target||'',time:since,tone:warn?'warn':'ok'};
+}
+function timelineRows(t,card,cmdWait){
+ const rows=[],now=nowRow(t,card,cmdWait);if(now)rows.push({...now,cls:'cur'});
+ const cps=(card.timeline||[]).filter(x=>x.kind==='checkpoint').reverse(),limit=4,shown=tlOpen?cps:cps.slice(0,limit),hidden=cps.length-shown.length,omitted=Number(card.coverage?.omitted_checkpoints)||0;
+ // 1060 0004（Claude）：接着做的任务在带过来的那几块上面插一行「停过一次，从这里接着做」，一张卡从头连到现在。
+ const rb=resumeAt(t,card),resumeRow={key:'resume',cls:'tl-resume',node:'stop',title:()=>T('resumedHere'),time:()=>clock(rb)};let marked=!rb;
+ for(const c of shown){if(!marked&&(Number(c.at)||0)<rb){rows.push(resumeRow);marked=true;}const done=String(c.done||'');rows.push({key:String(c.id),cls:'ok',node:'ok',title:done?()=>done:()=>T('blockN',{block:c.block??'?'}),text:done,time:c.at?()=>clock(c.at):null});}
+ if(!marked&&hidden===0)rows.push(resumeRow);
+ if(hidden>0)rows.push({key:'more',cls:'tl-more',node:'ok',link:()=>T('earlierBlocks',{count:hidden}),onclick:()=>{tlOpen=true;if(current)render(current);}});
+ else if(omitted>0)rows.push({key:'gap',cls:'tl-gap',title:()=>T('omittedBlocks',{count:omitted})});
+ return rows;
+}
+function timelineRow(r){
+ const li=document.createElement('li');li.className=r.cls;li.dataset.k=r.key;
+ if(r.cls==='tl-gap'){paintText(li,r.title);return li;}
+ const body=document.createElement('div');body.className='tl-b';
+ if(r.link){const a=document.createElement('button');a.type='button';a.className='tl-link';paintText(a,r.link);a.onclick=r.onclick;body.append(a);}
+ else{const b=document.createElement('b');paintText(b,r.title);if(r.text)b.title=r.text;body.append(b);if(r.small){const sm=document.createElement('small');paintText(sm,r.small);if(r.text)sm.title=r.text;body.append(sm);}}
+ const tm=document.createElement('span');tm.className='tl-tm'+(r.tone?' '+r.tone:'');if(r.time)paintText(tm,r.time);
+ li.append(nodeEl(r.node),body,tm);return li;
+}
+function renderTimeline(t,card,cmdWait){
+ let wrap=$('rtl');if(!wrap){wrap=document.createElement('ol');wrap.id='rtl';wrap.className='tl';$('rbody').prepend(wrap);}
+ bindText(wrap,()=>wrap.setAttribute('aria-label',T('timelineLabel')));
+ const rows=timelineRows(t,card,cmdWait),shape=rows.map(r=>r.key+'|'+r.node+'|'+(r.small?1:0)+'|'+(r.tone||'')).join(','),old=[...wrap.children];
+ // 结构没变就原地换字，圆点上的转圈动画不会每次轮询都从头开始。
+ if(wrap.dataset.shape===shape&&old.length===rows.length){rows.forEach((r,i)=>{const li=old[i],b=li.querySelector('.tl-b b,.tl-b .tl-link'),sm=li.querySelector('.tl-b small'),tm=li.querySelector('.tl-tm');if(r.cls==='tl-gap'){paintText(li,r.title);return;}if(r.link){paintText(b,r.link);b.onclick=r.onclick;}else{paintText(b,r.title);b.title=r.text||'';if(sm&&r.small)paintText(sm,r.small);}if(tm)paintText(tm,r.time||(()=>''));});return;}
+ wrap.dataset.shape=shape;wrap.replaceChildren(...rows.map(r=>{const li=timelineRow(r);if(tlPrimed&&r.cls==='ok'&&!tlSeen.has(r.key)&&!reducedMotion())li.classList.add('fresh');tlSeen.add(r.key);return li;}));tlPrimed=true;
+}
+async function revealFile(f,fd,dir){
+ const a=f?.reveal?.arguments;if(f?.reveal?.tool!=='desktop_action'||a?.action!=='reveal'||a.task_id!==taskCard?.task_id||typeof a.path!=='string')return;
+ clearTimeout(fd._t);paintText(fd,()=>'…');fd.className='fd';
+ try{await call('desktop_action',{task_id:a.task_id,action:'reveal',path:a.path});paintText(fd,()=>T('revealed'));fd.className='fd ok';}
+ catch(e){noteCardError(e);paintText(fd,()=>T('revealFailed'));fd.className='fd warn';}
+ fd._t=setTimeout(()=>{paintText(fd,dir);fd.className='fd';},2600);
+}
+// 右边列出这个任务做出来的文件（新的在上，先列 6 个）：文件名和它在哪个文件夹，鼠标移上去看全路径，点了在访达里显示。
+function renderFiles(card){
+ const all=(card.files||[]).filter(f=>f&&typeof f.path==='string').slice().reverse(),omitted=Number(card.coverage?.omitted_files)||0;
+ const sig=JSON.stringify([all.map(f=>f.path),filesOpen,omitted]);if(sig===filesSig)return;filesSig=sig;
+ let box=$('rfiles');
+ if(!all.length){box?.remove();$('rbody').className='rbody';return;}
+ if(!box){box=document.createElement('section');box.id='rfiles';box.className='files';$('rbody').append(box);}
+ $('rbody').className='rbody has-files';box.replaceChildren();
+ const h=document.createElement('h3');paintText(h,()=>T('filesTitle'));box.append(h);
+ const shown=filesOpen?all:all.slice(0,6),more=all.length-shown.length;
+ for(const f of shown){
+  const name=String(f.name||f.path.split(/[\\/]/).filter(Boolean).pop()||f.path),folder=f.path.split(/[\\/]/).filter(Boolean).slice(-2,-1)[0],dir=()=>folder?'…/'+folder+'/':'';
+  const b=document.createElement('button');b.type='button';b.className='file';b.title=f.path;
+  bindText(b,()=>b.setAttribute('aria-label',T('revealFile',{name})));
+  const fn=document.createElement('span');fn.className='fn';fn.textContent=name;const fd=document.createElement('span');fd.className='fd';paintText(fd,dir);
+  b.append(svgIcon('file'),fn,fd);b.onclick=()=>revealFile(f,fd,dir);box.append(b);
+ }
+ if(more>0){const m=document.createElement('button');m.type='button';m.className='tl-link';paintText(m,()=>T('moreFiles',{count:more}));m.onclick=()=>{filesOpen=true;renderFiles(taskCard);};box.append(m);}
+ else if(omitted>0){const sm=document.createElement('small');paintText(sm,()=>T('omittedFiles',{count:omitted}));box.append(sm);}
+}
+function controlsLive(card){return !!card&&!card.terminal&&!!taskControlNonce&&taskControls?.task_id===card.task_id&&Number(taskControls.expires_at)>Date.now();}
+function ctlButton(read,cls,onclick){const b=document.createElement('button');b.type='button';if(cls)b.className=cls;paintText(b,read);b.onclick=onclick;return b;}
+function paintControls(){
+ if(!rich)return;
+ const box=$('ctl'),card=taskCard,id=current?.task?.task_id;box.replaceChildren();clearTimeout(ctlExpiry);
+ if(card&&card.task_id===id&&!collapsed){
+  const live=controlsLive(card),busy=controlBusy||relaySending,canStop=live&&card.controls?.stop?.enabled===true;
+  const viaRelay=!!richManualId,viaControl=!viaRelay&&lastAlertKey==='stalledPrompt'&&live&&card.controls?.continue?.enabled===true;
+  if(stopArmed&&canStop){
+   const hint=document.createElement('small');paintText(hint,()=>T('stopOnlyThis'));
+   box.append(ctlButton(()=>T('stopConfirm'),'danger',()=>controlStop(id)),ctlButton(()=>T('cancel'),'',()=>{stopArmed=false;clearTimeout(stopArmTimer);paintControls();}),hint);
+  }else{
+   if(canResume(card)){const b=ctlButton(()=>T('continueAction'),'primary',()=>resumeStopped(id));b.disabled=resumeBusy;box.append(b);}
+   if(viaRelay||viaControl){const b=ctlButton(()=>T('continueAction'),'primary',()=>viaRelay?relayDispatch(id,'manual'):controlContinue(id));b.disabled=busy;box.append(b);if(viaControl)paintText($('rnoteText'),()=>T('richManualStalled'));}
+   if(canStop){const b=ctlButton(()=>T('stopAction'),'stop',()=>{stopArmed=true;clearTimeout(stopArmTimer);stopArmTimer=setTimeout(()=>{stopArmed=false;paintControls();},8000);paintControls();});b.disabled=busy;box.append(b);}
+  }
+  if(live)ctlExpiry=setTimeout(paintControls,Math.max(0,Number(taskControls.expires_at)-Date.now())+50);
+ }
+ box.hidden=!box.children.length;updateFoot();
+}
+async function controlStop(id,again=false){
+ if(controlBusy||!taskControlNonce)return;
+ const nonce=taskControlNonce;taskControlNonce=null;controlBusy=true;stopArmed=false;clearTimeout(stopArmTimer);setNote(()=>T('stopping'));paintControls();
+ let retry=false;
+ try{
+  const r=await call('card_answer',{nonce,choice:'stop'});
+  if(typeof r?.status==='string'&&current?.task?.task_id===id){
+   stoppedHere=true;
+   // 停成了：卡片自己先换成「已停止」那一版（停在第几块、下一步是什么），不用等下一次查。之后 ChatHand 给的新卡会照常替换它。
+   if(taskCard?.task_id===id&&!taskCard.terminal){const p=taskCard.progress||{};taskCard={...taskCard,status:'stopped',terminal:true,source_status:r.status,stopped_at:{checkpoint_seq:p.checkpoint_seq??null,block:p.block??null,step:p.next||p.done||null,end_reason:null},controls:{continue:{enabled:false},stop:{enabled:false}}};}
+   render({task:{task_id:id,status:r.status},changes:current.changes,scope:current.scope});
+  }
+  setNote(()=>r?.stopped===false?'':T('stoppedOnlyThis'));
+ }catch(e){if(e?.message==='CONFIRM_NONCE_INVALID'&&!again)retry=true;else{noteCardError(e);setNote(()=>T('stopFailed'));}}
+ finally{controlBusy=false;}
+ // 卡上的凭据刚被别的结果换掉了（AI 又调了任务工具）：先取一次新的，再停一次。
+ if(retry){await poll();if(taskControlNonce&&current?.task?.status==='active')return controlStop(id,true);setNote(()=>T('stopFailed'));}
+ paintControls();
+}
+async function controlContinue(id){
+ if(controlBusy||relaySending||!taskControlNonce)return;
+ if(typeof window.openai?.sendFollowUpMessage!=='function'||typeof window.openai?.callTool!=='function'){setNote(()=>T("bridgeUnavailable"));return;}
+ const nonce=taskControlNonce,generation=relayGeneration,kind=current?.task?.relay?.prompt_kind;taskControlNonce=null;controlBusy=true;relaySending=true;setNote(()=>T('processing'));paintControls();
+ try{
+  const r=await call('card_answer',{nonce,choice:'continue'});
+  const permit=relayPermit;relayPermit=null;
+  if(r?.granted!==true||!permit){setNote(()=>r?.reason==='tool_inflight'?T("toolInflight"):T("relayNotStarted"));return;}
+  await relaySend(id,permit,generation,kind);
+ }catch(e){if(e?.message==='CONFIRM_NONCE_INVALID')setNote(()=>T('controlRefreshed'));else{noteCardError(e);setNote(()=>T("relayUnconfirmed"));}}
+ finally{controlBusy=false;relaySending=false;await poll();paintControls();}
+}
+// 1060：停了的卡点「继续」，经 sendFollowUpMessage 发一句接着做；ChatHand 从停下的那步新开任务，带上进度和文件。
+// 发出去了，这张卡收成一行「已让 ChatGPT 接着做」，往下看新卡；没确认发出去，不再给按钮，让人自己看对话里有没有这句，免得发两遍。
+async function resumeStopped(id){
+ if(resumeBusy||!canResume(taskCard)||taskCard.task_id!==id)return;
+ resumeBusy=true;paintControls();
+ try{
+  await window.openai.sendFollowUpMessage({prompt:T('resumePrompt')});
+  resumeSentFor=id;
+  try{const s=window.openai.widgetState;window.openai.setWidgetState?.({...(s&&typeof s==='object'&&!Array.isArray(s)?s:{}),chathand_resume_sent:id});}catch{}
+  renderResumed();
+ }catch{resumeTried=true;setNote(()=>T('resumeNotSent'));}
+ finally{resumeBusy=false;if(!collapsed)paintControls();}
+}
+function renderResumed(){renderCompact(null,()=>T('resumeSentCompact'),'↓');}
+function renderRich(t,card,cmdWait){
+ if(!card||card.task_id!==t.task_id)return;
+ const s=card.status,st=$('state');
+ // 进度卡原来标题写「进度已记录」；总卡用任务自己的标题。
+ paintText($('title'),()=>t.title||card.title||(cardKind==='checkpoint'?T('progressRecorded'):T('localTask')));
+ if(s==='blocked')paintText(st,()=>T('blocked'));else if(s==='unknown')paintText(st,()=>T('unknownState'));
+ st.className='state '+richTone(card,t,cmdWait);
+ setProgress(progressLine(card));renderTimeline(t,card,cmdWait);renderFiles(card);paintControls();
+ // 停了：下面一句说怎么接着做（从记下的那步新开任务）。已有「你要做」的卡、被新任务接替的卡不写。
+ if(card.terminal&&card.status==='stopped'&&card.source_status!=='superseded'&&!$('note').textContent&&!$('rnoteBtn').children.length){paintText($('rnoteText'),()=>T(canResume(card)?'resumeHintButton':'resumeHint'));updateFoot();}
+}
+// Frozen offline shell v1: bounded text-only sections and validated visual tokens.
+// Never accepts HTML, executable source, external CSS or arbitrary style properties.
+function applyShellPresentation(value){
+ pruneTextBindings();
+ const card=document.querySelector('.card');if(!card)return;
+ document.documentElement.style.removeProperty('--widget-ok');card.style.removeProperty('padding');document.getElementById('shell-sections')?.remove();
+ const v=value?.widget_shell;if(v?.protocol!==1)return;
+ if(/^#[a-f0-9]{6}$/i.test(v.accent||''))document.documentElement.style.setProperty('--widget-ok',v.accent);
+ if(['compact','comfortable'].includes(v.density))card.style.padding=v.density==='compact'?'12px 16px':'18px 20px';
+ let extra=document.getElementById('shell-sections');if(!extra){extra=document.createElement('div');extra.id='shell-sections';card.append(extra);}extra.replaceChildren();
+ for(const section of (Array.isArray(v.sections)?v.sections:[]).slice(0,6)){if(!section||typeof section.text!=='string')continue;const block=document.createElement('section');if(typeof section.title==='string'){const title=document.createElement('strong');title.textContent=section.title.slice(0,80);block.append(title);}const body=document.createElement('p');body.textContent=section.text.slice(0,2000);block.append(body);extra.append(block);}
+}
+function render(input){
+ applyShellPresentation(input);
+ applyHostLocale(input?.widget_shell?.i18n?.locale,false);
+ if(hostFlowCapability||hostFlowAttempted){renderHostFlow();if(!input?.task_id&&!input?.task)return;}
+ if(input?.recorded===true&&input?.read===true&&input?.write===true&&!input?.task&&!input?.task_id){rendered=true;paintText($('title'),()=>T("connectionCheck"));paintText($('state'),()=>T("readWriteRecorded"));paintText($('scope'),()=>T("probeReturned"));reportHeight();return;}
+ if(input?.card==='permission'){renderPermission(input);return;}
+ const data=normalize(input);if(!data)return;if(relayInterruptToken&&data.task?.task_id)queueMicrotask(()=>relayInterrupt(data.task.task_id));
+ // 1052（Claude）：收起的卡不再展开（原来过 1 秒的重排会把它又展开）。
+ if(collapsed)return;
+ if(cardKind===null){cardReadyAt=Date.now()+1000;armTimer=setTimeout(()=>{if(current&&!cardSubmitted)render(current);},1001);cardKind=input?.card==='checkpoint'?'checkpoint':(input?.reply_format||input?.terminal===true)?'finish':'task';fromFinish=cardKind==='finish';if(cardKind==='checkpoint'){mySeq=Number(input.checkpoint_seq)||0;originCheckpoint=input.checkpoint||data.task?.last_checkpoint||null;const at=Number(originCheckpoint?.at);if(Number.isFinite(at)&&at>0&&at<=Date.now()+300000)cardBorn=Math.min(at,bornAt);}initialWasDone=['completed','failed','cancelled','expired','superseded','revoked'].includes(data.task?.status);}
+ current={...(current||{}),...data,task:{...(current?.task||{}),...data.task}};const t=current.task;rendered=true;
+ const ended=['completed','failed','cancelled','expired','superseded','revoked'].includes(t.status);
+ // 1060 0004（Claude）：在这张卡上点过「继续」的（重新打开对话时 ChatGPT 还给这张卡留着），直接收成那一行。
+ if(ended&&resumeSentFor&&resumeSentFor===t.task_id){renderResumed();return;}
+ // 1052（Claude）：记进度已超过 2 小时的卡（多半是重新打开对话时重画的旧卡）直接收起，一次也不查。
+ if(cardKind==='checkpoint'&&((Number(t.checkpoint_seq)||0)>mySeq||ended&&!stoppedHere||cardAge()>7200000)){renderCompact(originCheckpoint||t.last_checkpoint);return;}
+ document.querySelector('.card').classList.remove('compact');$('compact').hidden=true;
+ if(!rich&&taskCard?.task_id===t.task_id)enterRich();
+ paintText($('title'),()=>t.title||(cardKind==='checkpoint'?T('progressRecorded'):T("localTask")));
+ const stall=t.stall||null,stalled=t.status==='active'&&stall?.stalled===true;
+ // 1052 第四版（Claude）：回复断了、但 AI 本来就在等一条命令：卡上写「在等命令跑完」，不标橙色；跑完再接（方案 A4-4）。
+ const cmdWait=stalled&&!!relayToken&&t.relay?.wait?.state==='running';
+ const st=$('state');paintText(st,()=>cmdWait?T("waitingCommand"):stalled?T("stalled"):t.status==='active'&&t.wait_state?.label?t.wait_state.label:t.end_reason==='superseded'&&t.status==='expired'?T("superseded"):(names[t.status]?T(names[t.status]):t.status));st.className='state'+(t.status==='completed'?' ok':(t.status==='failed'||stalled&&!cmdWait)?' warn':'');
+ paintText($('scope'),()=>current.scope==='full'?T("fullScope"):current.scope?T("workspaceScope"):'');
+ const done=['completed','failed'].includes(t.status),live=t.status==='active',mid=Number(t.intermediate_errors)||0;
+ // 收尾：两句由 ChatHand 程序给出——结果＝summary，你要做＝user_action（ChatHand 知道的状态优先，比如等你点安装）。
+ // 1052 E6（Claude）：没写「你要做」、或者是旧的默认话「看下面的说明」，写「看这条回复里 ChatGPT 的说明」。
+ const brief=done&&cardKind==='task'&&!initialWasDone&&!!t.summary;
+ $('res').hidden=!done||brief;$('below').hidden=!brief;
+ if(done&&!brief){paintText($('result'),()=>t.summary||(t.status==='completed'?T("done"):T("notDone")));const ua=String(t.user_action||'').trim(),actionText=()=>/^看下面的说明。?$/.test(ua)?T("seeReply"):/^(无需操作|不用做什么)。$/.test(ua)?T("noAction"):ua||(t.status==='completed'?T("noAction"):T("seeReply"));const el=$('action');paintText(el,()=>actionText());el.className='v '+((!ua&&t.status==='completed'||/^(不用做什么|无需操作)/.test(ua))?'none':'act');}
+ // 1081 N053（Claude）：命令的进程没确认清干净（cleanup_warning）：任务照样结束，照实写一句「清理没确认」，跟 ChatHand 窗口的任务详情一样。
+ // 这几条命令也算在 intermediate_errors 里：有这句时说「记录到」而不是「都已处理」；次数不减（一条命令只算一次）。
+ // 错误码、各条命令的细节不写在卡上。收尾那张短卡（brief）跟错误次数一样不写，下面那张结果卡会写。
+ const cleanup=t.cleanup_warning?.code==='CLEANUP_UNCONFIRMED';
+ paintText($('summary'),()=>done&&mid&&!brief?(t.status==='completed'&&!cleanup?T("errorsHandled",{count:mid}):T("errorsRecorded",{count:mid})):'');$('summary').hidden=!$('summary').textContent;
+ paintText($('cleanup'),()=>done&&cleanup&&!brief?T("cleanupUnconfirmed"):'');$('cleanup').hidden=!$('cleanup').textContent;
+ // 进行中：第几块、最近一步
+ $('live').hidden=!live;
+ if(live){const cp=t.last_checkpoint,total=cp?.total||null,k=cp?.block||0;
+  paintText($('block'),()=>total?T("blockProgress",{block:k,total}):k?T("blocksDone",{count:k}):T("justStarted"));
+  $('barWrap').hidden=!total;$('barWrap').className='bar'+(stalled&&!cmdWait?' warn':'');$('bar').style.width=total?`${Math.round(100*k/total)}%`:'0';
+  const last=(t.recent_steps||[]).at(-1),reason=t.wait_state?.detail;paintText($('now'),()=>stalled?T("lastStep",{step:stepText(last)||T('noStep')}):reason?(last?T('reasonLastStep',{reason,step:stepText(last)}):cp?.next?T('reasonNextStep',{reason,next:cp.next}):reason):last?stepText(last):(cp?.next?T("nextStep",{next:cp.next}):''));}
+ renderBlocker(cardKind==='checkpoint'&&live?t.blocker:null);
+ // 1026：同一文件只列一行（「· N 次」），写文件名和上一级文件夹，悬停看全路径。
+ const list=$('changes');list.replaceChildren();if(!live&&!brief)for(const g of groupChanges(current.changes||[]).slice(0,6)){const li=document.createElement('li');li.title=g.path;const name=g.path.split('/').filter(Boolean).pop()||g.path,dir=g.path.split('/').filter(Boolean).slice(-2,-1)[0];li.append(textNode(()=>g.n>1?T("fileChangedRepeated",{action:VERB[g.tool]?T(VERB[g.tool]):String(g.tool),name,count:g.n}):T("fileChanged",{action:VERB[g.tool]?T(VERB[g.tool]):String(g.tool),name})));if(dir){const sm=document.createElement('span');sm.className='dir';sm.textContent=` …/${dir}/`;li.append(sm);}list.append(li);}
+ renderAlert(t,stalled,live);
+ $('foot').hidden=!live;
+ if(rich)renderRich(t,taskCard,cmdWait);
+ schedule(live,pollGap());if(cardKind==='checkpoint'&&!polledInitial){polledInitial=true;setTimeout(poll,0);}
+}
+function renderBlocker(blocker){
+ const box=$('blocker');box.hidden=!blocker;$('blockerOptions').replaceChildren();paintText($('blockerReply'),()=>'');if(!blocker)return;
+ paintText($('blockerStep'),()=>T("blockerStep",{step:String(blocker.step||'')}));
+ paintText($('blockerError'),()=>T("blockerError",{error:String(blocker.error||'')}));
+ paintText($('blockerWhy'),()=>blocker.why?T("blockerWhy",{why:String(blocker.why)}):'');
+ $('blockerWhy').hidden=!blocker.why;
+ for(const [index,option] of (blocker.options||[]).entries()){const row=document.createElement('div');row.className='blocker-option';const cost=document.createElement('small');cost.textContent=String(option.cost||'');if(option.action){const b=document.createElement('button');b.type='button';b.textContent=String(option.label||'');b.disabled=!cardNonce||cardSubmitted||Date.now()<cardReadyAt;b.onclick=()=>answerCard(String(index+1));row.append(b);}else{const label=document.createElement('strong');label.textContent=String(option.label||'');row.append(label);}row.append(cost);$('blockerOptions').append(row);}
+ if((blocker.options||[]).some(o=>!o.action)&&current?.task?.last_checkpoint?.waiting_user===true)paintText($('blockerReply'),()=>T("blockerReply"));
+}
+function renderPermission(data){
+ if(!cardReadyAt){cardReadyAt=Date.now()+1000;armTimer=setTimeout(()=>{if(!cardSubmitted)renderPermission(permissionData);},1001);}
+ permissionData=data;rendered=true;cardKind='permission';stopTimer();$('permission').hidden=false;paintText($('title'),()=>T("permissionQuestion",{name:String(data.item?.name||T('capability'))}));paintText($('scope'),()=>data.conversation_title||'');paintText($('state'),()=>cardSubmitted?T("handled"):T("awaitDecision"));
+ for(const id of ['live','res','blocker','alert','summary','cleanup','below','changes','foot','rprog','rbody','ctl','rnote'])$(id).hidden=true;
+ $('permissionCause').textContent=data.cause||'';paintText($('permissionEffect'),()=>T("permissionEffect",{effect:String(data.effect?.can_do||'')}));paintText($('permissionRisk'),()=>T("permissionRisk",{risk:String(data.effect?.risk||'')}));$('permissionButtons').replaceChildren();
+ if(data.chat_ok===false){paintText($('permissionResult'),()=>T("permissionInWindow"));return;}
+ for(const [choice,label] of [['always','allow'],['deny','deny']]){if(choice!=='deny'&&!data.scopes?.includes(choice))continue;const b=document.createElement('button');b.type='button';paintText(b,()=>T(label));b.className=choice==='always'?'primary':'';b.disabled=cardSubmitted||!cardNonce||Date.now()>=data.expires_at||Date.now()<cardReadyAt;b.onclick=()=>answerCard(choice);$('permissionButtons').append(b);}
+ clearTimeout(permissionTimer);const remaining=Number(data.expires_at)-Date.now();paintText($('permissionExpiry'),()=>remaining>0?T("permissionExpiry",{count:Math.ceil(remaining/60000)}):T("cardExpired"));if(remaining>0&&!cardSubmitted){permissionTimer=setTimeout(()=>closePermission(()=>T("confirmationExpired")),remaining);if(!permissionPoll&&cardNonce)permissionPoll=setTimeout(pollPermission,3000);}reportHeight();
+}
+function closePermission(line){cardSubmitted=true;cardNonce=null;clearTimeout(permissionPoll);permissionPoll=null;clearTimeout(permissionTimer);clearTimeout(armTimer);document.querySelector('.card').classList.add('compact');$('compact').hidden=false;paintText($('compactText'),typeof line==='function'?line:()=>line);reportHeight();}
+// 1052：在别处（窗口、通知）答了，卡要跟着收起。用这张卡自己的凭据 card_answer {choice:'status'} 私下查，不消耗凭据；task_status(from_card) 会算成 AI 在动，还会作废接力卡（方案 A2 第 7 处）。
+// 没有凭据就不查，到点由过期计时收起；ChatHand 回了错误码（凭据失效、任务没了）就收起，不再查；网络一类的错误 10 秒后再试。
+async function pollPermission(){
+ permissionPoll=null;const nonce=cardNonce;if(cardSubmitted||!permissionData||!nonce)return;
+ let next=5000;
+ try{const r=await call('card_answer',{nonce,choice:'status'});if(cardSubmitted)return;const s=r?.state;if(s&&s!=='waiting'&&s!=='applying'){closePermission(()=>s==='withdrawn'?T("requestWithdrawn"):s==='expired'?T("confirmationExpired"):T("answeredElsewhere",{result:s==='allowed'?T('allowed'):s==='denied'?T('denied'):T('resultUnconfirmed')}));return;}}
+ catch(e){if(cardSubmitted)return;if(/^[A-Z][A-Z0-9_]+$/.test(String(e?.message||''))){closePermission(()=>T("invalidPermission"));return;}next=10000;}
+ if(!cardSubmitted&&Date.now()<permissionData.expires_at)permissionPoll=setTimeout(pollPermission,next);
+}
+async function answerCard(choice){
+ if(cardSubmitted||!cardNonce||Date.now()<cardReadyAt)return;cardSubmitted=true;const nonce=cardNonce;cardNonce=null;clearTimeout(permissionTimer);clearTimeout(permissionPoll);clearTimeout(armTimer);document.querySelectorAll('#permissionButtons button,#blockerOptions button').forEach(b=>b.disabled=true);
+ const resultEl=$(cardKind==='permission'?'permissionResult':'blockerReply');paintText(resultEl,()=>T("processing"));
+ try{const r=await call('card_answer',{nonce,choice});paintText(resultEl,()=>r.result_line||T("handled"));paintText($('state'),()=>r.state==='unknown'?T("resultUnconfirmed"):T("handled"));if(r.ok&&['allowed','denied'].includes(r.state)){let line=()=>r.result_line||T('handled');if(r.ai_waiting===true)line=()=>T("resultWillContinue",{result:r.result_line||T('handled')});else if(r.ai_waiting===false){const prompt=choice==='deny'?T("denyPrompt"):T("answerPrompt");let notified=false;try{if(typeof window.openai?.sendFollowUpMessage==='function'){await window.openai.sendFollowUpMessage({prompt});notified=true;}}catch{}line=()=>notified?T("resultNotified",{result:r.result_line||T('handled')}):T("resultTellChatGPT",{result:r.result_line||T('handled')});}closePermission(line);}}
+ catch{paintText(resultEl,()=>T("answerUnconfirmed"));paintText($('state'),()=>T("resultUnconfirmed"));}reportHeight();
+}
+const supersededError=e=>['RELAY_CARD_SUPERSEDED','RELAY_CARD_INVALID'].includes(e?.message);
+// 1049: official host bridge only. This private control MUST NOT fall back to parent ui/message.
+async function relayCall(args){
+ const bridge=window.openai?.callTool;
+ if(typeof bridge!=='function')throw Error('RELAY_HOST_BRIDGE_UNAVAILABLE');
+ const r=await bridge.call(window.openai,'relay_card_control',args);
+ if(r?.isError)throw Error(r?.structuredContent?.code||'RELAY_CONTROL_ERROR');
+ acceptMetadata(r);
+ return r?.structuredContent??r;
+}
+function relayPrompt(id,kind){
+ const key=kind==='split_smaller'?'relayPromptSplit':kind==='wait_done'?'relayPromptDone':kind==='wait_over'?'relayPromptOver':'relayPromptContinue';
+ return T(key,{id});
+}
+async function relayPoll(){
+ if(collapsed||!current?.task?.task_id||document.visibilityState==='hidden')return;
+ const id=current.task.task_id;
+ if(relayToken){
+  const sent=cardErrN>0&&current?.task?.relay?.report_errors===true?{n:cardErrN,codes:[...cardErrCodes]}:null;
+  try{
+   const result=await relayCall({action:'view',task_id:id,card_token:relayToken,...(sent?{card_errors:sent}:{})});
+   if(sent){cardErrN=Math.max(0,cardErrN-sent.n);for(const c of sent.codes)cardErrCodes.delete(c);}
+   if(result?.task&&current?.task?.task_id===id)render({task:{...result.task,relay:result.relay},changes:current.changes,scope:current.scope});
+  }catch(e){
+   // 1052（Claude）：这张卡已被新卡取代（或不属于这段对话了）：收起来，不再查。原来会一直报错重查到 12 分钟。
+   // 后端按 1052 方案 A2 第 8 处认出旧卡后回 RELAY_CARD_SUPERSEDED，而且不算 AI 在动；认不出的回 RELAY_CARD_INVALID。两种都收起。
+   if(supersededError(e)){if(current?.task?.task_id===id&&!collapsed){renderCompact(originCheckpoint||current.task.last_checkpoint);return;}}
+   else noteCardError(e);
+   /* The private bridge is unavailable; manual ChatGPT input remains the fallback. */
+  }
+ }
+ if(relayInterruptToken&&current?.task?.task_id===id)await relayInterrupt(id);
+}
+// 1052（Claude）：停住了，而这张卡的接力已经作废（AI 后来又调了工具，或者之前接上过）：用 ChatHand 在私有 view 里给的凭据，换一张「手动继续」卡。
+// 不再用 task_status 去要凭据：它不是私有调用，会被算成 AI 在动，当场把「停住了」清掉，还会作废同一对话里别的卡。
+async function relayInterrupt(id){
+ if(relayInterrupting)return;
+ const proof=relayInterruptToken;relayInterruptToken=null;if(!proof||usedInterruptTokens.has(proof))return;usedInterruptTokens.add(proof);
+ relayInterrupting=true;
+ try{
+  const result=await relayCall({action:'interruption',task_id:id,interruption_token:proof});
+  if(result?.relay&&relayToken&&current?.task?.task_id===id)render({task:{...current.task,relay:result.relay},changes:current.changes,scope:current.scope});
+ }catch(e){noteCardError(e);/* 换不到就保留「发继续」的提示 */}finally{relayInterrupting=false;}
+}
+async function relayDispatch(id,mode){
+ if(relaySending||!relayToken||collapsed||document.visibilityState==='hidden')return;
+ if(typeof window.openai?.sendFollowUpMessage!=='function'||typeof window.openai?.callTool!=='function'){alertLine(()=>T("bridgeUnavailable"));return;}
+ const token=relayToken,generation=relayGeneration,kind=current?.task?.relay?.prompt_kind;relaySending=true;clearTimeout(relayTimer);paintControls();
+ let claiming=true;
+ try{
+  const claimed=await relayCall({action:'claim',task_id:id,card_token:token,mode,...(mode==='manual'?{request_id:crypto.randomUUID()}:{})});
+  claiming=false;
+  if(!claimed?.granted){if(mode==='manual')setNote(()=>claimed?.reason==='tool_inflight'?T("toolInflight"):T("relayNotStarted"));return;}
+  const permit=relayPermit;relayPermit=null;
+  if(generation!==relayGeneration||current?.task?.task_id!==id||!permit)return;
+  await relaySend(id,permit,generation,kind);
+ }catch(e){
+  // 1052（Claude）：点的时候这张卡已被新卡取代：什么都没发，收起来，用最新那张卡。
+  if(claiming&&supersededError(e)&&current?.task?.task_id===id&&!collapsed){renderCompact(originCheckpoint||current.task.last_checkpoint);return;}
+  if(!supersededError(e))noteCardError(e);
+  alertLine(()=>T("relayUnconfirmed"));
+ }
+ finally{relaySending=false;void relayPoll();}
+}
+// 领到许可后都从这里发（接力卡手动/自动接、总卡「继续」）：begin_dispatch 消耗许可，send:true 才经 sendFollowUpMessage 发一次，再回报结果。
+async function relaySend(id,permit,generation,kind){
+ const dispatch=await relayCall({action:'begin_dispatch',task_id:id,permit_token:permit});
+ if(!dispatch?.send)return;
+ let outcome='unknown',error_code=null,definitely_not_sent=false,output_conflict=null,input_conflict=null;
+ if(generation===relayGeneration&&current?.task?.task_id===id&&document.visibilityState!=='hidden'){
+  try{
+   await window.openai.sendFollowUpMessage({prompt:relayPrompt(id,kind)});
+   outcome='accepted';
+  }catch(error){
+   const details=error?.details;
+   if(Number.isSafeInteger(error?.code)&&details?.definitely_not_sent===true){outcome='rejected';error_code=error.code;definitely_not_sent=true;}
+   if(typeof details?.output_conflict==='boolean')output_conflict=details.output_conflict;
+   if(typeof details?.input_conflict==='boolean')input_conflict=details.input_conflict;
+   // No string/error-message heuristics; unknown sends must never be retried blindly.
+  }
+ }
+ try{await relayCall({action:'report',task_id:id,attempt_id:dispatch.attempt_id,report_token:permit,outcome,...(error_code!==null?{error_code}:{}),definitely_not_sent,...(output_conflict!==null?{output_conflict}:{}),...(input_conflict!==null?{input_conflict}:{})});}
+ catch(e){noteCardError(e);/* A lost report remains unknown server-side, not a retry invitation. */}
+ const reportedOutcome=outcome;setNote(()=>reportedOutcome==='accepted'?T("relayAccepted"):reportedOutcome==='unknown'?T("relayUnknown"):T("relayRejected"));
+}
+// 1052 第四版（Claude）：取消以后照旧拿这张卡的凭据私下查（view），不再把凭据丢掉。原来丢了凭据就改调 task_status(from_card)，
+// 那会被算成 AI 在动，还会作废同一对话里的卡。还停着的，ChatHand 换一张只能手动的卡（这一块不再自动发，方案 A4-4），卡上给「手动继续」。
+async function relayCancel(id){
+ const token=relayToken;relayGeneration++;clearTimeout(relayTimer);
+ if(token)try{await relayCall({action:'cancel',task_id:id,card_token:token});}catch(e){noteCardError(e);}
+ alertLine(()=>T("relayCancelled"));
+}
+// 1052（Claude）：「手动继续」按钮。服务端 relay-keeper 的 _view/_gate 对手动不看本安装是否开了自动接力，只要 manual_allowed 就收；
+// 原来这里多要求了 auto_enabled，没开自动接力时按钮永远出不来，只能自己打「继续」。
+function manualLine(t,line){if(rich){richManualId=t.task_id;alertLine(line);return;}const b=document.createElement('button');b.type='button';paintText(b,()=>T("manualContinue"));b.onclick=()=>relayDispatch(t.task_id,'manual');alertLine(line,b);}
+// 1052 第四版（Claude）：倒计时前面说明为什么要接；手动卡写清是哪种停住（方案 A4-4）。设置里的开关叫「自动接着做」。
+function relayCountdown(r,count){
+ const context=r.wait?.state==='done'?'done':r.wait?.state==='over'?'over':r.purpose==='interruption'?(r.prompt_kind==='split_smaller'?'again':'stalled'):'ready';
+ return T('countdown.'+context+(r.prompt_kind==='split_smaller'?'.split':'.continue'),{count});
+}
+function manualKey(r){return r.auto_skipped==='block_limit'?'manualBlockLimit':r.wait?.state==='done'?'manualWaitDone':r.wait?.state==='over'?'manualWaitOver':r.purpose==='interruption'?'manualStalled':'manualNotConnected';}
+function manualText(r){return T(manualKey(r));}
+function renderAlert(t,stalled,live){
+ clearTimeout(relayTimer);richManualId=null;
+ if(!live){alertLine('');return;}
+ const relay=t.relay,appReady=typeof window.openai?.callTool==='function'&&typeof window.openai?.sendFollowUpMessage==='function';
+ if(relayToken&&relay?.available&&relay.checkpoint_seq===t.checkpoint_seq&&!relay.cancelled){
+  // 停住时 AI 正在等一条命令：命令跑完以前不发、不给按钮（ChatHand 这时 ready_at 是 null，自动领会回 too_early）。
+  if(relay.wait?.state==='running'&&['armed','manual_ready'].includes(relay.state)){
+   if(relay.state==='armed'&&relay.auto_enabled===true){const b=document.createElement('button');b.type='button';paintText(b,()=>T("cancel"));b.onclick=()=>relayCancel(t.task_id);alertLine(()=>T("waitCommandAuto"),b);}
+   else alertLine(A('waitCommandManual'));
+   return;
+  }
+  if(['armed','retry_wait'].includes(relay.state)){
+   const retry=relay.state==='retry_wait',auto=relay.auto_enabled===true;
+   if(!auto){
+    // 和自动接着做一样先等倒计时：这段时间 AI 多半还在说最后一句或已经接着调工具（一调工具这张卡就作废），不打扰；到点还没动静才给按钮。
+    const wait=Math.max(0,(Number(relay.ready_at)||0)-Date.now());
+    if(wait>0){alertLine('');if(document.visibilityState!=='hidden')relayTimer=setTimeout(()=>renderAlert(current.task,current.task.stall?.stalled===true,true),wait+50);return;}
+    if(relay.manual_allowed&&appReady)manualLine(t,A('autoOffManual'));
+    else alertLine(()=>T("autoOffPrompt"));
+    return;
+   }
+   if(!appReady){alertLine(()=>T("bridgeUnavailable"));return;}
+   const left=Math.max(0,Math.ceil(((Number(relay.ready_at)||0)-Date.now())/1000)),sending=relaySending;
+   if(left===0&&!relaySending&&document.visibilityState!=='hidden')queueMicrotask(()=>relayDispatch(t.task_id,'auto'));
+   const b=document.createElement('button');b.type='button';paintText(b,()=>T("cancel"));b.onclick=()=>relayCancel(t.task_id);
+   alertLine(()=>left>0?relayCountdown(relay,left):sending?T("checkingPermission"):T("relayPreparing"),b);
+   if(left>0&&document.visibilityState!=='hidden')relayTimer=setTimeout(()=>renderAlert(current.task,current.task.stall?.stalled===true,true),1000);
+   return;
+  }
+  if(relay.state==='manual_ready'&&relay.manual_allowed&&appReady){manualLine(t,A(manualKey(relay)));return;}
+  if(relay.state==='awaiting'||relay.state==='dispatching'){alertLine(()=>T("relayAwaiting"));return;}
+  if(relay.state==='unknown'){alertLine(()=>T("relayUnknownNoRepeat"));return;}
+  if(relay.state==='resumed'&&!stalled){alertLine(()=>T("relayResumed"));return;}
+  if(relay.state==='limit'){const count=Number(relay.max_auto_rounds)||5;if(relay.manual_allowed&&appReady)manualLine(t,A('autoLimitManual',{count}));else alertLine(()=>T("autoLimitPrompt",{count}));return;}
+ }
+ if(stalled){alertLine(A('stalledPrompt'));return;}
+ const s=t.stall,risky=['maybe','likely'].includes(t.forecast),idle=!!s&&!s.running&&!s.waiting_user&&!s.waiting_job&&(t.wait_state?.kind||'ai')==='ai',quiet=quietNow(s);
+ if(risky&&idle&&quiet<NEAR_STALL_MS&&document.visibilityState!=='hidden')relayTimer=setTimeout(()=>renderAlert(current.task,current.task.stall?.stalled===true,true),NEAR_STALL_MS-quiet+50);
+ alertLine(()=>risky&&idle&&quiet>=NEAR_STALL_MS?retryTip():'');
+}
+async function poll(){
+ if(collapsed||!current?.task?.task_id||document.visibilityState==='hidden'||!pollBudgetLeft())return;
+ if(relayToken){await relayPoll();return;}
+ // New task cards use a read-only capability. Old cards retain bounded ordinary polling.
+ try{const r=observationNonce?await call('card_answer',{nonce:observationNonce,choice:'status'}):await call('task_status',{task_id:current.task.task_id,from_card:true});if(r?.task)render({...r,changes:current.changes,scope:current.scope});else if(r?.task_id)render({task:r,changes:current.changes,scope:current.scope});if(relayInterruptToken)await relayInterrupt(current.task.task_id);}catch(e){if(observationNonce&&['CONFIRM_NONCE_INVALID','TASK_MISSING','TASK_OWNER'].includes(e?.message)){observationNonce=null;collapsed=true;stopTimer();alertLine(()=>T("invalidTask"));}}
+}
+// 1052（Claude）：最新的卡一直看着，AI 中途停住也能发现（原来 360 次、约 12 分钟后就不查了）；被新卡取代的卡收起来，不再查。
+// 1052 第四版（Claude，Ken 10/14：卡片查一次也走 ChatGPT，统计照算）：查的次数砍掉约一半，数和方案 A3 第 6 条一样：
+// 接力正在动（自动倒计时、领许可、发送、等接上、等重试）每 2 秒；在等命令跑完每 30 秒；其余记进度后 20 分钟内每 15 秒，之后每 60 秒。
+// 没有接力凭据的卡（show_task 卡）每 30 秒、只查 10 分钟。从记进度那一刻算，最多看 2 小时。
+function cardAge(){return Date.now()-cardBorn;}
+function pollBudgetLeft(){const age=cardAge();return age<=7200000&&(!!relayToken||!!observationNonce||age<=600000);}
+function pollGap(){
+ if(!relayToken)return 30000;
+ const r=current?.task?.relay,st=r?.state;
+ if(r?.wait?.state==='running')return 30000;
+ if(['retry_wait','permit','dispatching','awaiting'].includes(st)||st==='armed'&&r?.auto_enabled===true)return 2000;
+ return cardAge()<1200000?15000:60000;
+}
+// 已经排了更早的一次就不往后推：卡片重画（宿主改主题、改高度时也会重画）不能把下一次查一直往后拖。
+function stopTimer(){clearTimeout(timer);timerDue=0;}
+function schedule(live,ms=pollGap()){
+ if(!live||collapsed||!pollBudgetLeft()){stopTimer();return;}
+ const due=Date.now()+ms;if(timerDue&&timerDue<=due)return;
+ clearTimeout(timer);timerDue=due;
+ timer=setTimeout(()=>{timerDue=0;polls++;if(document.visibilityState!=='hidden')void poll();schedule(current?.task?.status==='active');},ms);
+}
+window.addEventListener('pagehide',()=>{relayGeneration++;relayToken=null;relayPermit=null;relayInterruptToken=null;observationNonce=null;hostFlowCapability=null;taskControlNonce=null;taskControls=null;clearTimeout(relayTimer);stopTimer();});
+document.addEventListener('visibilitychange',()=>{
+ if(document.visibilityState==='hidden'){clearTimeout(relayTimer);stopTimer();}
+ else{void poll();if(current?.task?.status==='active')schedule(true);}
+});
+window.addEventListener('message',e=>{if(e.source!==window.parent||!e.data||e.data.jsonrpc!=='2.0')return;const m=e.data;if(m.id&&pending.has(m.id)){const p=pending.get(m.id);clearTimeout(p.t);pending.delete(m.id);m.error?p.reject(Error(m.error.message||'error')):p.resolve(m.result);}
+ if(m.method==='ui/notifications/tool-result'){acceptMetadata(m.params);render(m.params?.structuredContent);}if(m.method==='ui/notifications/host-context-changed'){setTheme(m.params?.theme);applyHostLocale(m.params?.locale,true);}});
+function acceptWidgetState(s){const id=s&&typeof s==='object'?s.chathand_resume_sent:null;if(typeof id==='string'&&id.length<=200&&!resumeSentFor)resumeSentFor=id;}
+window.addEventListener('openai:set_globals',()=>{acceptWidgetState(window.openai?.widgetState);setTheme(window.openai?.theme);applyHostLocale(window.openai?.locale,true);acceptMetadata(window.openai?.toolResponseMetadata);if(window.openai?.toolOutput&&!cardSubmitted)render(window.openai.toolOutput);});
+// 1023：把卡片实际的高度告诉 ChatGPT，免得下面留一大块空白。
+let lastHeight=0;function reportHeight(){const h=Math.ceil(document.querySelector('.card')?.getBoundingClientRect().height||0);if(!h||h===lastHeight)return;lastHeight=h;try{window.openai?.notifyIntrinsicHeight?.(h);}catch{}if(window.parent!==window)window.parent.postMessage({jsonrpc:'2.0',method:'ui/notifications/size-changed',params:{height:h}},'*');}
+try{new ResizeObserver(reportHeight).observe(document.querySelector('.card'));}catch{}
+for(const node of document.querySelectorAll('[data-local-text]'))paintText(node,()=>T(node.dataset.localText));
+window.ChatHandText.subscribe(refreshText);
+refreshText();
+if(window.openai?.theme)setTheme(window.openai.theme);
+applyHostLocale(window.openai?.locale,true);
+acceptWidgetState(window.openai?.widgetState);
+acceptMetadata(window.openai?.toolResponseMetadata);if(window.openai?.toolOutput)render(window.openai.toolOutput);
+if(window.parent!==window)send('ui/initialize',{appInfo:{name:'chathand-task',version:'1.1.0'},appCapabilities:{},protocolVersion:'2026-01-26'}).then(r=>{setTheme(r?.hostContext?.theme);applyHostLocale(r?.hostContext?.locale,true);window.parent.postMessage({jsonrpc:'2.0',method:'ui/notifications/initialized'},'*');lastHeight=0;reportHeight();}).catch(()=>{});
+</script></body></html>

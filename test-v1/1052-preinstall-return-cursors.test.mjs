@@ -1,0 +1,9 @@
+import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import os from 'node:os';import path from 'node:path';import {ScopedStore} from '../app/v06/access.mjs';import {compactToolReturn} from '../app/v1/return-archive.mjs';
+test('preinstall18 oversized first event returns a partial event and advances past it; archive keeps original',t=>{
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'ch-preinstall-return-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));const work=path.join(root,'work');fs.mkdirSync(work);const store=new ScopedStore(work,path.join(root,'state')),text='x'.repeat(50000),events=[{cursor:7,stream:'stdout',text},{cursor:8,stream:'stdout',text:'later'}];
+ store.writesEnabled=true;const r=compactToolReturn({output_events:events,next_cursor:9},{store,tool:'command_result'});assert.equal(r.next_cursor,8);assert.equal(r.output_events.length,1);assert.equal(r.output_events[0].cursor,7);assert.equal(r.output_events[0].truncated,true);assert.equal(r.output_events[0].output_partial,true);assert.ok(r.output_events[0].text.length>0&&r.output_events[0].text.length<text.length);assert.equal(r.output_summary.saved,true);assert.equal(JSON.parse(fs.readFileSync(r.output_summary.file_path,'utf8')).output_events[0].text,text);
+});
+test('preinstall18 saved false pagination uses the returned projected cursor',()=>{
+ const events=Array.from({length:500},(_,cursor)=>({cursor,stream:'stdout',text:'x'.repeat(100)})),r=compactToolReturn({output_events:events,next_cursor:500},{store:{checkActive(){throw Error('readonly fixture');}},tool:'command_result'});
+ assert.equal(r.output_summary.saved,false);assert.ok(r.next_cursor>0&&r.next_cursor<500);assert.equal(r.output_summary.pagination.next_cursor,r.next_cursor);assert.equal(r.next_cursor,r.output_events.length);
+});

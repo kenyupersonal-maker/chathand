@@ -1,0 +1,10 @@
+{
+  "name": "chathand-ui-port-harness",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "test": "node 1012/run.js",
+    "states": "node harness/states.js",
+    "test:legacy": "node harness/check.js"
+  }
+}

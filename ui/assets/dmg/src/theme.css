@@ -1,0 +1,71 @@
+@font-face{font-family:"ChatHand SC";src:local("PingFangSC-Light");font-weight:300;unicode-range:U+2E80-2FDF,U+3000-303F,U+3100-312F,U+31C0-31EF,U+3200-33FF,U+3400-4DBF,U+4E00-9FFF,U+F900-FAFF,U+FE10-FE1F,U+FE30-FE4F,U+FF00-FFEF}
+@font-face{font-family:"ChatHand SC";src:local("PingFangSC-Regular");font-weight:400;unicode-range:U+2E80-2FDF,U+3000-303F,U+3100-312F,U+31C0-31EF,U+3200-33FF,U+3400-4DBF,U+4E00-9FFF,U+F900-FAFF,U+FE10-FE1F,U+FE30-FE4F,U+FF00-FFEF}
+@font-face{font-family:"ChatHand SC";src:local("PingFangSC-Medium");font-weight:500;unicode-range:U+2E80-2FDF,U+3000-303F,U+3100-312F,U+31C0-31EF,U+3200-33FF,U+3400-4DBF,U+4E00-9FFF,U+F900-FAFF,U+FE10-FE1F,U+FE30-FE4F,U+FF00-FFEF}
+@font-face{font-family:"ChatHand SC";src:local("PingFangSC-Semibold");font-weight:600 900;unicode-range:U+2E80-2FDF,U+3000-303F,U+3100-312F,U+31C0-31EF,U+3200-33FF,U+3400-4DBF,U+4E00-9FFF,U+F900-FAFF,U+FE10-FE1F,U+FE30-FE4F,U+FF00-FFEF}
+/* 安装流程统一风格（2026-10-15，Claude）：和安装窗口（DMG 背景）同一套。
+   白底、顶部淡薄荷光；白卡细边 16 圆角；薄荷绿「推荐」角标；编号小圆点；「或」分隔。
+   1084：文字颜色跟主窗口同一套值（ui/style.css 的 --ink 三档、--accent、绿字 --g-ink、橙字 --o-ink），同一档只有一个色值。 */
+:root{
+ color-scheme:light;
+ --win:#FFFFFF;--card:#FFFFFF;--surface:#FFFFFF;--fill:#F6F7F7;--line:#ECEFF0;
+ --ink:#171A18;--ink-2:#5F6661;--ink-3:#929994;--accent:#171A18;--accent-ink:#FFFFFF;
+ --mint:#51B28F;--mint-ink:#00987B;--mint-soft:#E8F6F3;--chip:#F0F2F3;--chip-ink:var(--ink-3);
+ --tile:#FAFAFB;--glow:rgb(0 200 170 / .10);
+ --g:#03D4AA;--g-soft:#ECF7EF;--o:#FF7B00;--o-ink:#B4600B;--o-soft:rgb(255 123 0 / .10);
+}
+@media (prefers-color-scheme:dark){:root{
+ color-scheme:dark;
+ --win:#111412;--card:#171B19;--surface:#1D221F;--fill:#1F2421;--line:#2A302D;
+ --ink:#EDEEF0;--ink-2:#A6A9B0;--ink-3:#7C8089;--accent:#F2F3F5;--accent-ink:#0B0C0E;
+ --mint:#51B28F;--mint-ink:#00E2B8;--mint-soft:rgb(81 178 143 / .16);--chip:#262B28;--chip-ink:var(--ink-3);
+ --tile:#1F2421;--glow:rgb(0 200 170 / .07);
+ --g:#03D4AA;--g-soft:rgb(3 212 170 / .13);--o:#FF7B00;--o-ink:#EBA04E;--o-soft:rgb(255 123 0 / .12);
+}}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0}
+body{background:var(--win) radial-gradient(900px 340px at 50% -90px,var(--glow),transparent 72%) no-repeat;color:var(--ink);font:15px/1.6 "ChatHand SC",-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB",sans-serif;-webkit-font-smoothing:antialiased}
+button,a,summary{-webkit-tap-highlight-color:transparent}
+:focus-visible{outline:2px solid var(--mint-ink);outline-offset:4px}
+
+/* 打头：居中图标 + 标题 + 一句说明 */
+.hero{text-align:center}
+.hero .icon{display:block;width:72px;height:72px;margin:0 auto 14px}
+.hero h1{margin:0;font-size:26px;line-height:1.35;font-weight:700;letter-spacing:.01em}
+.hero p{margin:8px auto 0;max-width:600px;font-size:14px;color:var(--ink-3);text-wrap:pretty}
+
+/* 卡片、角标、编号、或 */
+.card{position:relative;background:var(--card);border:1px solid var(--line);border-radius:16px}
+.tab{position:absolute;left:-1px;top:-1px;height:28px;padding:0 14px;border-radius:16px 0 12px 0;background:var(--mint);color:#fff;font-size:13px;font-weight:600;line-height:28px;letter-spacing:.02em}
+.card h2{margin:0;font-size:22px;line-height:1.35;font-weight:700}
+ol.steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+ol.steps>li{display:flex;gap:11px;align-items:flex-start;font-size:14px;line-height:22px;color:var(--ink-2)}
+ol.steps .n{flex:none;display:grid;place-items:center;width:18px;height:18px;margin-top:2px;border-radius:50%;background:var(--mint-soft);color:var(--mint-ink);font-size:11px;font-weight:700;line-height:1;font-style:normal}
+.quiet ol.steps .n,ol.steps.quiet .n{background:var(--chip);color:var(--chip-ink)}
+.or{display:flex;align-items:center;margin:22px 0;color:var(--ink-3);font-size:14px}
+.or::before,.or::after{content:"";flex:1;height:1px;background:var(--line)}
+.or span{width:80px;text-align:center}
+
+/* 按钮：跟 App 里的配置流程一样两档（ui/h10/h10.css 开头那段）。
+   大：高 40、左右 22、字 15，最小宽 120，主按钮黑底、次按钮白底细边。中（.sm）：高 32、左右 14、字 13。 */
+.btn{appearance:none;display:inline-flex;align-items:center;justify-content:center;gap:8px;height:40px;min-width:120px;padding:0 22px;border:1px solid var(--line);border-radius:999px;background:var(--card);color:var(--ink);font:inherit;font-size:15px;font-weight:500;line-height:1.2;text-decoration:none;cursor:pointer;white-space:nowrap;transition:background-color .15s,color .15s,transform .15s}
+.btn.sm{height:32px;min-width:64px;padding:0 14px;font-size:13px;gap:6px}
+.btn.sm .ico{width:16px;height:16px}
+.btn:hover{background:var(--fill)}
+.btn:active{transform:scale(.98)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.btn.primary:hover{background:color-mix(in srgb,var(--accent) 86%,var(--win));border-color:transparent}
+.btn[data-state=ok],.btn[data-state=ok]:hover{background:var(--mint-soft);color:var(--ink);border-color:var(--mint);transition:none}
+.btn[data-state=fail],.btn[data-state=fail]:hover{background:var(--o-soft);color:var(--ink);border-color:var(--o-ink);transition:none}
+.ico{flex:none;width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.i-ok,.btn[data-state=ok] .i-copy,.btn[data-state=fail] .ico{display:none}
+.btn[data-state=ok] .i-ok{display:block;color:var(--mint-ink)}
+
+/* 折叠行 */
+summary{cursor:pointer;list-style:none}
+summary::-webkit-details-marker{display:none}
+.fold>summary{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.fold>summary::after{content:"";flex:none;width:7px;height:7px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(45deg);transition:transform .15s}
+.fold[open]>summary::after{transform:rotate(225deg)}
+.q{padding:14px 16px;border-radius:12px;background:var(--fill);color:var(--ink);text-align:left;overflow-wrap:anywhere;-webkit-user-select:all;user-select:all}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}

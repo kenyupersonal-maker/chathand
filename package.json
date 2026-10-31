@@ -1,0 +1,34 @@
+{
+  "name": "chathand",
+  "version": "1.0.0-beta.37",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "license": "SEE LICENSE IN LICENSE",
+  "scripts": {
+    "start": "node app/server.mjs",
+    "test": "node --test --test-concurrency=1 engine/test/*.test.mjs native/tests/*.test.mjs scripts/*.test.mjs test/*.test.mjs test-product/*.test.mjs test-release/*.test.mjs test-stability/*.test.mjs test-v06/*.test.mjs test-v07/*.test.mjs test-v08/*.test.mjs test-v09/*.test.mjs test-v1/*.test.mjs test-v1/relay-v412/*.test.mjs tools/skin-studio/test/*.test.mjs",
+    "test:v07": "node --test --test-concurrency=1 test-v07/*.test.mjs",
+    "test:v08": "node --test --test-concurrency=1 test-v08/*.test.mjs",
+    "test:v09": "node --test --test-concurrency=1 test-v09/*.test.mjs",
+    "test:native-guard": "node scripts/test-native-element-guard.mjs",
+    "test:trial": "node scripts/test-trial.mjs",
+    "build:trial": "node scripts/build-v09.mjs",
+    "test:v1": "node --test --test-concurrency=1 test-v1/*.test.mjs"
+  },
+  "kenBridge": {
+    "runtime_api": 1,
+    "connector_api": 31,
+    "build_number": 1087,
+    "bundle_id": "com.kenyu.chathand",
+    "release_channel": "friend-trial",
+    "install_ready": false
+  },
+  "dependencies": {
+    "chrome-devtools-mcp": "1.9.0",
+    "json-canonicalize": "1.2.0",
+    "playwright-core": "1.63.0"
+  }
+}

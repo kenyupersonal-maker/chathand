@@ -1,0 +1,13 @@
+{
+  "format": "chathand-site-template-local-pin",
+  "version": 1,
+  "source_kind": "bundled_local",
+  "template_file": "chathand-site-template-1060-local.zip",
+  "template_version": "1070-site-b-v7",
+  "template_sha256": "2e3bd6f841d9346480d7bdc34c0269e30ca593c9d702cc6f78819092815f7d0a",
+  "manifest_sha256": "0ba4fb1cc4d5e58a2a1629c0e810863fa57d9e352c8e6b748e8d8d3231fc638b",
+  "capabilities": {
+    "binding_protocol": 3,
+    "owner_rebind": 2
+  }
+}

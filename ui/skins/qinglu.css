@@ -1,0 +1,41 @@
+/* 青绿：Ken 10/4 调的一套，存成皮肤。只换颜色和效果参数，不改框架。
+   相对默认：主题色往绿偏、更鲜艳（色相 163、鲜艳 1.32，功能绿、热力图、流光都跟着走）；网点更细（间距 10/5 起和默认一样 12 点）（点半径 .3，被鼠标照亮的点半径 .65；对齐照旧打开）；
+   鼠标光斑更大（浅色是很淡的亮色光）；任务流光慢一点、宽一点；浅色卡片不透明。深色只跟着通用的几项变，其余同默认。 */
+html[data-skin="qinglu"][data-scheme]{
+  --theme-h:163;--theme-c:1.32;
+  --spot-size:165;
+  --grid-snap:1;--dots-gap:12;--dots-size:.3;--spot-dot:.65;
+  --glow-speed:5.5;--glow-size:60;
+  --glass-blur:3;
+  --hue-a:151;
+  --hue-b:193;
+  --hue-move:1.4;
+}
+html[data-skin="qinglu"][data-scheme="light"]{
+  --spot-a:.44;--spot-c:.07;--spot-l:.9;
+  /* 绿字（运行中、成功完成）：鲜艳到 1.32 后在浅绿底上对比度掉到 3.25，比默认 3.30 低；亮度从 .6 压到 .59，回到 3.38 */
+  --g-ink:oklch(calc(0.59 + var(--theme-l)) calc(0.114 * var(--theme-c)) var(--theme-h));
+  --edge-a:0;
+  --aura-a:.65;--aura-alpha:.42;--aura-c:.3;--aura-l:.92;
+  --dots-a:.7;
+  --glass-mix:100;
+  --glow-a:0.25;--spill-a:.2;
+  --comet-c:0.09;
+  --comet-l:0.98;
+  --fill-mix:3.5;
+  --ring-a:1;
+  --sh-l:0.64;
+  --sh-tint:1;
+  --win:#FAFFFD;
+}
+html[data-skin="qinglu"][data-scheme="dark"]{
+  --comet-c:0.09;
+  --comet-l:0.98;
+  --fill-mix:3.5;
+  --glow-a:0.25;
+  --ink-2:#868D8B;
+  --ring-a:1;
+  --sh-l:0.64;
+  --sh-tint:1;
+  --win:#000F0D;
+}

@@ -1,0 +1,24 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import crypto from 'node:crypto';
+import {fileURLToPath} from 'node:url';
+import {spawnSync} from 'node:child_process';
+const root=fileURLToPath(new URL('..',import.meta.url));
+test('complete actual PermissionAssistant fences generic queued Tasks and retains explicit full/reopen flows',{skip:process.platform!=='darwin',timeout:150000},t=>{
+ const dir=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'chathand-permission-generation-')));
+ for(const part of ['home','tmp','cache'])fs.mkdirSync(path.join(dir,part));
+ const sourceRoot=process.env.CHATHAND_PERMISSION_SOURCE_ROOT||root;
+ const source=fs.readFileSync(path.join(sourceRoot,'native/PermissionAssistant.swift'),'utf8'),start=source.indexOf('@available');assert.ok(start>=0);
+ const template=fs.readFileSync(path.join(root,'test-v1/permission-flow-generation-fixture.swift'),'utf8');assert.equal(template.split('/*__PRODUCTION_CLASS__*/').length,2);
+ const file=path.join(dir,'Checks.swift'),binary=path.join(dir,'checks'),cache=process.env.CHATHAND_TEST_SWIFT_CACHE||path.join(dir,'cache');fs.mkdirSync(cache,{recursive:true});
+ fs.writeFileSync(file,template.replace('/*__PRODUCTION_CLASS__*/',source.slice(start)));
+ const env={PATH:'/usr/bin:/bin:/usr/sbin:/sbin',HOME:path.join(dir,'home'),TMPDIR:path.join(dir,'tmp'),CLANG_MODULE_CACHE_PATH:cache};
+ const build=spawnSync('/usr/bin/xcrun',['swiftc','-swift-version','5','-parse-as-library','-module-cache-path',cache,path.join(sourceRoot,'native/PermissionFlowState.swift'),file,'-o',binary],{env,encoding:'utf8',timeout:120000});
+ assert.equal(build.status,0,(build.error?.code||'')+build.stderr);
+ const result=spawnSync(binary,[],{env,encoding:'utf8',timeout:10000});
+ t.diagnostic(JSON.stringify({source_sha256:crypto.createHash('sha256').update(source).digest('hex'),fixture:dir,real_system_calls:false}));
+ t.diagnostic(result.stdout);assert.equal(result.status,0,result.stdout+result.stderr);assert.match(result.stdout,/RESULT: \d+ checks; 0 failures/);
+});

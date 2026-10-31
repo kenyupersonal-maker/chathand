@@ -1,0 +1,15 @@
+'use strict';
+const {open}=require('../shoot'),{result,settle}=require('./common');
+(async()=>{const {page,errs,close}=await open('task=run&skinswitch=0'),checks=[];const check=(name,ok,detail)=>checks.push({name,ok:!!ok,detail});
+if(process.argv.includes('--live-only')){await page.evaluate(()=>{openDrawer('help');document.querySelector('.tech').open=true;__push({connection:{...S.connection,control_plane:{...S.connection.control_plane,last_success_at:Date.now()-2000}}});});await settle(page);await page.evaluate(()=>{window.__clockWrites=__renderStats.nodeWrites;window.__clockRender=__renderStats.renders;tickClocks('#drawerBody [data-fmt="sec"]');});check('volatile confirmation time reads latest complete state',await page.evaluate(()=>{const el=document.querySelector('#drawerBody [data-fmt="sec"]');return el.textContent==='2 秒前'&&Number(el.dataset.ts)===S.connection.control_plane.last_success_at;}));check('volatile clock writes only its timestamp and text without a render',await page.evaluate(()=>__renderStats.nodeWrites-__clockWrites<=2&&__renderStats.renders===__clockRender));check('zero browser errors',errs.length===0,errs);await close();result('C-live-clocks',checks);return;}
+
+check('running and relative clocks are scheduled',await page.evaluate(()=>!!durationTimer&&!!agoTimer));
+await page.evaluate(()=>{window.__clockRender=__renderStats.renders;window.__clockTime=Date.now();window.__clockFirst=document.querySelector('[data-fmt="dur"]')?.textContent;Date.now=()=>__clockTime+60000;tickClocks('[data-fmt="dur"]');});
+check('clock changes duration text without rendering a region',await page.evaluate(()=>document.querySelector('[data-fmt="dur"]')?.textContent!==__clockFirst&&__renderStats.renders===__clockRender));
+await page.evaluate(()=>{window.__clockWrites=__renderStats.nodeWrites;tickClocks('[data-fmt="dur"]');});check('unchanged clock text produces zero writes',await page.evaluate(()=>__renderStats.nodeWrites===__clockWrites));
+await page.evaluate(()=>{document.getElementById('app').inert=true;syncClocks();});check('inert overlay pauses all clocks',await page.evaluate(()=>!durationTimer&&!agoTimer));
+await page.evaluate(()=>{document.getElementById('app').inert=false;syncClocks();openDrawer('conn');});await settle(page);check('connection relative time uses timestamp attributes',await page.locator('#drawerBody [data-fmt="ago"][data-ts]').count()>0);
+await page.evaluate(()=>{openDrawer('help');document.querySelector('.tech').open=true;});check('technical relative time uses sec timestamp attributes',await page.locator('#drawerBody [data-fmt="sec"][data-ts]').count()>0);
+await page.evaluate(()=>{closeDrawer();window.__clockTime+=1000;__push({tasks:[],activity:{items:[]},last_calls:{}});});await settle(page);check('no running tasks and no relative timestamps schedules no clocks',await page.evaluate(()=>!durationTimer&&!agoTimer));
+check('zero browser errors',errs.length===0,errs);await close();result('C-clocks',checks);
+})().catch(error=>{console.error(error);process.exitCode=1;});

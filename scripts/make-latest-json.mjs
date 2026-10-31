@@ -1,0 +1,11 @@
+import fs from 'node:fs';import path from 'node:path';import crypto from 'node:crypto';import {fileURLToPath,pathToFileURL} from 'node:url';import {manifest} from '../app/product.mjs';import {TOOLS} from '../app/tools.mjs';
+const root=path.dirname(path.dirname(fileURLToPath(import.meta.url)));
+export async function makeLatestJSON({dmg,url,notes}){
+ const download=new URL(url);if(!['https:','file:'].includes(download.protocol)||download.username||download.password||(download.protocol==='file:'&&download.hostname&&download.hostname!=='localhost'))throw Error('HTTPS_DOWNLOAD_URL_REQUIRED');
+ const file=path.resolve(dmg),stat=fs.lstatSync(file);if(!stat.isFile()||stat.isSymbolicLink()||stat.size===0||!/^ChatHand[A-Za-z0-9._-]*\.dmg$/.test(path.basename(file)))throw Error('CHATHAND_DMG_REQUIRED');
+ const pkg=JSON.parse(fs.readFileSync(path.join(root,'package.json'),'utf8')),text=fs.readFileSync(path.resolve(notes),'utf8');if(text.length>20000)throw Error('RELEASE_NOTES_TOO_LONG');
+ const hash=crypto.createHash('sha256');for await(const chunk of fs.createReadStream(file))hash.update(chunk);
+ const latest={format:'chathand-latest-v1',version:pkg.version,build:pkg.kenBridge.build_number,published_at:new Date().toISOString(),notes:text,min_macos:'14.0',tool_schema_sha256:manifest(TOOLS).schema_sha256,dmg:{name:path.basename(file),url:download.href,sha256:hash.digest('hex'),size:stat.size},release_page:`https://github.com/kenyupersonal-maker/chathand/releases/tag/b${pkg.kenBridge.build_number}`};
+ const output=path.join(path.dirname(file),'latest.json');fs.writeFileSync(output,JSON.stringify(latest,null,2)+'\n');return {file:output,version:latest.version,build:latest.build};
+}
+if(process.argv[1]&&pathToFileURL(path.resolve(process.argv[1])).href===import.meta.url){const args=process.argv.slice(2),options={};try{for(let i=0;i<args.length;i+=2){const key=args[i],value=args[i+1];if(!['--dmg','--url','--notes'].includes(key)||!value||options[key.slice(2)])throw Error('USE_DMG_URL_NOTES');options[key.slice(2)]=value;}if(!options.dmg||!options.url||!options.notes)throw Error('USE_DMG_URL_NOTES');makeLatestJSON(options).then(result=>console.log(JSON.stringify(result))).catch(e=>{console.error(e.code||e.message);process.exitCode=1;});}catch(e){console.error(e.code||e.message);process.exitCode=1;}}

@@ -1,0 +1,8 @@
+{
+  "format": "chathand-site-template-pin",
+  "version": 1,
+  "template_url": "https://raw.githubusercontent.com/kenyupersonal-maker/chathand/main/site-template/chathand-site-template.zip",
+  "template_version": "1052-site-b-v3",
+  "template_sha256": "dc0f2d1e7053912e70d8399266325b655da157dc27a882e0c18308136648ac63",
+  "manifest_sha256": "1655ff027f78d7d0c71cdc12846d53c29a454e85f4ad0d80c5153a1cc3965d16"
+}

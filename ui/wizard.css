@@ -1,0 +1,190 @@
+/* 0011（Claude）：手动设置向导换成 H10 那一套样子（Ken 10/18：左边大步骤、中间又是竖着的小步骤，分不清哪些能点）。
+   页头跟 Site 那几页一样：左边图标和「首次设置」，中间四段进度（创建通道、添加到 ChatGPT、测试连接、完成），右边「稍后继续」。
+   内容区从页头下面固定空 48 点开始，标题居中，下面一张卡：左边一张截图，右边是这一张要做的事和按钮；一张做完点「继续」翻下一张。
+   完成页跟 Site 的完成页一样：范围点了就改，要系统确认的几项放在「用到时再开」，不拦人。
+   颜色只用变量（h10.css 的 .h10 里给了这一套的颜色），字号只用 11/12/13/14/15/17/20/22/24/26/30。
+   h10.css 在这个文件后面加载，所以这里的规则都带 #setupWizard，免得被它盖掉。 */
+#setupWizard{position:fixed;inset:0;z-index:50;overflow:auto;overscroll-behavior:contain;background:var(--win);color:var(--ink)}
+#setupWizard[hidden]{display:none}
+#setupWizard .wiz.h10-shell{min-height:100%;padding-top:48px}
+#setupWizard .wiz .h10-header{max-width:1184px;margin:0 auto}
+#setupWizard .wiz-main{max-width:880px;margin:48px auto 0}
+
+/* 页头的四段：做完的打勾，正在做的加粗，没到的灰；连线到正在做的那段为止是绿的 */
+#setupWizard .wiz-stepper li+li::before{width:24px;background:var(--line)}
+#setupWizard .wiz-stepper li+li:is([data-state="done"],[data-state="current"])::before{background:var(--mint)}
+#setupWizard .wiz-stepper li[data-state="todo"]{color:var(--ink-3)}
+#setupWizard .wiz-stepper li[data-state="todo"] .h10-step-num{background:var(--fill);border-color:var(--line);color:var(--ink-3);font-weight:500}
+#setupWizard .wiz-stepper li[data-state="done"]{color:var(--ink-2)}
+#setupWizard .wiz-stepper li[data-state="done"] .h10-step-num{background:var(--mint-soft);border-color:var(--mint-soft);color:var(--mint-ink)}
+#setupWizard .wiz-stepper .h10-source-check{width:14px;height:14px;stroke-width:2.4}
+#setupWizard .setup-later{min-width:0}
+
+/* 标题 */
+#setupWizard .wiz-heading{margin-bottom:24px}
+#setupWizard .wiz-heading>p{max-width:640px;margin:12px auto 0;color:var(--ink-2)}
+
+/* 一张卡：左边截图，右边这一张要做的事 */
+#setupWizard .wiz-card{display:grid;grid-template-columns:minmax(0,520fr) minmax(0,288fr);gap:24px;padding:24px}
+#setupWizard .wiz-visual{display:flex;flex-direction:column;gap:12px;min-width:0}
+#setupWizard .tut-frame{position:relative;display:block;width:100%;height:324px;padding:0;margin:0;border:0;border-radius:12px;background:var(--fill);overflow:hidden;cursor:zoom-in}
+#setupWizard .tut-frame.tut-empty{cursor:default}
+#setupWizard .tut-clip{position:absolute;overflow:hidden;border-radius:8px;background:var(--card);box-shadow:0 0 0 1px var(--line),0 4px 14px color-mix(in srgb,var(--ink) 7%,transparent)}
+#setupWizard .tut-frame img{position:absolute;max-width:none;pointer-events:none;user-select:none}
+#setupWizard .tut-ring{position:absolute;box-sizing:border-box;border:2px solid var(--mint);border-radius:10px;box-shadow:0 0 0 4px color-mix(in srgb,var(--mint) 18%,transparent);pointer-events:none}
+#setupWizard .zoom-hint{position:absolute;right:10px;bottom:10px;z-index:1;padding:2px 10px;border-radius:999px;background:var(--card);box-shadow:0 0 0 1px var(--line);color:var(--ink-2);font-size:12px;line-height:20px;transition:color .15s var(--ease)}
+#setupWizard .tut-frame:hover .zoom-hint{color:var(--ink)}
+#setupWizard .wiz-dots{display:flex;justify-content:center;gap:4px}
+#setupWizard .wiz-dots button{display:grid;place-items:center;width:24px;height:20px;padding:0;border:0;background:none;cursor:pointer}
+#setupWizard .wiz-dots button::before{content:"";width:6px;height:6px;border-radius:3px;background:var(--line);transition:width .2s var(--ease),background-color .2s var(--ease)}
+#setupWizard .wiz-dots button:hover::before{background:var(--ink-3)}
+#setupWizard .wiz-dots button[aria-current="step"]::before{width:18px;background:var(--mint)}
+
+#setupWizard .wiz-panel{display:flex;flex-direction:column;gap:16px;min-width:0}
+#setupWizard .wiz-count{font-size:12px;line-height:18px;font-weight:600;color:var(--mint-ink)}
+#setupWizard .wiz-count+.wiz-instruction{margin-top:-8px}
+#setupWizard .wiz-instruction{font-size:15px;line-height:24px;font-weight:500;color:var(--ink)}
+#setupWizard .wiz-note{font-size:13px;line-height:20px;color:var(--ink-2)}
+#setupWizard .wiz-suggestions{display:flex;flex-direction:column;gap:12px}
+#setupWizard .wiz-suggestion{display:flex;flex-direction:column;gap:4px;min-width:0}
+#setupWizard .wiz-suggestion-label{font-size:12px;line-height:16px;color:var(--ink-3)}
+#setupWizard .wiz-suggestion-box{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:6px;min-height:40px;padding:4px 4px 4px 12px;border-radius:10px;background:var(--fill);font-size:13px;line-height:20px;overflow-wrap:anywhere}
+#setupWizard .wiz-copy-icon{display:grid;place-items:center;width:32px;height:32px;padding:0;border:0;border-radius:7px;background:transparent;color:var(--ink-2);cursor:pointer}
+#setupWizard .wiz-copy-icon:hover{background:var(--surface);color:var(--ink)}
+#setupWizard .wiz-copy-icon:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+#setupWizard .wiz-copy-icon svg{width:16px;height:16px}
+#setupWizard .wiz-actions{display:flex;flex-wrap:wrap;gap:8px}
+#setupWizard .wiz-nav{display:flex;justify-content:flex-end;gap:8px;margin-top:auto;padding-top:8px}
+#setupWizard .wiz-nav .h10-button{height:40px;min-width:120px;padding:0 22px;font-size:15px!important} /* 1068：配置流程的大按钮一档 */
+#setupWizard .field-error{margin:0;color:var(--o-ink);font-size:13px;line-height:20px}
+#setupWizard .field-error:empty{display:none}
+
+/* 收起来的帮助 */
+#setupWizard .wiz-fold{font-size:13px;line-height:20px;color:var(--ink-2)}
+#setupWizard .wiz-fold summary{display:inline-flex;align-items:center;gap:6px;cursor:pointer;list-style:none;color:var(--ink-2)}
+#setupWizard .wiz-fold summary::-webkit-details-marker{display:none}
+#setupWizard .wiz-fold summary::after{content:"";width:5px;height:5px;margin:-3px 0 0 2px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(45deg)}
+#setupWizard .wiz-fold[open] summary::after{margin-top:3px;transform:rotate(-135deg)}
+#setupWizard .wiz-fold summary:hover{color:var(--ink)}
+#setupWizard .wiz-fold-body{display:flex;flex-direction:column;gap:8px;margin-top:10px;padding:12px 14px;border-radius:12px;background:var(--fill)}
+#setupWizard .wiz-fold-body ol{margin:0;padding-left:18px}
+#setupWizard .wiz-fold-body li+li{margin-top:4px}
+#setupWizard .wiz-fold-body .h10-button{align-self:flex-start}
+#setupWizard .trouble-shot{display:block;max-width:100%;border-radius:8px}
+
+/* 填通道 ID */
+#setupWizard .wiz-input{display:flex;flex-direction:column;gap:6px}
+#setupWizard .wiz-input label{font-size:13px;font-weight:600}
+#setupWizard .tunnel-entry{position:relative}
+#setupWizard .tunnel-entry input{width:100%;height:40px;padding:0 36px 0 12px;border:1px solid var(--line-2);border-radius:10px;background:var(--card);color:var(--ink);font:14px/20px var(--mono)}
+#setupWizard .tunnel-entry input:focus{border-color:var(--mint);outline:none;box-shadow:0 0 0 3px color-mix(in srgb,var(--mint) 18%,transparent)}
+#setupWizard .tunnel-entry input::placeholder{color:var(--ink-3)}
+#setupWizard .tunnel-entry>.wiz-ok{position:absolute;right:12px;top:50%;display:grid;transform:translateY(-50%);color:var(--mint-ink)}
+#setupWizard .wiz-attention{font-size:12px;line-height:18px;color:var(--o-ink)}
+
+/* 名字、通道 ID、图标三行：小字的名目在上，内容在下，复制按钮在右边 */
+#setupWizard .wiz-fields{border:1px solid var(--line);border-radius:12px}
+#setupWizard .wiz-field{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:12px;row-gap:2px;align-items:center;padding:10px 10px 10px 14px}
+#setupWizard .wiz-field+.wiz-field{border-top:1px solid var(--line)}
+#setupWizard .wiz-field-label{grid-column:1;grid-row:1;font-size:12px;line-height:16px;color:var(--ink-3)}
+#setupWizard .wiz-field code,#setupWizard .wiz-field-note{grid-column:1;grid-row:2;min-width:0}
+#setupWizard .wiz-field code{overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font:13px/20px var(--mono);color:var(--ink)}
+#setupWizard .wiz-field-note{font-size:12px;line-height:20px;color:var(--ink-2)}
+#setupWizard .wiz-field .h10-button{grid-column:2;grid-row:1/3} /* 1068：中按钮（高 32），不再另起一个 28 的小号 */
+
+/* 收密钥的框（跟 Site 那页「收代码」一样是虚线框） */
+#setupWizard .key-slot{display:flex;flex-direction:column;align-items:center;gap:8px;padding:24px 16px;text-align:center;border:1px dashed var(--line-2);border-radius:12px;background:var(--fill)}
+#setupWizard .key-slot strong{display:block;font-size:15px;line-height:22px;font-weight:600}
+#setupWizard .key-slot p{font-size:13px;line-height:20px;color:var(--ink-2)}
+#setupWizard .key-slot .h10-button{margin-top:4px}
+#setupWizard .key-breath{display:inline-block;width:7px;height:7px;margin:0 9px 2px 0;border-radius:50%;background:var(--mint);vertical-align:middle;animation:key-breath 2.8s ease-in-out infinite}
+
+/* 通道连没连上：一个小点加一句话 */
+#setupWizard .wiz-conn{display:flex;align-items:center;gap:8px;font-size:13px;line-height:20px;color:var(--ink-2)}
+#setupWizard .wiz-conn::before{content:"";flex:none;width:8px;height:8px;border-radius:50%;background:var(--ink-3)}
+#setupWizard .wiz-conn[data-state="wait"]::before{animation:key-breath 2.8s ease-in-out infinite}
+#setupWizard .wiz-conn[data-state="ok"]{color:var(--mint-ink);font-weight:600}
+#setupWizard .wiz-conn[data-state="ok"]::before{background:var(--mint)}
+
+#setupWizard .wiz-conn[data-state="attention"]{color:var(--o-ink)}
+#setupWizard .wiz-conn[data-state="attention"]::before{background:var(--o-ink)}
+/* 1081：灰色小链接（「已经在 ChatGPT 里加好了？」「回到添加到 ChatGPT」），放在状态行下面 */
+#setupWizard .wiz-quiet{margin:0;line-height:20px}
+
+/* 测试连接：右边那句话（右上角「复制」）、主按钮、一行状态；60 秒没收到，状态行下面三条帮助 */
+#setupWizard .test-prompt{display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border-radius:12px;background:var(--fill);font-size:13px;line-height:20px;color:var(--ink);overflow-wrap:anywhere}
+#setupWizard .test-prompt p{margin:0;flex:1;min-width:0}
+#setupWizard .test-prompt .h10-button{flex:none}
+#setupWizard .wiz-test{display:flex;flex-direction:column;gap:8px;font-size:13px;line-height:20px;color:var(--ink-2)}
+#setupWizard .wiz-test:empty{display:none}
+#setupWizard .wiz-test .wiz-conn{align-items:flex-start;margin:0}
+#setupWizard .wiz-test .wiz-conn::before{margin-top:6px}
+#setupWizard .wiz-test-help{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px}
+
+/* 完成页 */
+#setupWizard .wiz-scope .h10-scope-options label{cursor:pointer}
+/* 「用到时再开」那几项多的时候页面要往下滚；「打开 ChatGPT」贴在窗口底边，不用滚到底才找得到 */
+#setupWizard .wiz-main.h10-completion>.h10-footer{position:sticky;bottom:0;z-index:2;margin-top:0;padding:20px 0 24px;background:linear-gradient(to bottom,transparent,var(--win) 36%)}
+#setupWizard .wiz-main.h10-completion>.h10-completion-cards{margin-bottom:4px}
+#setupWizard .wiz-later{padding:20px}
+#setupWizard .wiz-later>h3{font-size:14px;line-height:20px;font-weight:500;margin-bottom:4px}
+#setupWizard .open-items{display:flex;flex-direction:column}
+#setupWizard .open-item{padding:14px 0}
+#setupWizard .open-item+.open-item{border-top:1px solid var(--line)}
+#setupWizard .open-item:last-child{padding-bottom:0}
+#setupWizard .open-row{display:flex;align-items:center;gap:14px}
+#setupWizard .open-icon{display:grid;place-items:center;flex:none;width:36px;height:36px;border-radius:10px;background:var(--fill);color:var(--ink-2)}
+#setupWizard .open-icon svg{width:20px;height:20px}
+#setupWizard .open-item.done .open-icon{background:var(--mint-soft);color:var(--mint-ink)}
+#setupWizard svg{fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+#setupWizard .open-text{flex:1;min-width:0}
+#setupWizard .open-text b{display:block;font-size:14px;line-height:20px;font-weight:600}
+#setupWizard .open-text p{margin-top:2px;font-size:13px;line-height:20px;color:var(--ink-2)}
+#setupWizard .open-actions{display:flex;align-items:center;gap:12px;flex:none;font-size:13px}
+#setupWizard .open-done{display:flex;align-items:center;gap:6px;color:var(--mint-ink);font-weight:600;white-space:nowrap}
+#setupWizard .open-done svg{width:16px;height:16px}
+#setupWizard .open-wait{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-2)}
+#setupWizard .open-wait .spinner{width:14px;height:14px}
+#setupWizard .open-cancelled{color:var(--ink-2);font-size:12px}
+#setupWizard .open-badges{display:flex;gap:14px;margin-top:6px;font-size:12px}
+#setupWizard .open-path{display:block;margin-top:4px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font:12px/18px var(--mono);color:var(--ink-2)}
+#setupWizard .good{color:var(--mint-ink)}
+#setupWizard .attention{color:var(--o-ink)}
+#setupWizard .browser-guide{margin:10px 0 0 50px;font-size:12px;line-height:18px}
+#setupWizard .browser-guide summary{cursor:pointer;color:var(--ink-2)}
+#setupWizard .browser-guide ol{margin:8px 0;padding-left:18px}
+#setupWizard .browser-guide .h10-button{margin:0 8px 0 0}
+#setupWizard .extension-guide{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0;padding:12px;border-radius:10px;background:var(--fill)}
+#setupWizard .extension-guide span:nth-child(2){text-align:right}
+#setupWizard .extension-guide small{grid-column:1/-1;color:var(--ink-2)}
+
+#setupWizard .h10-button:disabled{opacity:1;background:var(--fill);border-color:var(--line);color:var(--ink-3)!important;cursor:not-allowed}
+#setupWizard .h10-button:focus-visible,#setupWizard .tut-frame:focus-visible,#setupWizard .wiz-dots button:focus-visible,#setupWizard summary:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+
+/* 窗口窄的时候：卡里改成上下排，截图在上 */
+@media (max-width:1000px){#setupWizard .wiz.h10-shell{padding-top:48px}}
+@media (max-width:720px){
+ #setupWizard .wiz-main{margin-top:32px}
+ #setupWizard .wiz-card{grid-template-columns:minmax(0,1fr);gap:20px;padding:16px}
+ #setupWizard .tut-frame{height:248px}
+ #setupWizard .wiz-nav{margin-top:8px}
+ #setupWizard .open-row{flex-wrap:wrap}
+ #setupWizard .open-actions{margin-left:50px}
+ #setupWizard .browser-guide{margin-left:0}
+}
+
+/* 放大看截图 */
+/* 0011：弹窗跟着截图一样宽（截图的大小在 wizard.js 里按窗口算好），下面那句说明在图的宽度里折行，不再把弹窗撑满整个窗口 */
+.tutorialZoom{max-width:92vw;width:min-content;background:var(--surface,var(--wiz-surface-fallback))}
+.tutorialZoom img{display:block;max-width:85vw;max-height:75vh;object-fit:contain}
+.tutorialZoom button{float:right;margin-bottom:10px}
+.tutorialZoom p{clear:both}
+
+#setupWizard :is(button,input,.key-slot):focus-visible{outline:2px solid var(--wiz-focus-ring);outline-offset:3px}
+
+@keyframes key-breath{50%{opacity:.4}}
+
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+@media(prefers-reduced-motion:reduce){#setupWizard *,#setupWizard *::before,#setupWizard *::after{animation:none!important;transition:none!important}}
+
+#app[inert]~#ch-skin-tools{display:none}

@@ -1,0 +1,20 @@
+{
+  "name": "chathand",
+  "version": "1.0.0-beta.37",
+  "description": "ChatHand 本机配置与诊断",
+  "author": {
+    "name": "ChatHand contributors"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "ChatHand",
+    "shortDescription": "配置或诊断这台 Mac 的 ChatHand。",
+    "longDescription": "保留健康连接，使用本机配置技能检查通道与浏览器连接。",
+    "developerName": "ChatHand contributors",
+    "category": "Productivity",
+    "capabilities": [],
+    "defaultPrompt": "帮我检查 ChatHand 的连接。",
+    "composerIcon": "./assets/composer-icon.svg",
+    "logo": "./assets/logo.png"
+  }
+}

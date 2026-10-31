@@ -1,0 +1,113 @@
+<!doctype html><html lang="@LANG@"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>@TEXT:dmg.firstOpen.title@</title><style>
+@THEME@
+body{padding:48px 24px 48px}
+main{max-width:860px;margin:0 auto}
+.hero{margin-bottom:28px}
+.main-card{padding:44px 32px 28px}
+/* 1068（Claude，Ken 10/20）：命令直接放在灰底框里，右下角是「复制命令」；原来折起来的「安装并打开 ChatHand 的命令」那一行不要了。 */
+.cmdbox{display:flex;flex-direction:column;gap:12px;margin-top:18px;padding:16px 16px 12px;border-radius:12px;background:var(--fill)}
+.cmdbox code{display:block;color:var(--ink);font:13px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap;overflow-wrap:anywhere;-webkit-user-select:all;user-select:all}
+.cmdbox .btn{align-self:flex-end}
+.tip{margin:10px 0 0;font-size:12px;color:var(--ink-3);line-height:1.6}
+.hero-grid{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:32px;align-items:start;margin-top:24px}
+kbd{display:inline-block;padding:0 6px;margin-inline:2px;border:1px solid var(--line);border-radius:5px;background:var(--fill);font:inherit;font-size:13px;line-height:1.6;white-space:nowrap}
+.keys,.nb{white-space:nowrap}
+.note{margin:14px 0 0;color:var(--ink-3);font-size:12px;line-height:1.6;text-wrap:pretty}
+.note.top{margin-top:16px}.note.top+.note.top{margin-top:2px}
+.note.small{margin-top:2px}
+.ill{display:block;width:100%;height:auto;border-radius:12px}
+.term-wrap{padding-top:2px} /* 跟左边第一步的顶对齐 */
+.alt,.guide{position:relative;margin-top:12px;background:var(--card);border:1px solid var(--line);border-radius:16px;font-size:13px;color:var(--ink-2)}
+.alt>summary,.guide>summary{min-height:60px;padding:8px 24px;gap:12px;display:flex;align-items:center;justify-content:space-between;font-size:15px;font-weight:600;color:var(--ink)}
+.alt-body,.guide-body{padding:4px 24px 24px}
+.alt-body>p{margin:0 0 16px;font-size:13px;text-wrap:pretty}
+.alt-body .hint{margin:14px 0 0;font-size:13px;color:var(--ink-2)}
+.hint.warn{color:var(--o-ink)}
+#promptDetails{margin-top:18px;padding-top:12px;border-top:1px solid var(--line);font-size:12px;color:var(--ink-3)}
+#promptDetails .q{margin-top:12px;font-size:13px}
+#promptDetails[open] #prompt{display:block!important}
+#promptDetails .btn{margin-top:12px}
+.guide summary small{font-size:inherit;font-weight:400;color:var(--ink-3)}
+.guide .steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;margin-top:16px}
+.step{display:flex;flex-direction:column;gap:12px}
+.step .n{display:flex;align-items:flex-start;gap:9px;font-size:14px;line-height:22px;color:var(--ink);font-weight:600}
+.step .n i{flex:none;display:grid;place-items:center;width:18px;height:18px;margin-top:2px;border-radius:50%;background:var(--mint-soft);color:var(--mint-ink);font-size:11px;font-weight:700;line-height:1;font-style:normal}
+.step .btn{align-self:center}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+@media (max-width:800px){.hero-grid{grid-template-columns:minmax(0,1fr) 220px;gap:24px}.guide .steps{grid-template-columns:1fr}.step{max-width:440px}.step .ill{max-width:360px}.step .btn{align-self:flex-start}}
+@media (max-width:620px){body{padding:32px 20px}.hero h1{font-size:23px}.main-card{padding:40px 20px 20px}.cmdbox .btn{align-self:stretch}.hero-grid{grid-template-columns:1fr;gap:20px}.term-wrap{max-width:300px}.alt>summary,.guide>summary{padding:8px 20px}.alt-body,.guide-body{padding:4px 20px 20px}}
+</style></head><body><main>
+<header class="hero"><img class="icon" alt="" src="@APP_ICON@"><h1>@TEXT:dmg.firstOpen.title@</h1>
+<p>@TEXT:dmg.firstOpen.explanation@</p>
+<p class="note">@TEXT:dmg.firstOpen.manualPathNote@</p></header>
+<section class="card main-card" aria-label="@TEXT:dmg.firstOpen.commandTitle@">
+ <span class="tab">@TEXT:dmg.recommended@</span>
+ <h2>@TEXT:dmg.firstOpen.commandTitle@</h2>
+ <div class="cmdbox"><code id="cmd">@COMMAND@</code><button class="btn primary" id="copybtn" type="button" data-copy="cmd" data-ok="@TEXT:dmg.firstOpen.commandCopied@" data-fail="@TEXT:dmg.firstOpen.commandCopyFailed@"><svg class="ico i-copy" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg><svg class="ico i-ok" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4 10-10"/></svg><span class="lbl">@TEXT:dmg.firstOpen.copyCommand@</span></button></div>
+ <p class="tip">@TEXT:dmg.firstOpen.commandExplanation@</p>
+ <div class="hero-grid">
+  <div><ol class="steps" role="list">
+   <li><span class="n">1</span><span>@TEXT:dmg.firstOpen.copyStep@</span></li>
+   <li><span class="n">2</span><span>@HTML:dmg.firstOpen.openTerminal@</span></li>
+   <li><span class="n">3</span><span>@HTML:dmg.firstOpen.pasteCommand@</span></li>
+  </ol>
+  <p class="note top">@TEXT:dmg.firstOpen.dragNote@</p>
+  <p class="note top">@TEXT:dmg.firstOpen.alreadyBlockedNote@</p>
+  <p class="note small">@TEXT:dmg.firstOpen.searchFallback@</p></div>
+  <div class="term-wrap"><svg viewBox="0 0 300 150" class="ill term" role="img" aria-label="@TEXT:dmg.firstOpen.terminalIllustration@">
+   <rect width="300" height="150" rx="12" fill="#121418"/>
+   <path d="M0 12A12 12 0 0 1 12 0H288A12 12 0 0 1 300 12V34H0Z" fill="#2A2D34"/>
+   <circle cx="17" cy="17" r="5" fill="#FF5F57"/><circle cx="32" cy="17" r="5" fill="#FEBC2E"/><circle cx="47" cy="17" r="5" fill="#28C840"/>
+   <text x="150" y="22" text-anchor="middle" font-size="12" font-weight="600" fill="#C0C5CE">@TEXT:dmg.firstOpen.terminalTitle@</text>
+   <g font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="12" fill="#E8EAEE" style="white-space:pre">
+    <text x="16" y="69"><tspan fill="#ABB3C2">~ %</tspan> A=/Applications/ChatHand.app; …</text>
+    <text x="16" y="91">open "$A"</text>
+   </g><rect x="82" y="80" width="7" height="14" fill="#E8EAEE"/>
+  </svg><p class="note">@TEXT:dmg.firstOpen.appNotFoundNote@</p></div>
+ </div>
+</section>
+<div class="or" role="separator"><span>@TEXT:dmg.or@</span></div>
+<details class="alt fold">
+ <summary>@TEXT:dmg.firstOpen.assistedSummary@</summary>
+ <div class="alt-body"><p>@LOCAL_WORK_WEB_WARNING@</p><p>@TEXT:dmg.firstOpen.assistedExplanation@</p>
+ <button class="btn" type="button" id="openChatGPT" data-copy="prompt" data-ok="@TEXT:dmg.copied@" data-fail="@TEXT:dmg.copyFailed@" data-hint="codexhint" data-hint-ok="@TEXT:dmg.prompt.openCopied@" data-hint-fail="@TEXT:dmg.prompt.openCopyManually@"><svg class="ico i-copy" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg><svg class="ico i-ok" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4 10-10"/></svg><span class="lbl">@TEXT:dmg.firstOpen.openAndFill@</span></button>
+ <p class="hint" id="codexhint" role="status" hidden></p>
+ <details id="promptDetails" class="fold"><summary>@TEXT:dmg.prompt.summary@</summary><div class="q pbox" id="prompt" hidden></div><button class="btn sm" type="button" data-copy="prompt" data-ok="@TEXT:dmg.copied@" data-fail="@TEXT:dmg.copyFailed@" data-hint="codexhint" data-hint-ok="@TEXT:dmg.prompt.copiedHint@" data-hint-fail="@TEXT:dmg.prompt.copyFailedHint@"><span class="lbl">@TEXT:dmg.copy@</span></button></details>
+ </div>
+</details>
+@SYSTEM_GUIDE@
+<div class="sr" id="live" role="status" aria-live="polite"></div>
+</main><script>
+const $=id=>document.getElementById(id);
+// 提示词和链接前缀与 ui/h10/prompts.mjs 同源；安装盘入口指定 Codex 模式。
+const template="@PROMPT_TEMPLATE@";
+function mountedApp(){if(location.protocol!=='file:')return null;let f;try{f=decodeURIComponent(location.pathname)}catch(_){return null}
+ if(!f.startsWith('/Volumes/')||!f.endsWith('.html')||f.includes('\0'))return null;const end=f.lastIndexOf('/');return end>9?f.slice(0,end)+'/ChatHand.app':null}
+const installPrompt=template.replace("@PROMPT_LOCATION_TOKEN@",()=>mountedApp()||@JS:dmg.prompt.localApp@);
+$('prompt').textContent=installPrompt;
+$('openChatGPT').dataset.open='@DEEP_LINK_PREFIX@'+encodeURIComponent(installPrompt)+'&mode=codex';
+async function copyText(t){try{await navigator.clipboard.writeText(t);return true}catch(_){}
+ const keep=document.activeElement;
+ const a=document.createElement('textarea');a.value=t;a.style.position='fixed';a.style.opacity='0';document.body.appendChild(a);a.select();
+ let ok=false;try{ok=document.execCommand('copy')}catch(_){}a.remove();
+ try{keep&&keep.focus&&keep.focus({preventScroll:true})}catch(_){}return ok}
+function selectAll(el){try{const r=document.createRange();r.selectNodeContents(el);const s=getSelection();s.removeAllRanges();s.addRange(r)}catch(_){}}
+const timers=new WeakMap();
+function flash(b,state,text,ms){
+ const l=b.querySelector('.lbl');if(!b.dataset.idle)b.dataset.idle=l.textContent;
+ clearTimeout(timers.get(b));l.textContent=text;b.dataset.state=state;
+ timers.set(b,setTimeout(()=>{l.textContent=b.dataset.idle;delete b.dataset.state},ms))}
+function announceResult(result,hint){return @JS:dmg.copyAnnouncement@.replace(/\{(result|hint)\}/g,(_,name)=>({result,hint})[name])}
+function announce(t){const v=$('live');v.textContent='';setTimeout(()=>{v.textContent=t},60)}
+document.addEventListener('click',async e=>{
+ const b=e.target.closest('[data-copy]');if(!b)return;
+ const src=$(b.dataset.copy),ok=await copyText(src.textContent.trim());
+ let say;
+ if(ok){say=b.dataset.ok;flash(b,'ok',say,b.dataset.copy==='prompt'?1600:2600)}
+ else{say=b.dataset.fail;flash(b,'fail',say,6000);const d=src.closest('details');if(d)d.open=true;src.hidden=false;selectAll(src)}
+ if(b.dataset.hint){const h=$(b.dataset.hint);h.textContent=ok?b.dataset.hintOk:b.dataset.hintFail;h.classList.toggle('warn',!ok);h.hidden=false;say=announceResult(say,h.textContent)}
+ announce(say);
+ if(b.dataset.open){location.href=b.dataset.open;}
+});
+</script></body></html>

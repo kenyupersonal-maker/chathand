@@ -1,0 +1,55 @@
+/* 钛灰：原创冷调中性色、分层环境阴影。只换颜色和效果变量，不改框架。
+   10/5：去掉了 1012 时单独给它写的几条样式（窗口底的两团环境光、卡片和浮层的斜向高光、主按钮渐变、分段按钮描边、焦点和选中色、滚动条、减少动态时全停）。
+   其中窗口底那条会盖掉网点图案，又被网点的平铺尺寸切成一格一格的「底纹」；现在和别的皮肤一样，所有样式走全局，只是变量的值不同。 */
+html[data-skin="quiet-titanium"][data-scheme="light"]{
+  color-scheme:light;
+  /* 1053 后（Claude，10/17，Ken：进行中那张大卡和右边的卡颜色要一致）：任务面板 #F9FCFC → 和卡片同色；毛玻璃下的面板也跟 --glass 一样 */
+  --win:#F5F8F9;--panel:#FDFEFE;--card:#FDFEFE;--surface:#FDFEFE;
+  --fill-mix:8.5;--fill-ink:#678999;--tile-dark:#17262E;
+  --line:#D8E2E6;--line-2:#BECCD3;
+  --ink:#081014;--ink-2:#4B5A61;--ink-3:#6F7F86;--ink-4:#A7B8C0;
+  --accent:#081014;--accent-hover:#20323B;--accent-ink:#FFFFFF;
+  /* 功能绿跟着主题色（--theme-h / --theme-c）走；默认值就是原来的 #06976E 一组 */
+  --g:oklch(calc(0.6 + var(--theme-l)) calc(0.124 * var(--theme-c)) calc(var(--theme-h) - 6.5));--g-sw:oklch(calc(0.57 + var(--theme-l)) calc(0.112 * var(--theme-c)) calc(var(--theme-h) - 5.5));--g-ink:oklch(calc(0.483 + var(--theme-l)) calc(0.103 * var(--theme-c)) calc(var(--theme-h) - 9.5));--g-soft:oklch(calc(0.959 + var(--theme-l)) calc(0.016 * var(--theme-c)) calc(var(--theme-h) - 5.5));--g-line:oklch(calc(0.834 + var(--theme-l)) calc(0.062 * var(--theme-c)) calc(var(--theme-h) - 6.5));
+  --o:#D86A19;--o-ink:#984408;--o-soft:#FFF1E7;--o-tag:#FFE3CB;--o-line:#DDBA9E;
+  --y-bg:#FFF8DA;--y-line:#D9C878;--y-ink:#695C00;
+  --pop-shadow:0 2px 6px rgba(12,34,46,.07),0 18px 44px rgba(12,34,46,.12);
+  --modal-shadow:0 2px 8px rgba(12,34,46,.07),0 28px 72px rgba(12,34,46,.19);
+  --drawer-shadow:0 2px 8px rgba(12,34,46,.05),0 18px 44px rgba(12,34,46,.14);
+  --backdrop:rgba(12,25,34,.18);--trail-a:.13;--glow-a:.13;
+  --switch-thumb:#FFFFFF;--switch-shadow:rgba(8,30,42,.20);--tile-ink:#F5FBFC;
+  --segment-shadow:rgba(12,34,46,.10);--brand-top:#273D48;--brand-bottom:#10212B;--brand-ink:#F3FAFC;--brand-highlight:rgba(217,247,255,.22);
+  --dismiss-hover:rgba(12,34,46,.065);--tutorial-shadow:rgba(12,34,46,.23);--tutorial-backdrop:rgba(12,25,34,.32);
+  --wiz-surface-fallback:var(--surface);--wiz-ink-fallback:var(--ink);--wiz-fill-fallback:var(--fill);--wiz-line-fallback:var(--line);--wiz-muted-fallback:var(--ink-3);--wiz-step-fallback:var(--fill-2);--wiz-body-fallback:var(--ink-2);--wiz-media-fallback:var(--fill);--wiz-key-line-fallback:var(--line-2);--wiz-key-fill-fallback:var(--fill);
+  --wiz-focus-ring:#267C97;--wiz-hint-bg:#FDFEFE;--wiz-hint-ink:#394C56;--wiz-risk-ink:var(--o-ink);
+
+  --dot:rgba(32,59,72,.07);--spot1:rgba(53,161,139,.7);--spot2:rgba(101,183,202,.42);
+  --glass:rgba(253,254,254,.76);--glass-panel:rgba(253,254,254,.76);--glass-line:rgba(190,204,211,.7);--aur-a:.56;--orb-blend:multiply;
+  --mint1:#BDDDD5;--mint2:#CCE3EA;--mint3:#D7DEE9;--dawn1:#E8D1BF;--dawn2:#E5D2DA;--dawn3:#DED8E8;
+  --sky1:#CDDFEC;--sky2:#D1E7EC;--sky3:#D7DFEB;--fog1:#E1E8EB;--fog2:#E5EBEF;--fog3:#E7EBEF;
+}
+html[data-skin="quiet-titanium"][data-scheme="dark"]{
+  color-scheme:dark;
+  --win:#0C1115;--panel:#131B20;--card:#131B20;--surface:#18242B;
+  --fill-mix:6;--fill-ink:#A6DCF5;--tile-dark:#E6EEF1;
+  --line:#2A3942;--line-2:#415762;
+  --ink:#F4F8FA;--ink-2:#B5C5CC;--ink-3:#91A4AE;--ink-4:#526974;
+  --accent:#F6F9FA;--accent-hover:#DDEAF0;--accent-ink:#091014;
+  --g:oklch(calc(0.802 + var(--theme-l)) calc(0.149 * var(--theme-c)) calc(var(--theme-h) - 7));--g-sw:oklch(calc(0.624 + var(--theme-l)) calc(0.115 * var(--theme-c)) calc(var(--theme-h) - 4.5));--g-ink:oklch(calc(0.875 + var(--theme-l)) calc(0.137 * var(--theme-c)) calc(var(--theme-h) - 9));/* 深色绿字亮度 .833 → .875：默认深色的绿底改过以后，静钛这一对对比度掉到 8.14，比默认 8.93 低 */--g-soft:oklch(calc(0.312 + var(--theme-l)) calc(0.05 * var(--theme-c)) calc(var(--theme-h) - 4));--g-line:oklch(calc(0.486 + var(--theme-l)) calc(0.076 * var(--theme-c)) calc(var(--theme-h) - 6.5));
+  --o:#FB9254;--o-ink:#FFBD85;--o-soft:#3B241A;--o-tag:#4F2E1B;--o-line:#885333;
+  --y-bg:#302D16;--y-line:#6D6330;--y-ink:#EFDB58;
+  --pop-shadow:0 2px 6px rgba(0,5,9,.30),0 20px 48px rgba(0,5,9,.48);
+  --modal-shadow:0 2px 10px rgba(0,5,9,.36),0 28px 76px rgba(0,5,9,.61);
+  --drawer-shadow:0 2px 8px rgba(0,5,9,.24),0 20px 48px rgba(0,5,9,.52);
+  --backdrop:rgba(0,6,11,.54);--trail-a:.17;--glow-a:.12;
+  --switch-thumb:#F0F8FA;--switch-shadow:rgba(0,6,10,.42);--tile-ink:#0C1115;
+  --segment-shadow:rgba(0,6,10,.36);--brand-top:#F4F8FA;--brand-bottom:#D3DEE3;--brand-ink:#0C1115;--brand-highlight:rgba(255,255,255,.7);
+  --dismiss-hover:rgba(188,223,239,.09);--tutorial-shadow:rgba(0,5,9,.56);--tutorial-backdrop:rgba(0,6,11,.60);
+  --wiz-surface-fallback:var(--surface);--wiz-ink-fallback:var(--ink);--wiz-fill-fallback:var(--fill);--wiz-line-fallback:var(--line);--wiz-muted-fallback:var(--ink-3);--wiz-step-fallback:var(--fill-2);--wiz-body-fallback:var(--ink-2);--wiz-media-fallback:var(--fill);--wiz-key-line-fallback:var(--line-2);--wiz-key-fill-fallback:var(--fill);
+  --wiz-focus-ring:#86CADC;--wiz-hint-bg:#21323C;--wiz-hint-ink:#E0EDF3;--wiz-risk-ink:var(--o-ink);
+
+  --dot:rgba(181,197,204,.065);--spot1:rgba(76,175,152,.75);--spot2:rgba(97,185,208,.42);
+  --glass:rgba(19,27,32,.72);--glass-panel:rgba(19,27,32,.72);--glass-line:rgba(162,208,226,.13);--aur-a:.5;--orb-blend:screen;
+  --mint1:#204E49;--mint2:#234754;--mint3:#343F55;--dawn1:#5A3E2C;--dawn2:#503847;--dawn3:#413C54;
+  --sky1:#263E5C;--sky2:#244853;--sky3:#303F55;--fog1:#202C33;--fog2:#242D35;--fog3:#262F36;
+}

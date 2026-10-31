@@ -1,0 +1,82 @@
+/* 打赏气泡和打赏弹窗（tip-jar.js）。只选自己的节点和 data-kind="tip" 的弹窗；去掉这一行不影响产品样式。 */
+/* 左下角的圆按钮：跟皮肤按钮一个样子（卡片底色、细描边、线性图标），在它正上方隔 8px；皮肤面板打开时先藏起来 */
+#ch-tip-tools{position:fixed;left:12px;bottom:52px;z-index:109;--p-card:var(--card);--p-line:var(--line);--p-line-2:var(--line-2);--p-ink-2:var(--ink-2);--p-focus:color-mix(in srgb,var(--ink) 50%,transparent)}
+#ch-tip-tools[data-alone]{bottom:12px}
+/* 「回到顶部」按钮（滚动后才出现）原来在皮肤按钮上面那一格；咖啡杯常驻在那一格，它就再往上挪一格，常驻的两个按钮不跟着跳 */
+body:has(#ch-tip-tools:not([data-alone]):not([data-slot])) .to-top{bottom:92px}
+body:has(#ch-tip-tools[data-alone]) .to-top{bottom:52px}
+/* 皮肤面板打开时，面板底边跟咖啡杯按钮差一两像素对不齐，干脆藏起来 */
+body:has(#ch-skin-tools .ch-skin-trigger[aria-expanded="true"]) #ch-tip-tools{visibility:hidden}
+#ch-tip-tools[data-slot]{position:static;margin-bottom:8px}
+#ch-tip-tools .ch-tip-trigger{box-sizing:border-box;width:32px;height:32px;min-height:32px;display:grid;place-items:center;margin:0;padding:7px;border:var(--hair,1px) solid var(--p-line);border-radius:50%;background:var(--p-card);box-shadow:var(--card-shadow,0 2px 8px rgba(0,0,0,.13));cursor:pointer;transform:none}
+#ch-tip-tools .ch-tip-trigger:hover{border-color:var(--p-line-2)}
+#ch-tip-tools .ch-tip-trigger:focus-visible{outline:2px solid var(--p-focus);outline-offset:2px}
+#ch-tip-tools .ch-tip-cup{width:18px;height:18px;fill:none;stroke:var(--p-ink-2);stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+
+/* ---------- 弹窗：上面图标、标题、一句话；下面左边是收款方式，右边是选中那个的二维码和地址 ---------- */
+dialog#modal[data-kind="tip"]{width:600px;--ch-tip-ease:cubic-bezier(.32,.72,0,1);--ch-tip-slide:.45s;--ch-tip-mark:.4s;--ch-tip-distance:22px}
+#modal .ask-icon .ch-tip-cup{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+#modal .ch-tip-lede{margin:0 0 18px}
+#modal .ch-tip{display:grid;grid-template-columns:184px minmax(0,1fr);gap:16px;align-items:start}
+#modal .ch-tip-scroll[data-scroll]{height:var(--ch-tip-height);overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-width:none;overflow-anchor:none}
+#modal .ch-tip-scroll[data-scroll]::-webkit-scrollbar{display:none}
+#modal .ch-tip-scroll[data-scroll] .ch-tip-run{height:calc(var(--ch-tip-height) + var(--ch-tip-travel))}
+#modal .ch-tip-scroll[data-scroll] .ch-tip{position:sticky;top:0}
+
+/* 收款方式：一行一个，选中的垫一层浅灰；加密货币前面一个小分组名 */
+#modal .ch-tip-tabs{position:relative;display:flex;flex-direction:column;gap:2px;min-width:0}
+#modal .ch-tip-highlight{position:absolute;left:0;top:0;width:var(--ch-tip-w,100%);height:var(--ch-tip-h,34px);border-radius:9px;background:var(--fill-2);transform:translate(var(--ch-tip-x,0px),var(--ch-tip-y,0px));transition:transform var(--ch-tip-mark) var(--ch-tip-ease),width var(--ch-tip-mark) var(--ch-tip-ease),height var(--ch-tip-mark) var(--ch-tip-ease);pointer-events:none;visibility:hidden}
+#modal .ch-tip-tabs[data-ready] .ch-tip-highlight{visibility:visible}
+#modal .ch-tip-tabs[data-ready] .ch-tip-tab[aria-selected="true"]{background:transparent}
+#modal .ch-tip-tab{position:relative;display:flex;align-items:center;gap:10px;width:100%;height:34px;margin:0;padding:0 10px;border:0;border-radius:9px;background:transparent;color:var(--ink);font-size:13px;font-weight:600;line-height:1;text-align:left;cursor:pointer}
+#modal .ch-tip-tab:hover{background:var(--fill)}
+#modal .ch-tip-tab[aria-selected="true"]{background:var(--fill-2)}
+#modal .ch-tip-tab:focus-visible{outline:2px solid color-mix(in srgb,var(--ink) 50%,transparent);outline-offset:-2px}
+#modal .ch-tip-tn{flex:none}
+#modal .ch-tip-tab small{margin-left:auto;font-size:11px;font-weight:500;color:var(--ink-3)}
+#modal .ch-tip-logo{flex:none;width:20px;height:20px}
+#modal .ch-tip-group{display:flex;align-items:center;gap:8px;margin:10px 10px 4px;font-size:11px;font-weight:600;line-height:16px;color:var(--ink-3)}
+#modal .ch-tip-group::after{content:"";flex:1;height:var(--hair,1px);background:var(--line)}
+
+/* 收款方式在网上：读的时候和读不到的时候，原地一块灰底，高度跟读到以后一样（8 种方式时量的是 348px，中英文、最小窗口都一样），换过来时弹窗不跳。
+   读得快就不闪字：转圈和那句话过 0.4 秒才淡出来 */
+#modal .ch-tip-state{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;box-sizing:border-box;min-height:348px;padding:18px 24px;border-radius:14px;background:var(--fill);text-align:center}
+#modal .ch-tip-state p{margin:0;max-width:340px;font-size:13px;line-height:1.5;color:var(--ink-2)}
+#modal .ch-tip-state[data-state="loading"] p{animation:ch-tip-in .2s ease .4s both}
+#modal .ch-tip-state[data-state="loading"] .spinner{width:16px;height:16px;animation:ch-tip-in .2s ease .4s both,spin .9s linear infinite}
+@keyframes ch-tip-in{from{opacity:0}to{opacity:1}}
+@media (prefers-reduced-motion:reduce){#modal .ch-tip-state[data-state="loading"] p{animation:none}#modal .ch-tip-state[data-state="loading"] .spinner{animation:spin 1.8s linear infinite}}
+
+/* 右边：几种方式叠在同一格里，高度按最高的那个，换方式时弹窗不跳 */
+#modal .ch-tip-pages{display:grid;overflow:hidden;padding:18px 16px 14px;border-radius:14px;background:var(--fill)}
+#modal .ch-tip-page{grid-area:1/1;display:flex;flex-direction:column;align-items:center;min-width:0;text-align:center;opacity:1;transform:none;transition:opacity .3s ease .06s,transform var(--ch-tip-slide) var(--ch-tip-ease),visibility 0s}
+#modal .ch-tip-page[data-off]{visibility:hidden;opacity:0;transform:translateY(var(--ch-tip-distance)) scale(.985);transition:opacity .26s ease,transform var(--ch-tip-slide) var(--ch-tip-ease),visibility 0s linear var(--ch-tip-slide);pointer-events:none}
+#modal .ch-tip-page[data-off][data-before]{transform:translateY(calc(-1 * var(--ch-tip-distance))) scale(.985)}
+/* PayPal、支付宝这类不在分组里的：二维码和下面的内容在这一格里上下居中（Ken 10/31）；加密货币几种仍然顶着上边，换币时二维码不上下挪 */
+#modal .ch-tip-page:not([data-group]){justify-content:center}
+/* 二维码一直是白底黑点（深色模式也一样，扫码要），中间放 logo */
+#modal .ch-tip-qr{position:relative;box-sizing:border-box;width:156px;height:156px;padding:10px;border-radius:14px;background:#fff;box-shadow:0 0 0 var(--hair,1px) var(--line)}
+#modal .ch-tip-qr svg{display:block;width:100%;height:100%}
+#modal .ch-tip-qrlogo{position:absolute;left:50%;top:50%;width:calc((100% - 20px) * var(--hole) * .78);height:calc((100% - 20px) * var(--hole) * .78);translate:-50% -50%;pointer-events:none}
+#modal .ch-tip-name{display:flex;align-items:baseline;justify-content:center;gap:6px;margin-top:12px;font-size:15px;line-height:20px}
+#modal .ch-tip-name b{font-weight:650;color:var(--ink)}
+#modal .ch-tip-name span{font-size:12px;color:var(--ink-3)}
+#modal .ch-tip-go{margin-top:12px}
+#modal .ch-tip-go .i{width:14px;height:14px}
+/* 链接或地址：一块白底，左边小标签和地址（长地址折行），右边复制 */
+#modal .ch-tip-field{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:2px 10px;box-sizing:border-box;width:100%;margin-top:12px;padding:8px 8px 8px 12px;border-radius:10px;background:var(--card);box-shadow:0 0 0 var(--hair,1px) var(--line);text-align:left}
+#modal .ch-tip-label{grid-column:1;font-size:11px;line-height:16px;color:var(--ink-3)}
+#modal .ch-tip-field code{grid-column:1;font:12px/1.45 var(--mono);color:var(--ink);overflow-wrap:anywhere}
+#modal .ch-tip-copy{grid-column:2;grid-row:1/3}
+#modal .ch-tip-note{margin:10px 0 0;font-size:12px;line-height:1.5;color:var(--ink-3)}
+@media (max-width:560px){
+  #modal .ch-tip{grid-template-columns:minmax(0,1fr);gap:12px}
+  #modal .ch-tip-tabs{flex-direction:row;overflow-x:auto;scrollbar-width:none}
+  #modal .ch-tip-tabs::-webkit-scrollbar{display:none}
+  #modal .ch-tip-tab{flex:none;width:auto}
+  #modal .ch-tip-group{display:none}
+}
+@media (prefers-reduced-motion:reduce){
+  #modal .ch-tip-highlight,#modal .ch-tip-page,#modal .ch-tip-page[data-off]{transition:none}
+  #modal .ch-tip-page[data-off],#modal .ch-tip-page[data-off][data-before]{transform:none}
+}

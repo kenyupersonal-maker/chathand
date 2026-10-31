@@ -1,0 +1,28 @@
+/* H10 host-only layout. The approved .h10 view tokens come from the live App theme. */
+#h10Host{position:fixed;inset:0;z-index:1100;overflow:auto;overscroll-behavior:contain;background:var(--win);color:var(--ink);font:15px/1.5 var(--font);outline:none}
+#h10Host[hidden],#h10Host [hidden]{display:none!important}
+#h10HostStage{max-width:1280px;margin:0 auto}
+#h10HostNotice:not([hidden]){position:sticky;top:0;z-index:4;max-width:1280px;margin:0 auto;padding:9px 48px;background:var(--panel);border-bottom:1px solid var(--line);color:var(--ink-2);font-size:13px;white-space:pre-line}
+#h10HostExtra button{display:inline-flex;align-items:center;justify-content:center;height:40px;min-width:120px;padding:0 22px;font:inherit;font-size:15px;font-weight:500;color:var(--ink);border:var(--hair) solid var(--line);background:var(--card);border-radius:999px;cursor:pointer;white-space:nowrap} /* 1068：跟配置流程的大按钮一档 */
+#h10HostExtra button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+#h10HostExtra{position:relative;display:flex;justify-content:center;gap:12px;flex-wrap:wrap;padding:0 36px 32px;margin:-20px auto 0}
+@media(max-width:850px){#h10HostNotice:not([hidden]){padding:10px 18px}#h10HostExtra{margin:0 auto 0}}
+/* 0010（Claude）：App 窗口顶边往下 48 点是原生的拖动区（ui/style.css 的 .drag-strip，ui/app.js 的 reportChrome 报给原生），
+   按在这条里的鼠标会变成拖窗口，按钮收不到。设置窗口在 App 里打开时，顶上的提示条自己往下让开这 48 点，背景照旧铺到顶；
+   页面本身顶上也至少空 48 点。0012：原来顶上的「换哪种连接方式」选择条去掉了，改成下面的弹框。 */
+html.in-app #h10HostNotice:not([hidden]){padding-top:57px}
+html.in-app #h10Host .h10-shell{padding-top:48px}
+/* 0012（Claude，Ken 10/19）：「换一种连接方式」弹框。样子跟窗口里别的确认框一套（圆角 18、两个等宽按钮），
+   两种方式各一张能点的卡：名字、「当前」「已连上」小标签，下面一句说清特点。 */
+#h10RouteDialog{width:440px;max-width:calc(100vw - 48px);max-height:calc(100vh - 64px);overflow:auto;border:0;padding:26px;border-radius:18px;background:var(--card);color:var(--ink);box-shadow:var(--modal-shadow);font:15px/1.5 var(--font)}
+#h10RouteDialog::backdrop{background:var(--backdrop);-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px)}
+#h10RouteDialog h2{margin:0 0 6px;font-size:20px;line-height:1.35;font-weight:650;letter-spacing:-.01em}
+#h10RouteDialog .h10-route-lead{margin:0 0 16px;font-size:14px;line-height:1.6;color:var(--ink-2)}
+#h10RouteDialog .h10-route-options{display:grid;gap:10px}
+/* 1081（Ken 10/27）：「使用中」角标：贴着选项的上边和右边（选项圆角 14px、边框 1px，里面是 13px），左下角圆一点。名字右边留出角标的宽度。 */
+#h10RouteDialog .h10-route-option{position:relative}
+#h10RouteDialog .h10-route-cur{position:absolute;top:0;right:0;padding:3px 10px 4px;border-radius:0 13px 0 10px;background:var(--fill-2);color:var(--ink-2);font-size:11px;font-weight:600;line-height:14px;white-space:nowrap;pointer-events:none}
+#h10RouteDialog .h10-route-option.cur .h10-route-name{padding-right:64px}
+/* 两张选项卡的样子跟完成页的「AI 能碰多大范围」共用，在 h10.css 的「能点的选项卡」那一段。 */
+#h10RouteDialog .h10-route-actions{display:flex;gap:10px;margin-top:22px}
+#h10RouteDialog .h10-route-actions .btn{flex:1;min-width:0;min-height:40px}

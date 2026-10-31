@@ -1,0 +1,12 @@
+import catalogs from './local-text-catalogs.mjs';
+import './local-text.js';
+const shared=globalThis.ChatHandText;
+shared.installCatalogs({catalogs,overwrite:false});
+export const uiText=(key,params={})=>shared.t(key,params);
+export const uiHTML=(key,params={})=>shared.html(key,params);
+export const trustedHTML=value=>shared.trusted(value);
+export const installCatalogs=input=>shared.installCatalogs(input);
+export const update=installCatalogs;
+export const subscribe=listener=>shared.subscribe(listener);
+uiText.html=uiHTML;
+export default uiText;

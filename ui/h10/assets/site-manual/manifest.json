@@ -1,0 +1,68 @@
+{
+  "designSource": "https://www.figma.com/design/6HtSA4eX1smxlhodJY7dkM/ChatHand?node-id=50-933",
+  "assets": [
+    {
+      "file": "chevron.svg",
+      "sourceNode": "32:80",
+      "width": "12",
+      "height": "12",
+      "sha256": "81a6f434e56c08bf75ab806dfbc85eefa58bbb01f9eb9056f2a52b901ad5e998"
+    },
+    {
+      "file": "plus.svg",
+      "sourceNode": "32:95",
+      "width": "17",
+      "height": "17",
+      "sha256": "2f38fcb60fa90cfa1f356934d1606e6a00d0fa000bc2a55c91cbcbb59eacb3a3"
+    },
+    {
+      "file": "send-idle.svg",
+      "sourceNode": "32:99",
+      "width": "17",
+      "height": "17",
+      "sha256": "dd71f44ac22660c44c13b3df14996ba06c4fffe71d506dccb13585fe81dc0473"
+    },
+    {
+      "file": "cursor.svg",
+      "sourceNode": "33:75",
+      "width": "22",
+      "height": "22",
+      "sha256": "29711391f9a6bf6f00229bd19c689048b15800780d503afc11eabcae038f15cf"
+    },
+    {
+      "file": "send.svg",
+      "sourceNode": "33:115",
+      "width": "17",
+      "height": "17",
+      "sha256": "63207609ee8678ef837580b171378397c2b0212cd05b6e1b64fde43341ab04c6"
+    },
+    {
+      "file": "copy.svg",
+      "sourceNode": "33:140",
+      "width": "14",
+      "height": "14",
+      "sha256": "7ca7691c2a8f4de2e68d2b907775862e35bb7ac20b93d55ed66c49b95042be1d"
+    },
+    {
+      "file": "selected-radio.svg",
+      "sourceNode": "I50:685;37:299",
+      "width": "13.76",
+      "height": "13.76",
+      "sha256": "7aae9e5c28b72a18aa6d8c9db9af9d3152a2284bf0541f17b03855ddb5a6a349"
+    },
+    {
+      "file": "check.svg",
+      "sourceNode": "50:740,50:746",
+      "width": "14",
+      "height": "14",
+      "sha256": "f78f267d12b86413c90b323e5ceef8495c4bc999be4870f4e0468ee28c07acb7"
+    },
+    {
+      "file": "done.svg",
+      "sourceNode": "50:751",
+      "width": "64",
+      "height": "64",
+      "sha256": "aaafe337c2bb6cf12ae54b1fe09e4feacd0cffb54ad69de8797f02e32318d393"
+    }
+  ]
+}

@@ -1,0 +1,133 @@
+{
+  "npm_version": "11.19.0",
+  "node_version": "v24.21.0",
+  "node_distribution_url": "https://nodejs.org/dist/v24.21.0/node-v24.21.0-darwin-arm64.tar.gz",
+  "scope": "Supplemental attribution materials missing from the npm copy bundled with the pinned Node distribution. Original upstream files are preserved without edits. The @npmcli/agent entry additionally includes a clearly identified standard ISC text supplement.",
+  "packages": [
+    {
+      "name": "spdx-exceptions",
+      "version": "2.5.0",
+      "license": "CC-BY-3.0",
+      "gitHead": "3aa64bec339abc6a3eca00c3436aaa7e154b8799",
+      "registry_metadata_url": "https://registry.npmjs.org/spdx-exceptions/2.5.0",
+      "source_archive_url": "https://codeload.github.com/kemitchell/spdx-exceptions.json/tar.gz/3aa64bec339abc6a3eca00c3436aaa7e154b8799",
+      "archive_sha256": "b3b3099026441e9c3895a85f34092c63154a55aadf1b70faf3cb14f53e5d0227",
+      "npm_dist": {
+        "tarball": "https://registry.npmjs.org/spdx-exceptions/-/spdx-exceptions-2.5.0.tgz",
+        "integrity": "sha512-PiU42r+xO4UbUS1buo3LPJkjlO7430Xn5SVAhdpzzsPHsjbYVflnnFdATgabnLude+Cqu25p6N+g2lw/PFsa4w=="
+      },
+      "runtime_comparison": {
+        "files": 4,
+        "differences": [
+          "README.md"
+        ]
+      },
+      "original_path": "README.md",
+      "distributed_path": "licenses/npm-11.19.0-dependencies/packages/spdx-exceptions/README.md",
+      "sha256": "554b19eee11d2964e9f7b244e47944c08d52ca75539260a04f3227e6c0144513",
+      "status": "ORIGINAL_ATTRIBUTION_PRESERVED"
+    },
+    {
+      "name": "spdx-license-ids",
+      "version": "3.0.23",
+      "license": "CC0-1.0",
+      "gitHead": "a2a975daf48bbc2afdc8e7c304405b44c656fd53",
+      "registry_metadata_url": "https://registry.npmjs.org/spdx-license-ids/3.0.23",
+      "source_archive_url": "https://codeload.github.com/jslicense/spdx-license-ids/tar.gz/a2a975daf48bbc2afdc8e7c304405b44c656fd53",
+      "archive_sha256": "497e2f3abeef8f2a909cf1102059c249513830bc15468f788210b6c24fbd9e1a",
+      "npm_dist": {
+        "tarball": "https://registry.npmjs.org/spdx-license-ids/-/spdx-license-ids-3.0.23.tgz",
+        "integrity": "sha512-CWLcCCH7VLu13TgOH+r8p1O/Znwhqv/dbb6lqWy67G+pT1kHmeD/+V36AVb/vq8QMIQwVShJ6Ssl5FPh0fuSdw=="
+      },
+      "runtime_comparison": {
+        "files": 4,
+        "differences": [
+          "README.md"
+        ]
+      },
+      "original_path": "README.md",
+      "distributed_path": "licenses/npm-11.19.0-dependencies/packages/spdx-license-ids/README.md",
+      "sha256": "b4807793db6058c819f76c023362b7d522b3d19c9b41563fcc01c2b2c5b1ccd3",
+      "status": "ORIGINAL_ATTRIBUTION_PRESERVED"
+    },
+    {
+      "name": "@npmcli/agent",
+      "version": "4.0.2",
+      "license": "ISC",
+      "gitHead": "db7852869c74ceb8985d7c36b291a2e7a866741c",
+      "registry_metadata_url": "https://registry.npmjs.org/%40npmcli%2Fagent/4.0.2",
+      "source_archive_url": "https://codeload.github.com/npm/agent/tar.gz/db7852869c74ceb8985d7c36b291a2e7a866741c",
+      "archive_sha256": "96efde3b0b54af2bfa138c41113dbffe17efb5e19344adf8c8331976fb67eb3d",
+      "npm_dist": {
+        "tarball": "https://registry.npmjs.org/@npmcli/agent/-/agent-4.0.2.tgz",
+        "integrity": "sha512-EUEuWAxnL07Sp5/iC/1X6Xj+XThUvnbei9zfRWZdEXa7lss9RTHMhAHBeg+MZ5To9s/gGaSI+UwZTPdYMvKSeg=="
+      },
+      "runtime_comparison": {
+        "files": 8,
+        "differences": [
+          "README.md"
+        ]
+      },
+      "original_path": "package.json",
+      "distributed_path": "licenses/npm-11.19.0-dependencies/packages/@npmcli/agent/package.json",
+      "sha256": "3612c09c2741e44541faddecee97c4618794909ecf0e3555e56ebabf38a379a8",
+      "status": "STANDARD_ISC_TEXT_SUPPLEMENTED_KEN_DECISION",
+      "supplemental_license": {
+        "path": "licenses/npm-11.19.0-dependencies/packages/@npmcli/agent/LICENSE-ISC-supplemental.txt",
+        "sha256": "3b89084bdb23bd7c09f49e1f94aa7f27244263435914695873d506c67ffd4d24",
+        "standard_text_url": "https://opensource.org/license/isc",
+        "copyright_holder": "GitHub Inc.",
+        "copyright_source": "https://github.com/npm/agent/blob/db7852869c74ceb8985d7c36b291a2e7a866741c/package.json",
+        "copyright_source_field": "author",
+        "year": null,
+        "provenance": "Standard ISC text supplied per Ken decision; holder taken from upstream 4.0.2 package author metadata. No copyright year is stated by that metadata. This is supplemental text, not an original license file recovered from upstream."
+      }
+    },
+    {
+      "name": "@sigstore/verify",
+      "version": "3.1.1",
+      "license": "Apache-2.0",
+      "gitHead": "c1dc7d4778a450787fc72b083f2490ad02b714c6",
+      "registry_metadata_url": "https://registry.npmjs.org/%40sigstore%2Fverify/3.1.1",
+      "source_archive_url": "https://codeload.github.com/sigstore/sigstore-js/tar.gz/c1dc7d4778a450787fc72b083f2490ad02b714c6",
+      "archive_sha256": "405e0b53ac45f4d5fbc898ff23cb61516bd875053e2ff63e14ecf44c9e44bb93",
+      "npm_dist": {
+        "tarball": "https://registry.npmjs.org/@sigstore/verify/-/verify-3.1.1.tgz",
+        "integrity": "sha512-qv7+G3J2cc6wwFj3yKvXOamzqhMwSk1ogPGmhpS8iXllcPrJaIIBA+4HbttlHVu1pqWTdmaCH/WE7UOC51kdoA=="
+      },
+      "runtime_comparison": {
+        "files": 48,
+        "differences": [
+          "README.md",
+          "dist/key/certificate.d.ts",
+          "dist/tlog/checkpoint.d.ts",
+          "dist/bundle/dsse.d.ts",
+          "dist/tlog/dsse.d.ts",
+          "dist/error.d.ts",
+          "dist/trust/filter.d.ts",
+          "dist/tlog/hashedrekord.d.ts",
+          "dist/bundle/index.d.ts",
+          "dist/index.d.ts",
+          "dist/key/index.d.ts",
+          "dist/timestamp/index.d.ts",
+          "dist/tlog/index.d.ts",
+          "dist/trust/index.d.ts",
+          "dist/tlog/intoto.d.ts",
+          "dist/tlog/merkle.d.ts",
+          "dist/bundle/message.d.ts",
+          "dist/policy.d.ts",
+          "dist/key/sct.d.ts",
+          "dist/tlog/set.d.ts",
+          "dist/shared.types.d.ts",
+          "dist/trust/trust.types.d.ts",
+          "dist/timestamp/tsa.d.ts",
+          "dist/verifier.d.ts"
+        ]
+      },
+      "original_path": "LICENSE",
+      "distributed_path": "licenses/npm-11.19.0-dependencies/packages/@sigstore/verify/LICENSE",
+      "sha256": "364a130d2ca340bd56eb1e6d045fc6929bb0f9d0aa018f2c1949b29517e1cdd0",
+      "status": "ORIGINAL_ATTRIBUTION_PRESERVED"
+    }
+  ]
+}

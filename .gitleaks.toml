@@ -1,0 +1,11 @@
+title = "ChatHand source scan"
+[extend]
+useDefault = true
+
+# This is a DER public key, pinned by Chrome to preserve the extension ID.
+[[allowlists]]
+description = "Chrome extension public identity key (not a credential)"
+condition = "AND"
+paths = ['''browser-extension/manifest\.json$''']
+regexTarget = "secret"
+regexes = ['''^\QMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAlsbbN9+1S7zpj+TY7ZkR+rID9KvVLKxmhuRVtgRYCFtaJUTMSnq6gvUFHjpRBeXRhgGrR3Ebwf/qcMIotcHaRkOcudGtFyZDLdcW/fvx1tG8av0xglmqHRbwEtyTwHW24kuCtQw14SLzZRD1RvSbkOhZ5RucFPUD8d9D9G9TaiYlpftc9KVlnNUOk/ZNJh87WUeg/gkAL4MzFuoHphD/gTyOJmziC3QvMOk3I37TSufeqxv+JyHic/E9jkaalVxSJY0HVaO+tSjqeU//HVs4/6Ki5pAPanFnTXOiqFEG6pqZUiTn03k4Xo/+TEpB/iAUyDV9+2yMpx2tTDbeLI5uXQIDAQAB\E$''']

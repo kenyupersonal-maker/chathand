@@ -1,0 +1,137 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title data-local-text="documentTitle"></title>
+<style>
+/* 外框和圆角由 ChatGPT 画，这里只留内边距；底色透明，跟着 ChatGPT 的深浅色走（宿主给的主题优先，其次系统设置）。 */
+:root{--ink:#171A18;--sub:#5F6661;--faint:#929994;--line:rgba(16,24,40,.10);--fill:rgba(16,24,40,.06);--ok:#00987B;--bar:#00987B;--warn:#B4600B;--warn-soft:rgba(255,123,0,.09);--warn-line:rgba(180,96,11,.22);color-scheme:light}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--ink:#EDEEF0;--sub:#A6A9B0;--faint:#7C8089;--line:rgba(255,255,255,.12);--fill:rgba(255,255,255,.08);--ok:#00E2B8;--bar:#00E2B8;--warn:#EBA04E;--warn-soft:rgba(255,123,0,.12);--warn-line:rgba(235,160,78,.30);color-scheme:dark}}
+:root[data-theme="dark"]{--ink:#EDEEF0;--sub:#A6A9B0;--faint:#7C8089;--line:rgba(255,255,255,.12);--fill:rgba(255,255,255,.08);--ok:#00E2B8;--bar:#00E2B8;--warn:#EBA04E;--warn-soft:rgba(255,123,0,.12);--warn-line:rgba(235,160,78,.30);color-scheme:dark}
+html,body{background:transparent}
+body{margin:0;font:14px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif;color:var(--ink)}
+.card{padding:18px 20px}
+.top{display:flex;justify-content:space-between;gap:12px;font-size:12px;color:var(--sub)}
+.top strong{font-weight:600}
+h2{font-size:17px;margin:6px 0 10px;line-height:1.4;font-weight:600}
+.bar{height:6px;border-radius:3px;background:var(--fill);overflow:hidden}
+.bar>i{display:block;height:100%;width:0;background:var(--bar);border-radius:3px;transition:width .3s}
+ol{margin:12px 0 0;padding-left:22px;max-height:220px;overflow:auto}
+li{color:var(--sub)}li.saved{color:var(--ink)}li.failed{color:var(--warn)}li.next{color:var(--ink);font-weight:600}
+.next-line{margin-top:12px;display:block;background:var(--warn-soft);border:1px solid var(--warn-line);border-radius:12px;padding:8px 14px;color:var(--warn);font-size:13px}
+.next-line b{font-weight:600}
+.done{margin-top:12px;font-size:13px;color:var(--sub);word-break:break-all}
+.done b{color:var(--ok);font-weight:600}
+.top{flex-wrap:wrap}.top>*{min-width:0;overflow-wrap:anywhere}h2,li,.next-line{overflow-wrap:anywhere}
+[hidden]{display:none!important}
+</style></head>
+<body><section class="card">
+<div class="top"><strong data-local-text="brand"></strong><span id="count"></span></div>
+<h2 id="title" data-local-text="reading"></h2>
+<div class="bar"><i id="fill"></i></div>
+<ol id="list"></ol>
+<div class="next-line" id="next" hidden></div>
+<div class="done" id="done" hidden></div>
+</section>
+<!-- CHATHAND_LOCAL_TEXT_INLINE -->
+<script>
+globalThis.__CHATHAND_TEXT_CATALOGS__={"zh":{"ui.imageBatch.documentTitle":"ChatHand 连续出图","ui.imageBatch.brand":"ChatHand · 连续出图","ui.imageBatch.reading":"正在读取","ui.imageBatch.pending":"待生成","ui.imageBatch.sent":"生成中","ui.imageBatch.saved":"已保存","ui.imageBatch.failed":"失败","ui.imageBatch.title":"连续出图","ui.imageBatch.count":"{saved} / {total}","ui.imageBatch.item":"{name} · {status}","ui.imageBatch.next":"发送「继续」以生成第 {index}/{total} 张：{name}","ui.imageBatch.finishedWithFailures":"已完成，{count} 张失败","ui.imageBatch.finishedSaved":"{count} 张已全部保存","ui.imageBatch.stopped":"已停止，剩余图片不再生成。","ui.imageBatch.finishedWithFailuresPath":"已完成，{count} 张失败：{path}","ui.imageBatch.finishedSavedPath":"{count} 张已全部保存：{path}"},"en":{"ui.imageBatch.documentTitle":"ChatHand Image Batch","ui.imageBatch.brand":"ChatHand · Image Batch","ui.imageBatch.reading":"Loading","ui.imageBatch.pending":"Queued","ui.imageBatch.sent":"Active","ui.imageBatch.saved":"Saved","ui.imageBatch.failed":"Failed","ui.imageBatch.title":"Image Batch","ui.imageBatch.count":"{saved} / {total}","ui.imageBatch.item":"{name} · {status}","ui.imageBatch.next":"Send “continue” for #{index}/{total}: {name}","ui.imageBatch.finishedWithFailures":"Done ({count} failed)","ui.imageBatch.finishedSaved":"All {count} saved","ui.imageBatch.stopped":"Stopped; remaining images skipped.","ui.imageBatch.finishedWithFailuresPath":"Done ({count} failed): {path}","ui.imageBatch.finishedSavedPath":"All {count} saved: {path}"}};
+/* Shared local UI text runtime. Locale comes from the native shell only. */
+(function(root){
+ 'use strict';
+ const state=root.__CHATHAND_TEXT_STATE__||(root.__CHATHAND_TEXT_STATE__={locale:'zh',catalogs:{zh:{},en:{}},revision:0,listeners:new Set()});
+ const own=(object,key)=>Object.prototype.hasOwnProperty.call(object||{},key);
+ const localeOf=value=>/^en(?:[-_]|$)/i.test(String(value||''))?'en':'zh';
+ const escape=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+ const trustedMark=Symbol.for('ChatHand.localText.trusted');
+ const trusted=value=>Object.freeze({[trustedMark]:true,value:String(value??'')});
+ function template(key){const current=state.catalogs[state.locale]||{},fallback=state.catalogs.zh||{};return typeof current[key]==='string'&&current[key].trim().length?current[key]:typeof fallback[key]==='string'&&fallback[key].trim().length?fallback[key]:String(key);}
+ function format(key,params={},asHTML=false){const source=template(key);return source.split(/(\{[A-Za-z][A-Za-z0-9_]*\})/g).map(part=>{const match=/^\{([A-Za-z][A-Za-z0-9_]*)\}$/.exec(part);if(!match)return asHTML?escape(part):part;const name=match[1];if(!own(params,name))return part;const value=params[name];return asHTML?(value?.[trustedMark]===true?value.value:escape(value)):String(value?.[trustedMark]===true?value.value:value??'');}).join('');}
+ function t(key,params={}){return format(key,params,false);}
+ function html(key,params={}){return format(key,params,true);}
+ function installCatalogs(input={}){const incoming=input.catalogs||(own(input,'zh')||own(input,'en')?input:null);let changed=false;if(incoming)for(const locale of ['zh','en'])if(incoming[locale]&&typeof incoming[locale]==='object'){const next={...(state.catalogs[locale]||{})};for(const [key,value] of Object.entries(incoming[locale])){if(input.overwrite===false&&own(next,key))continue;if(next[key]!==value){next[key]=value;changed=true;}}state.catalogs[locale]=next;}if(own(input,'locale')){const next=localeOf(input.locale);if(state.locale!==next){state.locale=next;changed=true;}}if(root.document?.documentElement){root.document.documentElement.lang=state.locale==='en'?'en':'zh-CN';root.document.documentElement.dataset.localTextLocale=state.locale;}if(changed){state.revision++;if(input.overwrite!==false)for(const listener of [...state.listeners])listener(state);}return state;}
+ function subscribe(listener){state.listeners.add(listener);return ()=>state.listeners.delete(listener);}
+ const api={t,html,trusted,installCatalogs,update:installCatalogs,subscribe,get locale(){return state.locale;},get revision(){return state.revision;}};
+ t.html=html;root.ChatHandText=api;
+ if(root.__CHATHAND_TEXT_CATALOGS__)installCatalogs({catalogs:root.__CHATHAND_TEXT_CATALOGS__,overwrite:false});
+})(globalThis);
+
+</script>
+<!-- /CHATHAND_LOCAL_TEXT_INLINE -->
+<script>
+'use strict';
+
+// Root replaces the marker before this script with the shared inline runtime and catalogs.
+// Locale updates repaint text only: no polling, capability consumption or host actions.
+const textBindings=new Map();
+const T=(key,params={})=>window.ChatHandText.t('ui.imageBatch.'+key,params);
+function bindText(node,draw){textBindings.set(node,draw);draw();}
+function paintText(node,read){bindText(node,()=>{node.textContent=read();});}
+function richText(node,read,parts){bindText(node,()=>{
+ const value=String(read()??'');node.replaceChildren();
+ for(const [text,bold] of parts(value)){if(bold){const b=document.createElement('b');b.textContent=text;node.append(b);}else node.append(document.createTextNode(text));}
+});}
+function textNode(read){const node=document.createTextNode('');paintText(node,read);return node;}
+function pruneTextBindings(){for(const node of textBindings.keys())if(!node.isConnected)textBindings.delete(node);}
+function refreshText(){
+ document.documentElement.lang=window.ChatHandText.locale==='en'?'en':'zh-CN';
+ for(const [node,draw] of textBindings){if(node.isConnected)draw();else textBindings.delete(node);}
+ reportHeight();
+}
+
+// 10/6 起：卡片不再替用户发消息（发出去的消息看不见，出图工具也不认）。
+// 做法：用户把全部描述发在一条消息里，之后每张说「继续」；这张卡只显示清单和进度。
+// 视图字段：{batch_id,title,total,saved,done,stopped,next_index,items:[{index,name,status,file?}],save_dir}
+let view=null,seq=0,polls=0,timer=null,observationNonce=null;const waiting=new Map();
+const $=id=>document.getElementById(id);
+const STATUS={pending:'pending',sent:'sent',saved:'saved',failed:'failed'};
+function setTheme(t){if(t==='light'||t==='dark')document.documentElement.dataset.theme=t;}
+function rpc(method,params){return new Promise((resolve,reject)=>{const id=++seq;const t=setTimeout(()=>{waiting.delete(id);reject(Error('timeout'));},15000);waiting.set(id,{resolve,reject,t});window.parent.postMessage({jsonrpc:'2.0',id,method,params},'*');});}
+window.addEventListener('message',e=>{if(e.source!==window.parent||!e.data||e.data.jsonrpc!=='2.0')return;const m=e.data;
+ if(m.id&&waiting.has(m.id)){const w=waiting.get(m.id);clearTimeout(w.t);waiting.delete(m.id);m.error?w.reject(Error(m.error.message||'error')):w.resolve(m.result);}
+ if(m.method==='ui/notifications/tool-result'){render(m.params?.structuredContent);readMetadata(m.params?._meta);}
+ if(m.method==='ui/notifications/host-context-changed')setTheme(m.params?.theme);});
+function readMetadata(meta){const n=meta?.['chathand/image_batch_observation_nonce'];if(typeof n==='string'&&/^[a-f0-9]{64}$/.test(n))observationNonce=n;}
+window.addEventListener('openai:set_globals',()=>{setTheme(window.openai?.theme);readMetadata(window.openai?.toolResponseMetadata);});
+async function status(){
+ if(!view||!observationNonce)return;
+ try{
+  const args={nonce:observationNonce,choice:'status'};
+  if(window.openai?.callTool){const r=await window.openai.callTool('card_answer',args);render(r?.structuredContent??r);return;}
+  const r=await rpc('tools/call',{name:'card_answer',arguments:args});if(!r?.isError)render(r?.structuredContent);
+ }catch{/* 查不到就保持上一次的样子 */}
+}
+function schedule(){clearTimeout(timer);if(!view||view.done||view.stopped||polls>=60)return;timer=setTimeout(()=>{polls++;if(document.visibilityState!=='hidden')status();schedule();},20000);}
+function applyShellPresentation(value){
+ pruneTextBindings();
+ const card=document.querySelector('.card');if(!card)return;document.documentElement.style.removeProperty('--ok');document.documentElement.style.removeProperty('--bar');card.style.removeProperty('padding');document.getElementById('shell-sections')?.remove();
+ const v=value?.widget_shell;if(v?.protocol!==1)return;
+ if(/^#[a-f0-9]{6}$/i.test(v.accent||'')){document.documentElement.style.setProperty('--ok',v.accent);document.documentElement.style.setProperty('--bar',v.accent);}
+ if(['compact','comfortable'].includes(v.density))card.style.padding=v.density==='compact'?'12px 16px':'18px 20px';
+ let extra=document.getElementById('shell-sections');if(!extra){extra=document.createElement('div');extra.id='shell-sections';card.append(extra);}extra.replaceChildren();
+ for(const section of (Array.isArray(v.sections)?v.sections:[]).slice(0,6)){if(!section||typeof section.text!=='string')continue;const block=document.createElement('section');if(typeof section.title==='string'){const title=document.createElement('strong');title.textContent=section.title.slice(0,80);block.append(title);}const body=document.createElement('p');body.textContent=section.text.slice(0,2000);block.append(body);extra.append(block);}
+}
+function render(v){
+ applyShellPresentation(v);
+ if(!v||!v.batch_id)return;if(view&&view.batch_id!==v.batch_id)observationNonce=null;view=v;
+ paintText($('title'),()=>v.title||T("title"));
+ paintText($('count'),()=>T("count",{saved:v.saved||0,total:v.total||0}));
+ $('fill').style.width=v.total?`${Math.round(100*(v.saved||0)/v.total)}%`:'0';
+ const items=v.items||[];const next=items.find(it=>it.status==='pending'||it.status==='sent');
+ const list=$('list');list.replaceChildren();
+ for(const it of items){const li=document.createElement('li');li.className=(next&&it.index===next.index)?'next':(it.status||'pending');paintText(li,()=>T("item",{name:String(it.name),status:STATUS[it.status]?T(STATUS[it.status]):String(it.status)}));list.append(li);}
+ const finished=v.done||!next;
+ $('next').hidden=finished||v.stopped;
+ if(!finished&&!v.stopped){$('next').innerHTML='';richText($('next'),()=>T('next',{index:String(next.index),total:String(v.total),name:String(next.name)}),line=>{const lead=/^.*?(?:「[^」]*」|“[^”]*”|"[^"]*")/.exec(line)?.[0];return lead?[[lead,true],[line.slice(lead.length),false]]:[[line,false]];});}
+ $('done').hidden=!(finished||v.stopped);
+ if(finished){const failed=items.filter(it=>it.status==='failed').length;richText($('done'),()=>T(failed?(v.save_dir?'finishedWithFailuresPath':'finishedWithFailures'):(v.save_dir?'finishedSavedPath':'finishedSaved'),{count:String(failed||v.total),path:v.save_dir}),line=>{const path=v.save_dir?String(v.save_dir):'',at=path?line.lastIndexOf(path):-1;return at<0?[[line,true]]:[[line.slice(0,at).replace(/：$/,''),true],[line.slice(0,at).endsWith('：')?'：':'',false],[path,false],[line.slice(at+path.length),true]];});}
+ else if(v.stopped){paintText($('done'),()=>T("stopped"));}
+ schedule();
+}
+// 1023：把卡片实际的高度告诉 ChatGPT，免得下面留一大块空白。
+let lastHeight=0;function reportHeight(){const h=Math.ceil(document.querySelector('.card')?.getBoundingClientRect().height||0);if(!h||h===lastHeight)return;lastHeight=h;try{window.openai?.notifyIntrinsicHeight?.(h);}catch{}if(window.parent!==window)window.parent.postMessage({jsonrpc:'2.0',method:'ui/notifications/size-changed',params:{height:h}},'*');}
+try{new ResizeObserver(reportHeight).observe(document.querySelector('.card'));}catch{}
+for(const node of document.querySelectorAll('[data-local-text]'))paintText(node,()=>T(node.dataset.localText));
+window.ChatHandText.subscribe(refreshText);
+refreshText();
+if(window.openai?.theme)setTheme(window.openai.theme);
+if(window.openai?.toolOutput)render(window.openai.toolOutput);
+readMetadata(window.openai?.toolResponseMetadata);
+if(window.parent!==window)rpc('ui/initialize',{appInfo:{name:'chathand-image-batch',version:'0.2.0'},appCapabilities:{},protocolVersion:'2026-01-26'}).then(r=>{setTheme(r?.hostContext?.theme);window.parent.postMessage({jsonrpc:'2.0',method:'ui/notifications/initialized'},'*');lastHeight=0;reportHeight();}).catch(()=>{});
+</script></body></html>

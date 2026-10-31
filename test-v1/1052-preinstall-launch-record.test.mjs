@@ -1,0 +1,7 @@
+import test from 'node:test';import assert from 'node:assert/strict';import crypto from 'node:crypto';import {desktop} from './1052-a-fixture.mjs';
+for(const kind of ['record','audit'])test(`preinstall15 ${kind} failure finalizes startup without spawning and seals error output`,async t=>{
+ const f=await desktop(t),task_id=await f.begin(),q=f.app.queue,old=kind==='record'?q.record:f.app.store.audit;
+ if(kind==='record')q.record=function(j){if(j.status==='running')throw Object.assign(Error('fake-only'),{code:'ENOSPC'});return old.call(this,j);};else f.app.store.audit=function(event){if(event.event==='command_approved')throw Object.assign(Error('fake-only'),{code:'EIO'});return old.call(this,event);};
+ try{const r=await f.rpc('propose_command',{task_id,request_id:crypto.randomUUID(),program:process.execPath,args:['-e',"process.stdout.write('must not spawn')"]});assert.equal(r.isError,true);}finally{if(kind==='record')q.record=old;else f.app.store.audit=old;}
+ const j=[...q.jobs.values()].at(-1),e=q.fullOutputs.get(j.id);assert.equal(j.status,'failed');assert.equal(j.pid,undefined);assert.equal(j.launch_error,kind==='record'?'ENOSPC':'EIO');assert.equal(e.spool.sealed,true);const page=f.ok(await f.rpc('command_result',{job_id:j.id,full:true}));assert.equal(page.final_total,true);assert.match(page.segments.map(s=>s.text).join(''),new RegExp('程序启动失败：'+j.launch_error));assert.equal(page.next_full_cursor,null);
+});

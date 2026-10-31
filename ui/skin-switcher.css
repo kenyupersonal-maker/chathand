@@ -1,0 +1,60 @@
+/* 只选择自己的 id 和子节点；关闭工具时无节点、无布局、无皮肤变量写入。 */
+#ch-skin-tools{position:fixed;left:12px;bottom:12px;z-index:110;color:var(--p-ink);font:12px/1.5 -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif;text-align:left}
+/* 10/5：面板和左下角的按钮用当前皮肤的颜色（浮层底色、卡片、描边、正文），跟着浅色深色变；以前是写死的浅灰 */
+#ch-skin-tools{--p-bg:var(--surface);--p-card:var(--card);--p-line:var(--line);--p-line-2:var(--line-2);--p-ink:var(--ink);--p-ink-2:var(--ink-2);--p-sel-bg:color-mix(in srgb,var(--ink) 5%,var(--card));--p-focus:color-mix(in srgb,var(--ink) 50%,transparent)}
+/* 选中：跟正文一个颜色（浅色下黑、深色下白），角标里的勾用浮层的底色 */
+#ch-skin-tools{--p-pick:var(--ink);--p-pick-ink:var(--surface)}
+#ch-skin-tools .ch-skin-panel{--p-fill:color-mix(in srgb,var(--surface),var(--fill-ink) calc(var(--fill-mix) * 1%));--p-fill-2:color-mix(in srgb,var(--surface),var(--fill-ink) calc(var(--fill-mix) * 1.7%));--p-hover:var(--p-fill)}
+#ch-skin-tools[data-slot]{position:static}
+#ch-skin-tools *,#ch-skin-tools *::before,#ch-skin-tools *::after{box-sizing:border-box}
+#ch-skin-tools [hidden]{display:none!important}
+#ch-skin-tools button{font:inherit;color:var(--p-ink);letter-spacing:normal;line-height:1.5;cursor:pointer;background:var(--p-card);border:1px solid var(--p-line);border-radius:8px;padding:6px 10px;box-shadow:none;transform:none;font-size:12px;font-weight:500;min-height:30px}
+#ch-skin-tools button:hover{background:var(--p-hover);border-color:var(--p-line-2)}
+#ch-skin-tools :focus-visible{outline:2px solid var(--p-focus);outline-offset:2px}
+#ch-skin-tools.ch-pointer :focus-visible,#ch-skin-tools.ch-pointer .ch-skin-pick:focus-visible .ch-skin-frame{outline:none}
+#ch-skin-tools .ch-skin-trigger{width:32px;height:32px;min-height:32px;display:grid;place-items:center;padding:7px;border:var(--hair,1px) solid var(--p-line);border-radius:50%;background:var(--p-card);box-shadow:var(--card-shadow,0 2px 8px rgba(0,0,0,.13))}
+#ch-skin-tools .ch-skin-trigger:hover{background:var(--p-card);border-color:var(--p-line-2)}
+#ch-skin-tools .ch-skin-trigger svg{width:18px;height:18px;fill:none;stroke:var(--p-ink-2);stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+/* 面板分两段：上面的标题固定不动，下面的皮肤列表在皮肤多、窗口矮时滚动。
+   列表压到标题下面时，标题下面才出现一条淡淡的边线。 */
+#ch-skin-tools .ch-skin-panel{position:fixed;left:12px;bottom:54px;width:340px;max-width:calc(100vw - 24px);max-height:calc(100vh - 76px);display:flex;flex-direction:column;overflow:hidden;border:var(--hair,1px) solid var(--p-line);border-radius:16px;background:var(--p-bg);box-shadow:var(--pop-shadow);padding:0}
+#ch-skin-tools .ch-skin-top{flex:none;position:relative;z-index:2;padding:14px 16px 8px;background:var(--p-bg)}
+#ch-skin-tools .ch-skin-body{flex:1 1 auto;min-height:0;position:relative;z-index:1;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain}
+#ch-skin-tools .ch-skin-panel[data-over-top] .ch-skin-top{box-shadow:0 1px 0 var(--p-line),0 6px 8px -6px var(--segment-shadow)}
+#ch-skin-tools header{display:flex;align-items:center;justify-content:space-between}
+#ch-skin-tools header strong{font-size:15px;line-height:22px;font-weight:650;color:var(--p-ink)}
+#ch-skin-tools .ch-skin-close{width:28px;min-height:28px;height:28px;padding:0;font-size:18px;border-color:transparent;background:transparent}
+#ch-skin-tools::selection,#ch-skin-tools ::selection{background:var(--p-sel-bg);color:var(--p-ink)}
+#ch-skin-tools::-webkit-scrollbar-thumb,#ch-skin-tools ::-webkit-scrollbar-thumb{background-color:var(--p-line-2)}
+
+/* ---------- 皮肤列表：分组名（免费），下面两列封面，名字大字写在封面上（上下居中、靠左）。整张都能点 ---------- */
+#ch-skin-tools .ch-skin-group{margin:0;padding:2px 16px 10px;font-size:12px;line-height:16px;font-weight:600;color:var(--p-ink-2)}
+#ch-skin-tools .ch-skin-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:0 16px 16px}
+#ch-skin-tools .ch-skin-card{min-width:0}
+#ch-skin-tools .ch-skin-pick{display:block;width:100%;min-width:0;min-height:0;padding:0;border:0;border-radius:10px;background:transparent;color:var(--p-ink);text-align:left}
+#ch-skin-tools .ch-skin-pick:hover{background:transparent;color:var(--p-ink)}
+#ch-skin-tools .ch-skin-pick:focus-visible{outline:none}
+#ch-skin-tools .ch-skin-pick:focus-visible .ch-skin-frame{outline:2px solid var(--p-focus);outline-offset:2px}
+/* 名字：这个皮肤的字色，整块上下居中、靠左。上面中文（字距拉开一点），下面英文大写粗体，长的折成两行；只有一种写法的写一行大字 */
+#ch-skin-tools .ch-skin-name{position:absolute;left:14px;right:14px;top:50%;z-index:1;transform:translateY(-50%);display:grid;justify-items:start;gap:2px;color:var(--ink);text-align:left}
+#ch-skin-tools .ch-skin-name-zh{font-size:17px;line-height:22px;font-weight:700;letter-spacing:.12em}
+#ch-skin-tools .ch-skin-name-en,#ch-skin-tools .ch-skin-name-solo{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;max-width:100%;overflow:hidden;overflow-wrap:break-word}
+#ch-skin-tools .ch-skin-name-en{font-size:19px;line-height:20px;font-weight:800;letter-spacing:.01em;text-transform:uppercase}
+#ch-skin-tools .ch-skin-name-solo{font-size:22px;line-height:26px;font-weight:700;letter-spacing:.04em}
+/* 封面外面一圈细边；鼠标放上去深一点；选中的换成正文色的细边，右下角一个正文色角标（左上角圆，右下角跟着封面的圆角），里面一个勾 */
+#ch-skin-tools .ch-skin-frame{position:relative;display:block;width:100%;border-radius:10px}
+#ch-skin-tools .ch-skin-frame::after{content:"";position:absolute;inset:0;z-index:1;border-radius:inherit;box-shadow:inset 0 0 0 1px var(--p-line);pointer-events:none}
+#ch-skin-tools .ch-skin-pick:hover .ch-skin-frame::after{box-shadow:inset 0 0 0 1px var(--p-line-2)}
+#ch-skin-tools .ch-skin-card[data-on] .ch-skin-frame::after{box-shadow:inset 0 0 0 1px var(--p-pick)}
+#ch-skin-tools .ch-skin-check{position:absolute;right:0;bottom:0;z-index:2;display:grid;place-items:center;width:22px;height:22px;border-radius:8px 0 10px 0;background:var(--p-pick)}
+#ch-skin-tools .ch-skin-check svg{width:13px;height:13px;margin:1px 0 0 1px;fill:none;stroke:var(--p-pick-ink);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+/* 封面：不画真实页面，主要露出这个皮肤的底色。窗口底色上铺一层它的色块底色（跟按钮、分段的底色同一个色，钛灰的灰从这里来）；
+   浅色下再按右上角那团光有多鲜艳，整张染一层主题色（按饱和度的平方算：经典、钛灰几乎不染，还是白和灰，青绿染成淡绿）；
+   深色下不染，靠窗口底色区分。右上角只留一小团光，跟主窗口一样的强度，取 --hue-a 到 --hue-b 那一段。上面一层网点，
+   名字写在封面上（上下居中、靠左）。变量写在自己身上（这个皮肤、当前模式），不跟着页面现在的皮肤走。 */
+#ch-skin-tools .ch-thumb{--t-dh:calc(var(--theme-h) - 172);--t-ha:calc(var(--hue-a) + var(--t-dh));--t-hb:calc(var(--hue-b) + var(--t-dh));--t-c:min(var(--aura-c),.24);--t-k:calc(var(--aura-alpha) * var(--aura-a));--t-a:oklch(var(--aura-l) var(--t-c) var(--t-ha) / var(--t-k));--t-b:oklch(var(--aura-l) var(--t-c) var(--t-hb) / calc(var(--t-k) * .7));--t-fill:color-mix(in srgb,var(--fill-ink) calc(var(--fill-mix) * .6%),transparent);--t-wash:oklch(var(--aura-l) calc(var(--t-c) / 2) var(--theme-h) / calc(var(--aura-c) * var(--aura-c) * 2.5));position:relative;display:block;width:100%;aspect-ratio:16/10;border-radius:10px;overflow:hidden;background:linear-gradient(var(--t-wash),var(--t-wash)),linear-gradient(var(--t-fill),var(--t-fill)),var(--win)}
+html[data-scheme="dark"] #ch-skin-tools .ch-thumb{--t-wash:transparent}
+#ch-skin-tools .ch-thumb::before{content:"";position:absolute;inset:0;background:radial-gradient(40% 62% at 100% 0%,var(--t-a),transparent),radial-gradient(26% 44% at 100% 40%,var(--t-b),transparent)}
+#ch-skin-tools .ch-thumb::after{content:"";position:absolute;inset:0;background:radial-gradient(circle,var(--dot) .7px,transparent 1.2px) 0 0/9px 9px}
+#ch-skin-tools .ch-thumb[data-loading]{background:var(--p-fill-2)}
+#ch-skin-tools .ch-thumb[data-loading]::before,#ch-skin-tools .ch-thumb[data-loading]::after{content:none}

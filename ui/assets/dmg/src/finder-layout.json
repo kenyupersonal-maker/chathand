@@ -1,0 +1,33 @@
+{
+ "content_size": [
+  698,
+  718
+ ],
+ "icon_size": 64,
+ "text_size": 12,
+ "icon_centers": {
+  "让 ChatGPT 来装": [
+   565,
+   276
+  ],
+  "ChatHand": [
+   350,
+   578
+  ],
+  "应用程序": [
+   486,
+   578
+  ],
+  "第一次打开": [
+   610,
+   578
+  ]
+ },
+ "install_tile": {
+  "x": 497,
+  "y": 223,
+  "w": 136,
+  "h": 125
+ },
+ "note": "Centers are Finder content coordinates (Iloc). The 让 ChatGPT 来装 icon and its Finder label must both sit inside install_tile. Verify on a mounted DMG; the background must exactly fill the content area."
+}

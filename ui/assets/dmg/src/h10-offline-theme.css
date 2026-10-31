@@ -1,0 +1,44 @@
+/* Minimal standalone semantic layer from frozen 1050 style.css.
+ * App integration: OMIT this file and inherit the host's same-named variables.
+ * No persistence, no second theme setting, no inverted screenshots.
+ */
+:root {
+  color-scheme: light;
+  --win:#fff;--panel:#FEFFFD;--card:#fff;--surface:#fff;
+  --ink:#171A18;--ink-2:#5F6661;--ink-3:#929994;
+  --accent:#171A18;--accent-hover:#2E3330;--accent-ink:#fff;
+  --line:rgba(16,24,40,.095);--line-2:rgba(16,24,40,.15);--hair:1px;
+  --fill-mix:2.5;--fill-ink:var(--ink);
+  --theme-h:172;--theme-c:1.08;--theme-l:0;
+  --g:oklch(calc(.7749 + var(--theme-l)) calc(.1505 * var(--theme-c)) calc(var(--theme-h) - .4));
+  --g-ink:oklch(calc(.6005 + var(--theme-l)) calc(.1143 * var(--theme-c)) calc(var(--theme-h) + 1.9));
+  --g-soft:oklch(calc(.9657 + var(--theme-l)) calc(.0157 * var(--theme-c)) calc(var(--theme-h) - 17.5));
+  --g-line:oklch(calc(.7749 + var(--theme-l)) calc(.1505 * var(--theme-c)) calc(var(--theme-h) - .4) / .28);
+  --o:#FF7B00;--o-ink:#B4600B;--o-soft:rgba(255,123,0,.1);--o-line:rgba(180,96,11,.26);
+  --font:"ChatHand SC",-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Hiragino Sans GB","Microsoft YaHei UI","Segoe UI",sans-serif;
+  --mono:"SF Mono",ui-monospace,Menlo,Consolas,monospace;
+  --ease:cubic-bezier(.32,.72,0,1);
+}
+@media (prefers-color-scheme:dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme:dark;--win:#0B0C0E;--panel:#111215;--card:#131417;--surface:#18191D;
+    --ink:#EDEEF0;--ink-2:#A6A9B0;--ink-3:#7C8089;
+    --accent:#F2F3F5;--accent-hover:#DADCE0;--accent-ink:#0B0C0E;
+    --line:rgba(255,255,255,.085);--line-2:rgba(255,255,255,.14);--fill-mix:4;
+    --g-ink:oklch(calc(.8127 + var(--theme-l)) calc(.1471 * var(--theme-c)) calc(var(--theme-h) + 1.2));
+    --g-soft:oklch(calc(.7749 + var(--theme-l)) calc(.1505 * var(--theme-c)) calc(var(--theme-h) - .4) / .12);
+    --o-ink:#EBA04E;--o-soft:rgba(255,123,0,.12);--o-line:rgba(235,160,78,.34);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme:dark;--win:#0B0C0E;--panel:#111215;--card:#131417;--surface:#18191D;
+  --ink:#EDEEF0;--ink-2:#A6A9B0;--ink-3:#7C8089;
+  --accent:#F2F3F5;--accent-hover:#DADCE0;--accent-ink:#0B0C0E;
+  --line:rgba(255,255,255,.085);--line-2:rgba(255,255,255,.14);--fill-mix:4;
+  --g-ink:oklch(calc(.8127 + var(--theme-l)) calc(.1471 * var(--theme-c)) calc(var(--theme-h) + 1.2));
+  --g-soft:oklch(calc(.7749 + var(--theme-l)) calc(.1505 * var(--theme-c)) calc(var(--theme-h) - .4) / .12);
+  --o-ink:#EBA04E;--o-soft:rgba(255,123,0,.12);--o-line:rgba(235,160,78,.34);
+}
+@media (min-resolution:2dppx) { :root { --hair:.5px; } }
+html,body { margin:0;min-height:100%;background:var(--win);overscroll-behavior:auto; }
+body { color:var(--ink);font:15px/1.5 var(--font);-webkit-font-smoothing:antialiased; }

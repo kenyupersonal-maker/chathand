@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>CFBundleExecutable</key><string>ChatHand</string>
+<key>CFBundleIdentifier</key><string>com.kenyu.chathand</string>
+<key>CFBundleName</key><string>ChatHand</string>
+<key>CFBundleDisplayName</key><string>ChatHand</string>
+<key>CFBundlePackageType</key><string>APPL</string>
+<key>CFBundleURLTypes</key><array><dict><key>CFBundleURLName</key><string>com.kenyu.chathand.navigation</string><key>CFBundleURLSchemes</key><array><string>chathand</string></array></dict></array>
+<key>CFBundleShortVersionString</key><string>1.0.0</string>
+<key>CFBundleVersion</key><string>1087</string>
+<key>LSMinimumSystemVersion</key><string>14.0</string>
+<key>CFBundleIconFile</key><string>AppIcon</string>
+<key>NSHighResolutionCapable</key><true/>
+<key>NSAppleEventsUsageDescription</key><string>按你在 ChatGPT 里的要求控制其他应用（比如访达、浏览器、安装器），打开关联对话、定位浏览器标签，以及在你主动选择时读取当前标签标题和地址。</string>
+<key>NSAppTransportSecurity</key><dict><key>NSAllowsLocalNetworking</key><true/></dict>
+</dict></plist>

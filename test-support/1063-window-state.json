@@ -1,0 +1,421 @@
+{
+  "connection": {
+    "display": {
+      "state": "local_error",
+      "tone": "red",
+      "title": "连接信息保存失败",
+      "detail": "请检查本机存储后重试。",
+      "connected": false,
+      "title_key": "connection.saveFailed.title",
+      "title_params": {},
+      "detail_key": "connection.saveFailed.detail",
+      "detail_params": {},
+      "last_confirmed_at": null
+    }
+  },
+  "repair": {
+    "id": "1a0cbf93-1833-48c5-bebc-67580ac9301c",
+    "status": "done",
+    "started_at": 0,
+    "finished_at": 0,
+    "items": [
+      {
+        "id": "paused",
+        "title": "AI 暂停状态",
+        "title_key": "repair.paused.title",
+        "title_params": {},
+        "status": "ok",
+        "message": "",
+        "message_key": null,
+        "message_params": {}
+      },
+      {
+        "id": "credentials",
+        "title": "连接设置",
+        "title_key": "repair.credentials.title",
+        "title_params": {},
+        "status": "skipped",
+        "message": "快捷连接无需检查此项",
+        "message_key": "repair.common.relaySkip.message",
+        "message_params": {}
+      },
+      {
+        "id": "tunnel",
+        "title": "连接程序",
+        "title_key": "repair.tunnel.title",
+        "title_params": {},
+        "status": "skipped",
+        "message": "快捷连接无需检查此项",
+        "message_key": "repair.common.relaySkip.message",
+        "message_params": {}
+      },
+      {
+        "id": "proxy_match",
+        "title": "系统代理",
+        "title_key": "repair.proxy_match.title",
+        "title_params": {},
+        "status": "skipped",
+        "message": "快捷连接无需检查此项",
+        "message_key": "repair.common.relaySkip.message",
+        "message_params": {}
+      },
+      {
+        "id": "proxy_alive",
+        "title": "代理软件",
+        "title_key": "repair.proxy_alive.title",
+        "title_params": {},
+        "status": "skipped",
+        "message": "未设置代理，不检查",
+        "message_key": "repair.proxy_alive.noProxy.message",
+        "message_params": {}
+      },
+      {
+        "id": "cloud",
+        "title": "ChatGPT 连接",
+        "title_key": "repair.cloud.title",
+        "title_params": {},
+        "status": "failed",
+        "message": "这台 Mac 无法连接 ChatGPT",
+        "message_key": "repair.cloud.relayOffline.message",
+        "message_params": {}
+      },
+      {
+        "id": "chatgpt_tools",
+        "title": "ChatGPT 中的工具",
+        "title_key": "repair.chatgpt_tools.title",
+        "title_params": {},
+        "status": "ok",
+        "message": "",
+        "message_key": null,
+        "message_params": {}
+      },
+      {
+        "id": "browser_host",
+        "title": "Chrome 助手登记",
+        "title_key": "repair.browser_host.title",
+        "title_params": {},
+        "status": "skipped",
+        "message": "已关闭，不检查",
+        "message_key": "repair.common.off.message",
+        "message_params": {}
+      },
+      {
+        "id": "browser_helper",
+        "title": "Chrome 助手",
+        "title_key": "repair.browser_helper.title",
+        "title_params": {},
+        "status": "skipped",
+        "message": "已关闭，不检查",
+        "message_key": "repair.common.off.message",
+        "message_params": {}
+      },
+      {
+        "id": "desktop_permissions",
+        "title": "桌面控制授权",
+        "title_key": "repair.desktop_permissions.title",
+        "title_params": {},
+        "status": "skipped",
+        "message": "已关闭，不检查",
+        "message_key": "repair.common.off.message",
+        "message_params": {}
+      },
+      {
+        "id": "login_item",
+        "title": "开机启动",
+        "title_key": "repair.login_item.title",
+        "title_params": {},
+        "status": "action",
+        "message": "开机启动需要在系统设置中允许",
+        "message_key": "repair.login_item.needsApproval.message",
+        "message_params": {},
+        "action": {
+          "kind": "open_login_items",
+          "label": "去允许",
+          "label_key": "repair.action.open_login_items.label",
+          "label_params": {}
+        }
+      },
+      {
+        "id": "upgrade_leftover",
+        "title": "上次升级",
+        "title_key": "repair.upgrade_leftover.title",
+        "title_params": {},
+        "status": "ok",
+        "message": "",
+        "message_key": null,
+        "message_params": {}
+      }
+    ],
+    "summary": {
+      "text": "还有 1 项要你点一下，还有 1 项没修好，可以点「复制给 AI」",
+      "fixed": 0,
+      "action_needed": 1,
+      "failed": 1,
+      "text_key": "repair.summary.actionNeededFailed",
+      "text_params": {
+        "fixed": 0,
+        "actionNeeded": 1,
+        "failed": 1
+      }
+    }
+  },
+  "tools_list_status": {
+    "state": "unknown",
+    "observed": false,
+    "persisted": false,
+    "error_code": null,
+    "last_seen_at": null,
+    "schema_sha256": null,
+    "current_schema_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "execution_gate": false,
+    "message_key": "toolsList.unknown.message",
+    "message_params": {},
+    "new_conversation_note_key": "toolsList.newConversation.note",
+    "new_conversation_note_params": {},
+    "message": "还没确认这条连接的工具表，请在 ChatGPT 的 ChatHand 页面刷新一次工具，再在目标对话确认。",
+    "new_conversation_note": "刷新后请开启新对话，旧对话可能仍在使用旧工具"
+  },
+  "tools_refresh": {
+    "reason": "manual",
+    "started_at": 1000,
+    "state": "needs_user",
+    "url": "https://chatgpt.com/settings/plugins-settings/plugin_fixture_own",
+    "target": {
+      "role": "button",
+      "name": "刷新工具"
+    },
+    "clicked": true,
+    "confirmation": "pending",
+    "bring_existing_tab": {
+      "action": "select",
+      "page_id": "fixture-page",
+      "show": true,
+      "requires_user_request": true
+    },
+    "message_key": "refresh.message.needs_user.confirm",
+    "message_params": {},
+    "message": "ChatGPT 在等你确认新工具。请回到原来的 ChatGPT 标签页确认，不要再点刷新。",
+    "steps": [
+      {
+        "step": "helper",
+        "ok": true,
+        "ms": 0,
+        "code": null
+      },
+      {
+        "step": "open",
+        "ok": true,
+        "ms": 0,
+        "url": "https://chatgpt.com/settings/plugins-settings"
+      },
+      {
+        "step": "page",
+        "ok": true,
+        "ms": 0,
+        "url": "https://chatgpt.com/settings/plugins-settings",
+        "attempts": 1
+      },
+      {
+        "step": "entry",
+        "ok": true,
+        "ms": 0,
+        "count": 1
+      },
+      {
+        "step": "open_entry",
+        "ok": true,
+        "ms": 0,
+        "target": {
+          "role": "link",
+          "name": "Renamed app"
+        },
+        "box": null,
+        "point": null,
+        "url": "https://chatgpt.com/settings/plugins-settings/plugin_fixture_own",
+        "url_changed": false
+      },
+      {
+        "step": "detail",
+        "ok": true,
+        "ms": 0,
+        "attempts": 1,
+        "url": "https://chatgpt.com/settings/plugins-settings/plugin_fixture_own"
+      },
+      {
+        "step": "button",
+        "ok": true,
+        "ms": 0,
+        "count": 1
+      },
+      {
+        "step": "click",
+        "ok": true,
+        "ms": 0,
+        "target": {
+          "role": "button",
+          "name": "刷新工具"
+        },
+        "box": null,
+        "point": null,
+        "url": "https://chatgpt.com/settings/plugins-settings/plugin_fixture_own",
+        "url_changed": false,
+        "delivery_unconfirmed": false
+      },
+      {
+        "step": "click",
+        "ok": false,
+        "ms": 0,
+        "code": "CONSENT_DIALOG"
+      }
+    ],
+    "stopped_at": "click",
+    "detail_url": "https://chatgpt.com/settings/plugins-settings/plugin_fixture_own",
+    "finished_at": 1000
+  },
+  "update": {
+    "install": {
+      "state": "failed",
+      "message_key": "update.devEnvironment.message",
+      "message_params": {},
+      "message": "开发环境不能自动更新"
+    }
+  },
+  "automation": {
+    "browser": {
+      "extension": {
+        "helper": {
+          "state": "outdated",
+          "stale": true,
+          "version": null,
+          "build": 1000,
+          "expected_version": "2",
+          "expected_build": 1063,
+          "folder": "/tmp/fixture-helper",
+          "self_reload_supported": false,
+          "loaded_folder_verified": false,
+          "loaded_folder_status": "unknown",
+          "message_key": "helper.outdated.message",
+          "message_params": {},
+          "message": "Chrome 助手是旧版本（1028 或更早），不会自己更新。在 Chrome 地址栏打开 chrome://extensions，找到「ChatHand 浏览器助手」，点它的重新加载（↻）。只要这一次，以后 ChatHand 更新时它会自己换新。"
+        }
+      }
+    }
+  },
+  "tasks": [
+    {
+      "title": "刷新 ChatGPT 里的 ChatHand 工具",
+      "title_key": "refresh.task.title",
+      "title_params": {},
+      "task_id": "fixture-task",
+      "success": false,
+      "summary": "ChatGPT 在等你确认新工具。请回到原来的 ChatGPT 标签页确认，不要再点刷新。",
+      "summary_key": "refresh.message.needs_user.confirm",
+      "summary_params": {}
+    }
+  ],
+  "automatic_task": {
+    "message": "ChatGPT 在等你确认新工具。请回到原来的 ChatGPT 标签页确认，不要再点刷新。",
+    "message_key": "refresh.message.needs_user.confirm",
+    "message_params": {},
+    "steps": [
+      {
+        "step": "helper",
+        "ok": true,
+        "ms": 0,
+        "code": null,
+        "title": "helper",
+        "title_key": "refresh.step.helper.title",
+        "title_params": {}
+      },
+      {
+        "step": "open",
+        "ok": true,
+        "ms": 0,
+        "url": "https://chatgpt.com/settings/plugins-settings",
+        "title": "open",
+        "title_key": "refresh.step.open.title",
+        "title_params": {}
+      },
+      {
+        "step": "page",
+        "ok": true,
+        "ms": 0,
+        "url": "https://chatgpt.com/settings/plugins-settings",
+        "attempts": 1,
+        "title": "page",
+        "title_key": "refresh.step.page.title",
+        "title_params": {}
+      },
+      {
+        "step": "entry",
+        "ok": true,
+        "ms": 0,
+        "count": 1,
+        "title": "entry",
+        "title_key": "refresh.step.entry.title",
+        "title_params": {}
+      },
+      {
+        "step": "open_entry",
+        "ok": true,
+        "ms": 0,
+        "target": {
+          "role": "link",
+          "name": "Renamed app"
+        },
+        "box": null,
+        "point": null,
+        "url": "https://chatgpt.com/settings/plugins-settings/plugin_fixture_own",
+        "url_changed": false,
+        "title": "open_entry",
+        "title_key": "refresh.step.open_entry.title",
+        "title_params": {}
+      },
+      {
+        "step": "detail",
+        "ok": true,
+        "ms": 0,
+        "attempts": 1,
+        "url": "https://chatgpt.com/settings/plugins-settings/plugin_fixture_own",
+        "title": "detail",
+        "title_key": "refresh.step.detail.title",
+        "title_params": {}
+      },
+      {
+        "step": "button",
+        "ok": true,
+        "ms": 0,
+        "count": 1,
+        "title": "button",
+        "title_key": "refresh.step.button.title",
+        "title_params": {}
+      },
+      {
+        "step": "click",
+        "ok": true,
+        "ms": 0,
+        "target": {
+          "role": "button",
+          "name": "刷新工具"
+        },
+        "box": null,
+        "point": null,
+        "url": "https://chatgpt.com/settings/plugins-settings/plugin_fixture_own",
+        "url_changed": false,
+        "delivery_unconfirmed": false,
+        "title": "click",
+        "title_key": "refresh.step.click.title",
+        "title_params": {}
+      },
+      {
+        "step": "click",
+        "ok": false,
+        "ms": 0,
+        "code": "CONSENT_DIALOG",
+        "title": "click",
+        "title_key": "refresh.step.click.title",
+        "title_params": {}
+      }
+    ]
+  }
+}
