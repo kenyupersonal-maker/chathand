@@ -1,4 +1,4 @@
-import {nativeFixture} from '../../test-support/native-fixtures.mjs';
+import {nativeFixture} from '../../tests/support/native-fixtures.mjs';
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import path from 'node:path';import crypto from 'node:crypto';import {spawn,spawnSync} from 'node:child_process';import net from 'node:net';
 const wait=ms=>new Promise(r=>setTimeout(r,ms)),run=(p,a)=>{const r=spawnSync(p,a,{encoding:'utf8',timeout:60000});assert.equal(r.status,0,r.stderr+r.stdout);return r.stdout.trim();};
 async function until(f){for(let i=0;i<100;i++){const v=f();if(v)return v;await wait(50);}throw Error('fixture timeout');}

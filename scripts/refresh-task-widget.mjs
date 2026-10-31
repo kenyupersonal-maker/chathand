@@ -9,12 +9,12 @@ const repository=fileURLToPath(new URL('../',import.meta.url));
 const widget='ui/task-widget.html';
 const contracts=['contracts/tools-v31.json','contracts/api31-freeze.json'];
 export const AFFECTED_TESTS=Object.freeze([
- 'test-v1/1029-checkpoint-card.test.mjs',
- 'test-v1/1041-h8-widget.test.mjs',
- 'test-v1/1060-ui-widget-locales.test.mjs',
- 'test-v1/1060-ui-locale-packaging.test.mjs',
- 'test-v1/1060-card-backend.test.mjs',
- 'test-v1/1060-card-metadata-budget.test.mjs',
+ 'tests/v1/1029-checkpoint-card.test.mjs',
+ 'tests/v1/1041-h8-widget.test.mjs',
+ 'tests/v1/1060-ui-widget-locales.test.mjs',
+ 'tests/v1/1060-ui-locale-packaging.test.mjs',
+ 'tests/v1/1060-card-backend.test.mjs',
+ 'tests/v1/1060-card-metadata-budget.test.mjs',
 ]);
 const sha=bytes=>crypto.createHash('sha256').update(bytes).digest('hex');
 const fail=message=>{throw Error(message);};

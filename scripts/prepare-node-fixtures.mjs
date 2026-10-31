@@ -13,7 +13,7 @@ const root=fs.realpathSync(options['--root']||fileURLToPath(new URL('../',import
 if(out===root||out.startsWith(root+path.sep))throw Error('Fixture output must be outside the source worktree');
 fs.mkdirSync(out,{mode:0o700});
 const digest=p=>crypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex');
-const sourceFiles=['native/ArtifactFileAccess.swift','native/DocumentReader.swift','native/SQLiteDescriptorVFS.c','native/UpgradeControl.swift','native/InstanceLifecycle.swift','native/tests/ExactAppProcessTests.swift','native/tests/InstanceLifecycleFixture.swift','native/tests/SleepFixture.swift'];
+const sourceFiles=['native/ArtifactFileAccess.swift','native/DocumentReader.swift','native/SQLiteDescriptorVFS.c','native/UpgradeControl.swift','native/InstanceLifecycle.swift','native/tests/ExactAppProcessTests.swift','native/tests/InstanceLifecycleFixture.swift','native/tests/UpgradeLaunchScopeFixture.swift','native/tests/SleepFixture.swift'];
 const sources=Object.fromEntries(sourceFiles.map(p=>[p,digest(path.join(root,p))]));
 const commands=[],env={...process.env,SWIFT_MODULECACHE_PATH:path.join(out,'swift-cache'),CLANG_MODULE_CACHE_PATH:path.join(out,'clang-cache')};
 function run(command,args){
@@ -35,6 +35,7 @@ compile('artifact_io',['native/ArtifactFileAccess.swift'],['-parse-as-library','
 compile('upgrade_control',['native/UpgradeControl.swift','native/InstanceLifecycle.swift'],['-parse-as-library','-framework','Cocoa']);
 compile('exact_app_process_tests',['native/UpgradeControl.swift','native/InstanceLifecycle.swift','native/tests/ExactAppProcessTests.swift'],['-parse-as-library','-DEXACT_APP_PROCESS_TESTS','-framework','Cocoa']);
 compile('instance_lifecycle_fixture',['native/InstanceLifecycle.swift','native/tests/InstanceLifecycleFixture.swift'],['-parse-as-library','-framework','Cocoa']);
+compile('upgrade_launch_scope_fixture',['native/InstanceLifecycle.swift','native/tests/UpgradeLaunchScopeFixture.swift'],['-parse-as-library','-framework','Cocoa']);
 compile('sleep_fixture',['native/tests/SleepFixture.swift']);
 if(options['--sites-prepare']){
  const plugin=path.resolve(path.dirname(options['--sites-prepare']),'../../..');

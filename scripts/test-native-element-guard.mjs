@@ -11,7 +11,7 @@ try {
   const binary = path.join(temp, 'native-element-guard');
   const build = spawnSync('/usr/bin/xcrun', ['swiftc', '-swift-version', '5', '-parse-as-library',
     '-framework', 'Cocoa', '-framework', 'ApplicationServices', '-framework', 'ScreenCaptureKit',
-    'native/LocalText.swift','native/ComputerControl.swift', 'native/B2TargetClick.swift', 'test-v09/native-element-guard.swift', '-o', binary],
+    'native/LocalText.swift','native/ComputerControl.swift', 'native/B2TargetClick.swift', 'tests/v09/native-element-guard.swift', '-o', binary],
     {cwd: root, stdio: 'inherit', timeout: 60000});
   if (build.status !== 0) throw Error('Native guard compilation failed.');
   fs.cpSync(path.join(root,'locales'),path.join(temp,'locales'),{recursive:true});

@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "root_aliases": {
+    "test": "tests/core",
+    "test-product": "tests/product",
+    "test-release": "tests/release",
+    "test-stability": "tests/stability",
+    "test-support": "tests/support",
+    "test-ui-port": "tests/ui",
+    "test-v06": "tests/v06",
+    "test-v07": "tests/v07",
+    "test-v08": "tests/v08",
+    "test-v09": "tests/v09",
+    "test-v1": "tests/v1"
+  },
+  "node_suites": [
+    {
+      "id": "engine",
+      "path": "engine/test"
+    },
+    {
+      "id": "native",
+      "path": "native/tests"
+    },
+    {
+      "id": "scripts",
+      "path": "scripts"
+    },
+    {
+      "id": "core",
+      "path": "tests/core"
+    },
+    {
+      "id": "product",
+      "path": "tests/product"
+    },
+    {
+      "id": "release",
+      "path": "tests/release"
+    },
+    {
+      "id": "stability",
+      "path": "tests/stability"
+    },
+    {
+      "id": "v06",
+      "path": "tests/v06"
+    },
+    {
+      "id": "v07",
+      "path": "tests/v07"
+    },
+    {
+      "id": "v08",
+      "path": "tests/v08"
+    },
+    {
+      "id": "v09",
+      "path": "tests/v09"
+    },
+    {
+      "id": "v1",
+      "path": "tests/v1",
+      "additional_files": ["setup-test.mjs", "support.mjs"]
+    },
+    {
+      "id": "relay",
+      "path": "tests/v1/relay-v412"
+    },
+    {
+      "id": "skin-studio",
+      "path": "tools/skin-studio/test",
+      "optional_distribution_root": "tools/skin-studio"
+    },
+    {
+      "id": "development",
+      "path": "tests/development",
+      "optional_distribution_root": "tests/development"
+    }
+  ],
+  "separate_ui_suite": "tests/ui"
+}

@@ -72,7 +72,19 @@ if(!destination.endsWith('.app')||destination.includes('\0'))throw Error('APP_DE
 const candidate=path.join(packageRoot,'ChatHand.app');
 const helper=appProcessExecutable(candidate,'upgrade'),manifestFile=path.join(packageRoot,'payload-manifest.json');
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-function command(program,args,extra={}){const env={...process.env};if(program===helper){delete env.KEN_BRIDGE_STATE_DIR;if(isolatedLaunch){env.KEN_BRIDGE_STATE_DIR=stateDir;env.CHATHAND_STATE_DIR=stateDir;}}const r=executeCommand(program,args,{encoding:'utf8',timeout:args[0]==='stop-backend-exact'?45000:20000,maxBuffer:1024*1024,env,...extra});if(r.status!==0)throw Object.assign(Error('LOCAL_STEP_FAILED'),{code:'LOCAL_STEP_FAILED'});return r.stdout.trim();}
+function command(program,args,extra={}){
+ const env={...process.env};
+ if(program===helper){
+  delete env.KEN_BRIDGE_STATE_DIR;
+  if(isolatedLaunch){env.KEN_BRIDGE_STATE_DIR=stateDir;env.CHATHAND_STATE_DIR=stateDir;}
+  // The updater's state selection belongs to this installer. Forwarding it to
+  // an ordinary App makes InstanceLifecycle reject both upgrade and recovery.
+  // Rehearsal CLI runs use environment markers, without isolatedLaunch. Keep
+  // their scope intact so native validation can accept or reject it safely.
+  else if(!Object.keys(env).some(key=>key.startsWith('CHATHAND_REHEARSAL_')))delete env.CHATHAND_STATE_DIR;
+ }
+ const r=executeCommand(program,args,{encoding:'utf8',timeout:args[0]==='stop-backend-exact'?45000:20000,maxBuffer:1024*1024,env,...extra});if(r.status!==0)throw Object.assign(Error('LOCAL_STEP_FAILED'),{code:'LOCAL_STEP_FAILED'});return r.stdout.trim();
+}
 function runtime(){try{const r=JSON.parse(fs.readFileSync(path.join(stateDir,'runtime.json'),'utf8'));if(!Number.isInteger(r.pid)||r.pid<2)return null;try{process.kill(r.pid,0);}catch(e){if(e.code==='ESRCH')return null;throw e;}if(!/^http:\/\/127\.0\.0\.1:\d+$/.test(r.ui_origin)||typeof r.admin_token!=='string')throw Error();return r;}catch{return null;}}
 async function owner(route,body){const r=runtime();if(!r)throw Error('RUNTIME_NOT_READY');const response=await fetch(r.ui_origin+route,{method:body===undefined?'GET':'POST',headers:upgradeOwnerHeaders(r.admin_token,route,lifecycleKey),...(body===undefined?{}:{body:JSON.stringify(body)}),signal:AbortSignal.timeout(4000)});if(!response.ok)throw Object.assign(Error('OWNER_NOT_READY'),{httpStatus:response.status});return response.json();}
 function metadata(){try{return JSON.parse(fs.readFileSync(path.join(stateDir,'desktop.json'),'utf8'));}catch{return null;}}
