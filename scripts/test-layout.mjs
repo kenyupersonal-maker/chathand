@@ -29,6 +29,24 @@ export function readTestLayout(root = sourceRoot) {
         !newPath.startsWith('tests/') || aliases.has(newPath)) throw Error('TEST_PATH_ALIAS_INVALID');
     aliases.add(newPath);
   }
+  if (layout.entry_points !== undefined) {
+    if (!layout.entry_points || typeof layout.entry_points !== 'object' || Array.isArray(layout.entry_points))
+      throw Error('TEST_ENTRY_POINTS_INVALID');
+    for (const [id, entry] of Object.entries(layout.entry_points)) {
+      if (!/^[a-z0-9-]+$/.test(id) || !entry || !Array.isArray(entry.suites) || !entry.suites.length ||
+          new Set(entry.suites).size !== entry.suites.length || entry.suites.some(suite => !ids.has(suite)) ||
+          entry.module_suites !== undefined && (!Array.isArray(entry.module_suites) ||
+            new Set(entry.module_suites).size !== entry.module_suites.length ||
+            entry.module_suites.some(suite => !entry.suites.includes(suite))))
+        throw Error('TEST_ENTRY_POINT_INVALID');
+      if (entry.inherited_files !== undefined && (!Array.isArray(entry.inherited_files) ||
+          entry.inherited_files.some(file => !file || !ids.has(file.suite) ||
+            !relativePath(file.path) || !file.path.endsWith('.test.mjs') ||
+            !relativePath(file.optional_distribution_root) ||
+            !file.path.startsWith(file.optional_distribution_root + '/'))))
+        throw Error('TEST_INHERITED_FILE_INVALID');
+    }
+  }
   if (!relativePath(layout.separate_ui_suite)) throw Error('TEST_UI_SUITE_INVALID');
   return layout;
 }
@@ -39,22 +57,27 @@ export function canonicalTestPath(file, layout = readTestLayout()) {
   return replacement ? replacement + (slash < 0 ? '' : file.slice(slash)) : file;
 }
 
-export function discoverNodeTests(root = sourceRoot, {suiteIds = [], layout = readTestLayout(root)} = {}) {
+export function discoverNodeTests(root = sourceRoot, {suiteIds = [], entryPoint = null, layout = readTestLayout(root)} = {}) {
+  const entry = entryPoint === null ? null : layout.entry_points?.[entryPoint];
+  if (entryPoint !== null && !entry) throw Error('UNKNOWN_TEST_ENTRY_POINT: ' + entryPoint);
+  const explicitlyWanted = new Set(suiteIds);
+  if (!suiteIds.length && entry) suiteIds = entry.suites;
   const wanted = new Set(suiteIds), known = new Set(layout.node_suites.map(suite => suite.id));
   for (const id of wanted) if (!known.has(id)) throw Error('UNKNOWN_TEST_SUITE: ' + id);
   const suites = [], unavailable = [], files = new Set();
   for (const suite of layout.node_suites) {
     if (wanted.size && !wanted.has(suite.id)) continue;
     if (suite.optional_distribution_root && !fs.existsSync(path.join(root, suite.optional_distribution_root))) {
-      if (wanted.has(suite.id)) throw Error('TEST_SUITE_NOT_IN_DISTRIBUTION: ' + suite.id);
+      if (explicitlyWanted.has(suite.id)) throw Error('TEST_SUITE_NOT_IN_DISTRIBUTION: ' + suite.id);
       unavailable.push(suite.id);
       continue;
     }
     const directory = path.join(root, suite.path);
     if (!fs.existsSync(directory) || !fs.lstatSync(directory).isDirectory())
       throw Error('TEST_SUITE_DIRECTORY_MISSING: ' + suite.path);
-    const members = [...fs.readdirSync(directory).filter(name => name.endsWith('.test.mjs')),
-      ...(suite.additional_files || [])].sort();
+    const members = [...new Set([...fs.readdirSync(directory).filter(name =>
+      name.endsWith('.test.mjs') || entry?.module_suites?.includes(suite.id) && name.endsWith('.mjs')),
+      ...(!entry ? suite.additional_files || [] : [])])].sort();
     if (!members.length) throw Error('TEST_SUITE_EMPTY: ' + suite.path);
     for (const member of members) {
       const file = path.posix.join(suite.path, member);
@@ -64,6 +87,20 @@ export function discoverNodeTests(root = sourceRoot, {suiteIds = [], layout = re
       files.add(file);
     }
     suites.push({id: suite.id, path: suite.path, files: members.length});
+  }
+  for (const inherited of entry?.inherited_files || []) {
+    if (!suites.some(suite => suite.id === inherited.suite)) continue;
+    if (!fs.existsSync(path.join(root, inherited.optional_distribution_root))) {
+      unavailable.push(inherited.path);
+      continue;
+    }
+    const target = path.join(root, inherited.path);
+    if (!fs.existsSync(target)) throw Error('TEST_FILE_MISSING: ' + inherited.path);
+    if (!fs.lstatSync(target).isFile()) throw Error('TEST_FILE_NOT_REGULAR: ' + inherited.path);
+    if (!files.has(inherited.path)) {
+      files.add(inherited.path);
+      suites.push({id: 'inherited-' + inherited.suite, path: path.posix.dirname(inherited.path), files: 1});
+    }
   }
   if (!files.size) throw Error('NO_TEST_FILES');
   return {schema_version: 1, files: [...files].sort(), suites, unavailable};

@@ -61,7 +61,10 @@
     {
       "id": "v1",
       "path": "tests/v1",
-      "additional_files": ["setup-test.mjs", "support.mjs"]
+      "additional_files": [
+        "setup-test.mjs",
+        "support.mjs"
+      ]
     },
     {
       "id": "relay",
@@ -76,7 +79,80 @@
       "id": "development",
       "path": "tests/development",
       "optional_distribution_root": "tests/development"
+    },
+    {
+      "id": "layout",
+      "path": "tests/layout"
     }
   ],
-  "separate_ui_suite": "tests/ui"
+  "separate_ui_suite": "tests/ui",
+  "entry_points": {
+    "test": {
+      "suites": [
+        "engine",
+        "native",
+        "scripts",
+        "core",
+        "product",
+        "release",
+        "stability",
+        "v06",
+        "v07",
+        "v08",
+        "v09",
+        "v1",
+        "relay",
+        "skin-studio"
+      ],
+      "inherited_files": [
+        {
+          "suite": "v1",
+          "path": "tests/development/installation-docs.test.mjs",
+          "optional_distribution_root": "tests/development"
+        }
+      ]
+    },
+    "trial": {
+      "suites": [
+        "engine",
+        "core",
+        "product",
+        "release",
+        "stability",
+        "v06",
+        "v07",
+        "v08",
+        "v09",
+        "v1"
+      ],
+      "module_suites": [
+        "v1"
+      ],
+      "inherited_files": [
+        {
+          "suite": "v1",
+          "path": "tests/development/installation-docs.test.mjs",
+          "optional_distribution_root": "tests/development"
+        }
+      ]
+    },
+    "v1": {
+      "suites": [
+        "v1"
+      ],
+      "inherited_files": [
+        {
+          "suite": "v1",
+          "path": "tests/development/installation-docs.test.mjs",
+          "optional_distribution_root": "tests/development"
+        }
+      ]
+    },
+    "layout": {
+      "suites": [
+        "layout",
+        "development"
+      ]
+    }
+  }
 }

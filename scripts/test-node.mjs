@@ -7,11 +7,16 @@ import {discoverNodeTests, sourceRoot} from './test-layout.mjs';
 
 export function runNodeTests(args = process.argv.slice(2)) {
   const suiteIds = [], nodeOptions = [];
-  let list = false;
+  let list = false, entryPoint = 'test';
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
     if (arg === '--') continue;
     if (arg === '--list') { list = true; continue; }
+    if (arg === '--entry-point' || arg.startsWith('--entry-point=')) {
+      entryPoint = arg === '--entry-point' ? args[++i] : arg.slice('--entry-point='.length);
+      if (!entryPoint || entryPoint.startsWith('-')) throw Error('TEST_ENTRY_POINT_VALUE_REQUIRED');
+      continue;
+    }
     if (arg === '--suite' || arg.startsWith('--suite=')) {
       const value = arg === '--suite' ? args[++i] : arg.slice('--suite='.length);
       if (!value || value.startsWith('-')) throw Error('TEST_SUITE_VALUE_REQUIRED');
@@ -20,7 +25,7 @@ export function runNodeTests(args = process.argv.slice(2)) {
     }
     nodeOptions.push(arg);
   }
-  const discovery = discoverNodeTests(sourceRoot, {suiteIds});
+  const discovery = discoverNodeTests(sourceRoot, {suiteIds, entryPoint: entryPoint === 'all' ? null : entryPoint});
   if (list) { console.log(JSON.stringify(discovery, null, 2)); return 0; }
   console.error(`Node tests: ${discovery.files.length} files in ${discovery.suites.length} suites.`);
   if (discovery.unavailable.length)

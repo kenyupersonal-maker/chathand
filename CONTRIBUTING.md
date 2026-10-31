@@ -27,10 +27,11 @@ Use Node 22 or later and the versions pinned in `package-lock.json`. Install tho
 npm run test:list
 node scripts/test-node.mjs --suite core
 npm run test:v1
+npm run test:layout
 npm test
 ```
 
-The runner reports the discovered file count and fails if a required suite is missing or empty. Development-only suites are explicitly declared and reported when absent from a public export. The browser UI suite has its own entry point:
+The runner reports the discovered file count and fails if a required suite is missing or empty. Existing commands keep their historical scope: `test:v1` selects top-level v1 tests; `test:trial` retains the engine and former top-level test suites, including v1 modules with nonstandard test filenames. `test:layout` runs the new source-layout checks, and `test:all` runs all declared suites. Development-only checks are explicitly declared and reported when absent from a public export. The browser UI suite has its own entry point:
 
 ```sh
 npm run test:ui

@@ -1,6 +1,10 @@
 # Tests
 
-`layout.json` declares the Node suites and maps historical test roots to their current locations. Its `additional_files` entries preserve the executable tests in `v1/setup-test.mjs` and `v1/support.mjs`, whose historical names lack the `.test.mjs` suffix. `npm test` and `npm run test:trial` use the same discovery code. `npm run test:list` lists every selected test without executing it.
+`layout.json` declares the Node suites, historical entry-point scopes, and the mapping from old test roots to current locations. `npm run test:list` lists the default entry point without executing tests.
+
+The existing commands retain their original scope. `npm test` runs the declared component and version suites, including nested relay tests. `npm run test:v1` selects the top-level v1 test files. `npm run test:trial` selects the engine and former top-level test directories, including every top-level v1 `.mjs` module. That preserves the executable tests in `v1/setup-test.mjs` and `v1/support.mjs`, whose historical names lack the `.test.mjs` suffix. Each v1 entry point also retains the internal documentation assertions moved into `development/installation-docs.test.mjs` when that development distribution is present.
+
+`npm run test:layout` runs the new discovery, entry-point, and historical-result checks separately. `npm run test:all` selects every declared suite and the two additional executable v1 test files. Append `-- --list` to either command to inspect its files.
 
 | Suite | Location |
 | --- | --- |
@@ -9,15 +13,21 @@
 | `relay` | `tests/v1/relay-v412/` |
 | `engine`, `native`, `scripts` | Tests kept beside their owning component |
 | `skin-studio`, `development` | Explicit development-only distributions |
+| `layout` | Discovery and entry-point regression checks in `tests/layout/` |
 
 Shared helpers and native source fixtures live in `tests/support/` and beside the suites that use them. Browser UI checks live in `tests/ui/` and run separately with `npm run test:ui`; see [their guide](ui/README.md).
 
 ```sh
 # Discover files; a missing or empty required suite is an error.
 npm run test:list
+npm run test:trial -- --list
+npm run test:all -- --list
 
 # Run one or more declared suites.
 node scripts/test-node.mjs --suite core,release
+
+# Check the source layout and entry-point contracts.
+npm run test:layout
 
 # Run one file using Node directly.
 node --test tests/v1/1065-setup-consent.test.mjs

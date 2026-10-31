@@ -18,7 +18,9 @@
     "test:native-guard": "node scripts/test-native-element-guard.mjs",
     "test:trial": "node scripts/test-trial.mjs",
     "build:trial": "node scripts/build-v09.mjs",
-    "test:v1": "node scripts/test-node.mjs --suite v1,relay"
+    "test:v1": "node scripts/test-node.mjs --entry-point=v1",
+    "test:all": "node scripts/test-node.mjs --entry-point=all",
+    "test:layout": "node scripts/test-node.mjs --entry-point=layout"
   },
   "kenBridge": {
     "runtime_api": 1,
