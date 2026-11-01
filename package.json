@@ -1,6 +1,6 @@
 {
   "name": "chathand",
-  "version": "1.0.0-beta.38",
+  "version": "1.0.0-beta.39",
   "private": true,
   "type": "module",
   "engines": {
@@ -25,7 +25,7 @@
   "kenBridge": {
     "runtime_api": 1,
     "connector_api": 31,
-    "build_number": 1088,
+    "build_number": 1089,
     "bundle_id": "com.kenyu.chathand",
     "release_channel": "friend-trial",
     "install_ready": false
