@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 import { cssRules,htmlStyles,valueWords } from './skin-css-parser.mjs';
-const require=createRequire(import.meta.url),{ROOT,launchBrowser}=require('../test-ui-port/harness/common.js');
+const require=createRequire(import.meta.url),{ROOT,launchBrowser}=require('../tests/ui/harness/common.js');
 const FILES=['ui/style.css','ui/wizard.css','ui/app.js','ui/index.html','ui/task-widget.html'];
 const read=f=>fs.readFileSync(path.join(ROOT,f),'utf8');
 export function extractRules(file,source=read(file)){

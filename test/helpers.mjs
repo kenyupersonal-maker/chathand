@@ -1,7 +1,0 @@
-import fs from 'node:fs';import path from 'node:path';import os from 'node:os';
-import {DesktopState} from '../app/state.mjs';import {ProjectStore} from '../app/store.mjs';import {DesktopCommandQueue} from '../app/commands.mjs';import {TaskPolicy} from '../app/policy.mjs';import {Tools} from '../app/tools.mjs';
-export function fixture(t){const base=fs.mkdtempSync(path.join(os.tmpdir(),'ken04-test-'));const stateDir=path.join(base,'state'),root=path.join(base,'project');const state=new DesktopState(stateDir,{defaultRoot:root}),store=new ProjectStore(root,stateDir),queue=new DesktopCommandQueue(store,{killGraceMs:60}),policy=new TaskPolicy(state,store,queue),tools=new Tools(state,store,queue,policy);t.after(async()=>{policy.revokeAll();await queue.close();fs.rmSync(base,{recursive:true,force:true});});state.data.auto_approve_tasks=false; // Exercise the optional legacy task-grant branch in these inherited tests.
-policy.enabled=true;store.writesEnabled=true;return {base,stateDir,root,state,store,queue,policy,tools};}
-export function authorize(f,caller='chatgpt',request_id='test-task-01',session_hash=null){const t=f.policy.begin({request_id,title:'测试任务'},caller,{session_hash});if(t.status==='pending_approval')f.policy.approve(t.task_id);else if(t.status!=='active')throw Error('FIXTURE_TASK_NOT_ACTIVE');return t.task_id;}
-export const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-export async function until(fn,ms=3000){const end=Date.now()+ms;while(Date.now()<end){const v=await fn();if(v)return v;await sleep(25);}throw Error('TEST_CONDITION_TIMEOUT');}

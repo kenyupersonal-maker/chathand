@@ -1,0 +1,52 @@
+import test from 'node:test';import assert from 'node:assert/strict';import crypto from 'node:crypto';import fs from 'node:fs';import path from 'node:path';
+import {desktop} from './1052-a-fixture.mjs';import {applyPermissionTier} from '../../app/v1/permissions.mjs';import {siteLinkFailure,SITE_TRANSIENT_REASONS} from '../../app/v1/site-link-health.mjs';import {ConnectionGrace} from '../../app/v1/connection-grace.mjs';
+function configure(f){const l=f.app.tools.bSiteLocalStore,binding_id=crypto.randomUUID();l.configureSite({site_id:'test-site',owner_subject:'test-owner',binding_id,generation:1},{authenticated:true});l.health('site',{state:'healthy',verified:true,nonceEcho:true,generation:1});l.switchUser('site',{windowGesture:true});f.tick();return {l,binding_id};}
+test('review1 Site revoke/unrecoverable immediately ends authority; only classified recoverable transport retains',async t=>{
+ const f=await desktop(t),{l,binding_id}=configure(f),a=f.app,id=a.policy.begin({request_id:'review-site-revoke',title:'site'},'chatgpt').task_id;l.revokeSite({binding_id,generation:1,authenticatedNative:true});assert.equal(a.policy.get(id).status,'revoked');assert.equal(a.policy.connectionUnavailable,false);
+ for(const reason of ['B_TEMPLATE_MISMATCH','B_NEXT_BINDING','B_REMOTE_CONFLICT','B_PAIRING_PARTIAL_COMMIT','WS_TEMPLATE_VERSION_UNSUPPORTED','B_REMOTE_AUTH_REQUIRED'])assert.equal(siteLinkFailure({configured:1,state:'failed',reason}).immediate,true,reason);
+ for(const reason of SITE_TRANSIENT_REASONS)assert.equal(siteLinkFailure({configured:1,state:'reconnecting',reason}).immediate,false,reason);
+ assert.equal(siteLinkFailure({configured:1,state:'healthy'},{phase:'unconfigured_or_stopped'}).immediate,true);
+});
+test('review2 normal ready persists user execution intent; same-identity grace does not persist pause/recovery, all routes follow one rule',async t=>{
+ const f=await desktop(t),a=f.app;await a.handle('/api/access',{enabled:false});assert.equal(a.state.data.access_enabled,false);a.controller.desired=true;a.controller.phase='running';f.tunnel.child={pid:0};
+ // Explicit connect resumes intent, then real controller onReady stores execution.
+ await a.handle('/api/access',{enabled:true});a.state.data.access_enabled=false;a.state.save();a.controller.healthy();assert.equal(a.state.data.access_enabled,true);assert.equal(JSON.parse(fs.readFileSync(a.state.file,'utf8')).access_enabled,true);
+ const {l}=configure(f);l.health('site',{state:'reconnecting',verified:true,generation:1});assert.equal(a.state.data.access_enabled,true);f.advance(600001);f.tick();assert.equal(a.state.data.access_enabled,true);l.health('site',{state:'healthy',verified:true,nonceEcho:true,generation:1});assert.equal(a.policy.enabled,true);assert.equal(a.state.data.access_enabled,true);
+ for(const route of ['tunnel','relay','site']){const g=new ConnectionGrace();assert.equal(g.update(route,{identity:'same',healthy:true}),'ready');assert.equal(g.update(route,{identity:'same',healthy:false}),'retain');assert.equal(g.update(route,{identity:'same',healthy:true}),'ready');}
+});
+test('review3 custom-to-light capability reduction revokes despite identical mode/root; identical second tier keeps epoch',async t=>{
+ const f=await desktop(t),a=f.app;await a.handle('/api/mode',{mode:'auto'});a.state.data.desktop_enabled=true;a.state.data.high_risk={admin:true,erase:true};const id=a.policy.begin({request_id:'review-lower-rights',title:'tier'},'chatgpt').task_id;let uninstall=0;const opts={state:a.state,store:a.store,policy:a.policy,adminAccess:{supported:()=>true,ready:()=>true,uninstall(){uninstall++;}},revokeAdmin:async()=>{if(a.state.data.high_risk?.admin===true)uninstall++;a.state.data.high_risk={...a.state.data.high_risk,admin:false};return {ok:true};}};await applyPermissionTier(opts,{tier:'light',folder:f.work});assert.equal(a.policy.get(id).status,'permission_changed');assert.equal(uninstall,1);const epoch=a.policy.epoch;await applyPermissionTier(opts,{tier:'light',folder:f.work});assert.equal(a.policy.epoch,epoch);
+});
+test('review4 one maintenance failure never blocks other services; persistence failure is revoked once and recovery ready works',async t=>{
+ const f=await desktop(t),a=f.app,{l}=configure(f);let maintains=0,notifies=0;a.tools.relayKeeper.maintain=()=>{maintains++;};const finished={id:'finished-fixture',request_id:'finished-fixture',stamp:'fixture',status:'completed',finished_at:1,exit_code:0,args:[],events:[],base_cursor:0,next_cursor:0};a.queue.jobs.set(finished.id,finished);const emit=a.policy.emit;a.policy.emit=(kind,...args)=>{if(kind==='command_finished')notifies++;return emit.call(a.policy,kind,...args);};a.controller.monitor=()=>{throw Error('fixture monitor failure');};a.queue.record(finished);f.tick();assert.equal(maintains,0,'idle relay history never sweeps');assert.equal(notifies,1);
+ const task_id=await f.begin();a.tools.relayKeeper._tx(state=>{state.tasks[task_id]={id:task_id,card:{state:'armed',at:f.now(),ready_at:f.now()+1000}};});a.tools.relayKeeper.maintenanceTasks.add(task_id);a.tools.relayKeeper.onMaintenanceChange();await Promise.resolve();f.advance(15000);f.tick();assert.equal(maintains,1,'active relay work is maintained once due');assert.equal(notifies,1);
+ const id=a.policy.begin({request_id:'review-persistence-once',title:'receipt'},'chatgpt').task_id;let writes=0;const save=a.policy.receipts.saveRevocation;a.policy.receipts.saveRevocation=()=>{writes++;throw Object.assign(Error('fixture'),{code:'ENOSPC'});};assert.throws(()=>l.health('site',{state:'failed',verified:true,generation:1,reason:'B_TEMPLATE_MISMATCH'}),{code:'B_AUTHORITY_SYNC_UNCONFIRMED'});for(let i=0;i<3;i++)f.tick();assert.equal(writes,1);assert.ok(a.policy.get(id).persistence_error);a.policy.receipts.saveRevocation=save;l.health('site',{state:'healthy',verified:true,nonceEcho:true,generation:1});f.tick();assert.equal(a.policy.enabled,true);
+});
+test('review5 stop/switch clears stale reconnect flag and user access resume re-evaluates immediately',async t=>{
+ const f=await desktop(t),a=f.app,{l}=configure(f);l.health('site',{state:'reconnecting',verified:true,generation:1});assert.equal(a.policy.connectionUnavailable,true);l.configureOpenAI({verified:true});l.health('openai',{state:'healthy',verified:true,nonceEcho:true,generation:0});await a.handle('/api/site-b/select',{route:'openai'});assert.equal(a.policy.connectionUnavailable,false);a.policy.connectionUnavailable=true;await a.handle('/api/access',{enabled:false});assert.equal(a.policy.connectionUnavailable,false);await a.handle('/api/access',{enabled:true});assert.equal(a.policy.connectionUnavailable,false);
+});
+test('review6 never-connected route revocation is revoked rather than connection_lost',async t=>{
+ const f=await desktop(t),a=f.app,id=await f.begin();a.controller.desired=true;a.controller.phase='connecting';a.controller.blocked=true;f.tick();assert.equal(a.policy.get(id).status,'revoked');assert.equal(a.policy.receipts.read(id,'chatgpt').result.status,'revoked');
+});
+
+test('review2b tunnel/account/Site ready writes survive actual isolated DesktopState restart and readiness never leaves paused UI',async t=>{
+ const {createDesktop}=await import('../../app/server.mjs');
+ for(const route of ['tunnel','relay','site']){
+  const f=await desktop(t),a=f.app;await a.handle('/api/access',{enabled:false});
+  const ready=async app=>{
+   if(route==='site'){await app.handle('/api/access',{enabled:true});const l=app.tools.bSiteLocalStore;if(!l.route('site').configured)l.configureSite({site_id:'reconnect-site',owner_subject:'owner',binding_id:crypto.randomUUID(),generation:1},{authenticated:true});l.health('site',{state:'healthy',verified:true,nonceEcho:true,generation:1});if(l.selection().selected!=='site')l.switchUser('site',{windowGesture:true});return;}
+   if(route==='tunnel'){await app.handle('/api/connect',{tunnel_id:'synthetic-tunnel',api_key:'synthetic-test-key'});await app.controller.busy;app.controller.healthy();return;}
+   app.relay.restore=async()=>{app.relay.config={base:'https://fixture.invalid',issuer:'https://fixture.invalid'};app.relay.session={access_token:'synthetic-test-token',expires_at:Date.now()+60000};app.relay.lastHeartbeat=Date.now();app.relay.change('online');return {};};await app.handle('/api/relay/restore',{synthetic:true});
+  };
+  await ready(a);assert.equal(a.state.data.access_enabled,true,route);assert.equal(a.store.paused,false,route);await a.close();
+  const transport={setRpcDelivery(){},setRuntimeFactory(){},setHostFlow(){},status:()=>({ready:false}),close(){},stop(){}};
+  const reopened=await createDesktop({stateDir:path.join(f.root,'state'),defaultRoot:f.work,adminAccess:{supported:()=>false,ready:()=>false},clientDeps:{currentAppPath:path.join(f.root,'ChatHand.app'),credentials:{get:()=>null,publicStatus:()=>({}),set(){},remove(){}},bSiteTransport:transport,tunnelFactory:()=>({child:null,key:'synthetic-test-key',tunnelId:'synthetic-tunnel',stop(){this.child=null;},doctor:async()=>({ok:true}),start(){this.child={pid:0};},configure(){},snapshot:async()=>({healthy:true,ready:true,process_running:true})}),updaterFactory:()=>({snapshot:()=>({status:'unknown',install:{state:'idle'}}),forAI:()=>({}),start(){},close(){},settingsChanged(){},cleanupLeftovers:async()=>({cleaned:0})})}});
+  try{assert.equal(reopened.state.data.access_enabled,true,route+' persisted on reopen');await ready(reopened);assert.equal(reopened.policy.enabled,true,route);assert.equal(reopened.store.paused,false,route);}finally{await reopened.close();}
+ }
+});
+
+test('review1b transport phase distinguishes inner retry and normal rotation from stopped or permanent authentication failure',()=>{
+ for(const reason of ['WS_UPGRADE_HTTP_408','WS_UPGRADE_HTTP_429','WS_UPGRADE_HTTP_503','WS_CLOSED','WS_CLOCK_TIMEOUT','WS_FRAME_PROTOCOL'])assert.equal(siteLinkFailure({configured:1,state:'reconnecting',reason},{phase:'reconnecting'}).immediate,false,reason);
+ for(const reason of ['WS_UPGRADE_HTTP_401','WS_UPGRADE_HTTP_403','WS_UPGRADE_HTTP_404','B_TEMPLATE_MISMATCH'])assert.equal(siteLinkFailure({configured:1,state:'failed',reason},{phase:'reconnecting'}).immediate,true,reason);
+ assert.equal(siteLinkFailure({configured:1,state:'healthy'},{phase:'reconnecting'}).immediate,false,'75 second internal rotation is not stopped');assert.equal(siteLinkFailure({configured:1,state:'failed',reason:'B_SITE_NETWORK_FAILED'},{phase:'running'}).immediate,false,'legacy HTTP still retries after three failed probes');
+});

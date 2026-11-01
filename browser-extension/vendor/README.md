@@ -11,10 +11,10 @@ The injected API is internal and pinned. When changing the Playwright version, r
 Any change under `browser-extension/` must pass the real-browser test, which runs the extension's own driver code in a real headless Chrome (fresh temporary profile, local test pages only, no network, no extension install):
 
 ```
-node --test --test-concurrency=1 --test-reporter=dot test-v1/1029-helper-real-chrome.test.mjs
+node --test --test-concurrency=1 --test-reporter=dot tests/v1/1029-helper-real-chrome.test.mjs
 ```
 
-Chrome is found at `CHATHAND_TEST_CHROME`, then `/Applications/Google Chrome.app`, then Playwright's Chromium under `/opt/pw-browsers`; without one the test is skipped and says so. `test-support/real-chrome.mjs` builds the `chrome.*` APIs the driver uses (tabs, tab groups, debugger with flat child sessions for cross-origin iframes) on top of a CDP pipe. For a quick manual check of the ChatGPT plugins-page path, run `node scripts/lab-helper-real-chrome.mjs` (prints `LAB_PASS`).
+Chrome is found at `CHATHAND_TEST_CHROME`, then `/Applications/Google Chrome.app`, then Playwright's Chromium under `/opt/pw-browsers`; without one the test is skipped and says so. `tests/support/real-chrome.mjs` builds the `chrome.*` APIs the driver uses (tabs, tab groups, debugger with flat child sessions for cross-origin iframes) on top of a CDP pipe. The referenced test includes a local ChatGPT plugins-page fixture.
 
 改 `browser-extension/` 必须跑上面这个真浏览器测试；Mac 上用真的 Google Chrome，云端用 /opt/pw-browsers 里的 Chromium。
 

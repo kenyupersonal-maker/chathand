@@ -9,14 +9,18 @@
   "license": "SEE LICENSE IN LICENSE",
   "scripts": {
     "start": "node app/server.mjs",
-    "test": "node --test --test-concurrency=1 engine/test/*.test.mjs native/tests/*.test.mjs scripts/*.test.mjs test/*.test.mjs test-product/*.test.mjs test-release/*.test.mjs test-stability/*.test.mjs test-v06/*.test.mjs test-v07/*.test.mjs test-v08/*.test.mjs test-v09/*.test.mjs test-v1/*.test.mjs test-v1/relay-v412/*.test.mjs tools/skin-studio/test/*.test.mjs",
-    "test:v07": "node --test --test-concurrency=1 test-v07/*.test.mjs",
-    "test:v08": "node --test --test-concurrency=1 test-v08/*.test.mjs",
-    "test:v09": "node --test --test-concurrency=1 test-v09/*.test.mjs",
+    "test": "node scripts/test-node.mjs",
+    "test:list": "node scripts/test-node.mjs --list",
+    "test:ui": "npm --prefix tests/ui test",
+    "test:v07": "node scripts/test-node.mjs --suite v07",
+    "test:v08": "node scripts/test-node.mjs --suite v08",
+    "test:v09": "node scripts/test-node.mjs --suite v09",
     "test:native-guard": "node scripts/test-native-element-guard.mjs",
     "test:trial": "node scripts/test-trial.mjs",
     "build:trial": "node scripts/build-v09.mjs",
-    "test:v1": "node --test --test-concurrency=1 test-v1/*.test.mjs"
+    "test:v1": "node scripts/test-node.mjs --entry-point=v1",
+    "test:all": "node scripts/test-node.mjs --entry-point=all",
+    "test:layout": "node scripts/test-node.mjs --entry-point=layout"
   },
   "kenBridge": {
     "runtime_api": 1,

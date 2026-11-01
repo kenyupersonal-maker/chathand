@@ -1,6 +1,6 @@
 /** Disposable UI harness. Real app/backend; offline tunnel child replaces only the external service. */
 import fs from 'node:fs';import path from 'node:path';import readline from 'node:readline';
-import {createDesktop} from '../app/server.mjs';import {makeBinary} from '../test-support/oneclick-helpers.mjs';
+import {createDesktop} from '../app/server.mjs';import {makeBinary} from '../tests/support/oneclick-helpers.mjs';
 const dir=process.argv[2];if(!dir||!path.isAbsolute(dir))throw Error('TEMP_DIRECTORY_REQUIRED');
 const stateDir=path.join(dir,'state'),defaultRoot=path.join(dir,'workspace');let b,generation=0,stopping=false;
 const binary=makeBinary(dir);

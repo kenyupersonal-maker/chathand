@@ -4,7 +4,7 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {createRequire} from 'node:module';
 import {cssRules,splitTop,stripComments} from './skin-css-parser.mjs';
-const require=createRequire(import.meta.url),{ROOT}=require('../test-ui-port/harness/common.js');
+const require=createRequire(import.meta.url),{ROOT}=require('../tests/ui/harness/common.js');
 const config=JSON.parse(fs.readFileSync(path.join(ROOT,'scripts/skin-allowed-props.json'),'utf8'));
 function filesIn(dir){return fs.readdirSync(dir,{withFileTypes:true}).flatMap(e=>e.isDirectory()?filesIn(path.join(dir,e.name)):[path.join(dir,e.name)]);}
 const remote=s=>/^(?:https?:)?\/\//i.test(s.trim());

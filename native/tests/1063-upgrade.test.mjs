@@ -1,4 +1,4 @@
-import {nativeFixture} from '../../test-support/native-fixtures.mjs';
+import {nativeFixture} from '../../tests/support/native-fixtures.mjs';
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import path from 'node:path';import crypto from 'node:crypto';import {spawn,spawnSync} from 'node:child_process';
 import {createUpgradeRunner} from '../../scripts/upgrade.mjs';
 const run=(program,args,env)=>new Promise((resolve,reject)=>{const child=spawn(program,args,{env,stdio:['ignore','pipe','pipe']});let out='',err='';child.stdout.on('data',d=>out+=d);child.stderr.on('data',d=>err+=d);child.on('error',reject);child.on('close',code=>resolve({code,out,err}));});

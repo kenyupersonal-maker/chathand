@@ -1,0 +1,4 @@
+// The exact retired setup-consent phrases checked in both distribution scopes.
+export const retiredChinese=['只能本人点','最终授权','最终 Host 授权','明确授权包含','不得仅因“配置连接”而扩大权限','不替他点','由本人确认连接','仍需本人确认','最后一下授权','批准账户或系统权限','要你点的时候'];
+export const retiredEnglish=['approve account/system permissions for me','you’ll just click the final approval required by OpenAI','confirm the connection and tool permissions yourself','confirm the ChatGPT plugin connection yourself','You must click this yourself—ChatHand and AI won’t click it for you','calls you when a click is needed','alerting you only when your click is needed','this page will highlight when your confirmation is required','macOS approval and password prompts must be confirmed by you'];
+export function retiredHits(text,file){return [...retiredChinese,...retiredEnglish].filter(phrase=>text.includes(phrase)).map(phrase=>({file,phrase}));}
