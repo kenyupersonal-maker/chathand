@@ -3,6 +3,7 @@ import {INSTALL_HELPERS, HELPER_VERSION, privateAXNode} from './page-helper.js';
 import {frameDocumentId, readFrameTree, resolveNodeInFrame, MAX_FRAME_COUNT} from './frame-tree.js';
 import {clickPoint} from './click-target.js';
 import {scrollPage} from './scroll-target.js';
+import {performUpload, cancelUploads} from './upload.js';
 
 const errorText = () => ({
   FILE_INPUT_REQUIRED: [text('chrome.fileInputRequired'), text('chrome.uploadScope')],
@@ -65,8 +66,8 @@ export function enableExperience(driver, {idleMs = 30000, settleMs = 3000, pollM
       } catch (error) {children.delete(entry.sessionId);if (error.code === 'ACTION_CANCELLED') return;}
       return;
     }
-    if (method === 'Target.detachedFromTarget') {driver.childSessions.get(id)?.delete(params.sessionId);for (const [frame, session] of driver.childFrameSessions.get(id) || []) if (session === params.sessionId) driver.childFrameSessions.get(id).delete(frame);for(const request of driver.networkRequests.get(id)||[])if(request.startsWith(params.sessionId+':'))driver.networkRequests.get(id).delete(request);return;}
-    if (method === 'Runtime.executionContextsCleared' || method === 'Runtime.executionContextDestroyed') {for (const [key, context] of driver.helperContexts) if (context.id === id && context.sessionId === sessionId && (method === 'Runtime.executionContextsCleared' || context.contextId === params.executionContextId)) driver.helperContexts.delete(key);return;}
+    if (method === 'Target.detachedFromTarget') {cancelUploads(driver,id);driver.childSessions.get(id)?.delete(params.sessionId);for (const [frame, session] of driver.childFrameSessions.get(id) || []) if (session === params.sessionId) driver.childFrameSessions.get(id).delete(frame);for(const request of driver.networkRequests.get(id)||[])if(request.startsWith(params.sessionId+':'))driver.networkRequests.get(id).delete(request);return;}
+    if (method === 'Runtime.executionContextsCleared' || method === 'Runtime.executionContextDestroyed') {cancelUploads(driver,id);for (const [key, context] of driver.helperContexts) if (context.id === id && context.sessionId === sessionId && (method === 'Runtime.executionContextsCleared' || context.contextId === params.executionContextId)) driver.helperContexts.delete(key);return;}
     if (method === 'Page.frameNavigated' && sessionId) {const entry = driver.childSessions.get(id)?.get(sessionId);if (entry && params.frame) {entry.frameId = params.frame.id;entry.frame = params.frame;}return;}
     if (method === 'Network.requestWillBeSent' && !['WebSocket', 'EventSource'].includes(params.type)) {const requests = driver.networkRequests.get(id) || new Set();requests.add((sessionId || '') + ':' + params.requestId);driver.networkRequests.set(id, requests);driver.networkChanged.set(id, Date.now());}
     if (method === 'Network.loadingFinished' || method === 'Network.loadingFailed') {driver.networkRequests.get(id)?.delete((sessionId || '') + ':' + params.requestId);driver.networkChanged.set(id, Date.now());}
@@ -82,14 +83,15 @@ export function enableExperience(driver, {idleMs = 30000, settleMs = 3000, pollM
     return id;
   };
   driver.detachTab = async (id, force = false, token = null) => {
+    cancelUploads(driver,id);
     clearTimeout(driver.idleTimers.get(id));driver.idleTimers.delete(id);driver.childSessions.delete(id);driver.childFrameSessions.delete(id);driver.networkRequests.delete(id);
     for (const [key, context] of driver.helperContexts) if (context.id === id) driver.helperContexts.delete(key);
     return original.detachTab(id, force, token);
   };
-  driver.noteDetached = id => {clearTimeout(driver.idleTimers.get(id));driver.idleTimers.delete(id);driver.childSessions.delete(id);driver.childFrameSessions.delete(id);driver.networkRequests.delete(id);for (const [key, context] of driver.helperContexts) if (context.id === id) driver.helperContexts.delete(key);};
-  driver.detachAll = async () => {for (const timer of driver.idleTimers.values()) clearTimeout(timer);driver.idleTimers.clear();return original.detachAll();};
+  driver.noteDetached = id => {cancelUploads(driver,id);clearTimeout(driver.idleTimers.get(id));driver.idleTimers.delete(id);driver.childSessions.delete(id);driver.childFrameSessions.delete(id);driver.networkRequests.delete(id);for (const [key, context] of driver.helperContexts) if (context.id === id) driver.helperContexts.delete(key);};
+  driver.detachAll = async () => {cancelUploads(driver);for (const timer of driver.idleTimers.values()) clearTimeout(timer);driver.idleTimers.clear();return original.detachAll();};
   driver.scheduleIdle = id => {clearTimeout(driver.idleTimers.get(id));const timer = setTimeout(() => {driver.idleTimers.delete(id);void driver.detachTab(id);}, idleMs);timer.unref?.();driver.idleTimers.set(id, timer);};
-  driver.invalidate = id => {original.invalidate(id);};
+  driver.invalidate = id => {cancelUploads(driver,id);original.invalidate(id);};
   driver.group = async (id, generation) => {
     if (driver.api.tabs.group && driver.api.tabGroups) {
       const groups = await driver.api.tabGroups.query({});driver.assertCurrent(generation);
@@ -279,11 +281,12 @@ export function enableExperience(driver, {idleMs = 30000, settleMs = 3000, pollM
       if (result.exceptionDetails) throw fault('PAGE_HELPER_FAILED');const value = result.result?.value;if (!value?.ok) throw fault(value?.reason || 'ELEMENT_INVALID');
       // 用户任务的授权仍在每步执行前重验；语义标签不追加确认位。
     } finally {await driver.sendFrame(id, frame.id, 'Runtime.releaseObject', {objectId}, generation).catch(() => {});}
-    try {await driver.sendFrame(id, frame.id, 'Overlay.enable', {}, generation);await driver.sendFrame(id, frame.id, 'Overlay.highlightNode', {backendNodeId: node.backend, highlightConfig: {showInfo: true, contentColor: {r: 45, g: 130, b: 245, a: 0.15}, borderColor: {r: 45, g: 130, b: 245, a: 0.8}}}, generation);} catch (error) {driver.assertCurrent(generation);if (/CANCELLED|TIMEOUT/.test(error.code || '')) throw error;}
+    try {await driver.sendFrame(id, frame.id, 'DOM.enable', {}, generation);await driver.sendFrame(id, frame.id, 'Overlay.enable', {}, generation);await driver.sendFrame(id, frame.id, 'Overlay.highlightNode', {backendNodeId: node.backend, highlightConfig: {showInfo: true, contentColor: {r: 45, g: 130, b: 245, a: 0.15}, borderColor: {r: 45, g: 130, b: 245, a: 0.8}}}, generation);} catch (error) {driver.assertCurrent(generation);if (/CANCELLED|TIMEOUT/.test(error.code || '')) throw error;}
     return node;
   };
   driver.performStep = async (id, action, args, generation, authorize, options = {}) => {
     if (authorize) await authorize();driver.assertCurrent(generation);
+    if (action === 'upload') return performUpload(driver,id,args,generation,authorize,options);
     if (action === 'wait_for') return driver.waitFor(id, args.condition || args, generation, authorize, options.requestedAt);
     const node = await driver.prepare(id, action, args, generation);
     if(['click','double_click'].includes(action)&&node?.href)requireChatGPTAccess(node.href,options.chatgptSelfAllowed);

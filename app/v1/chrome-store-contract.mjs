@@ -6,7 +6,7 @@ export const CHROME_STORE_ACTIONS=Object.freeze('tabs new select close navigate 
 // （state 'partial'）；「浏览器控制」页里一行小字说插件有新版，首页不提示。插件跟着 ChatHand 出新版时，先等插件在应用店上线，再出 ChatHand。
 export const CHROME_STORE_LATER_ACTIONS=Object.freeze([]);
 export const CHROME_STORE_REQUIRED_FEATURES=Object.freeze(['click_receipt','find_boxes']);
-const knownFeatures=new Set([...CHROME_STORE_REQUIRED_FEATURES,'page_lang','system_language_v1']);
+const knownFeatures=new Set([...CHROME_STORE_REQUIRED_FEATURES,'page_lang','system_language_v1','upload_payload_v1']);
 function list(value,known){return Array.isArray(value)?[...new Set(value.slice(0,60).filter(v=>typeof v==='string'&&known.has(v)))]:[];}
 // core、later 只给测试换。
 export function chromeStoreCompatibility(helper,{core=CHROME_STORE_ACTIONS,later=CHROME_STORE_LATER_ACTIONS}={}){

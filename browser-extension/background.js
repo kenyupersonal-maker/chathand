@@ -2,12 +2,13 @@ import {BrowserDriver} from './driver.js';
 import {text, setSystemLanguage, languageState} from './locale.js';
 
 const driver=new BrowserDriver(chrome,{experience:true});
+const uploadChunks=new Map();
 const authorizations=new Map(),installAuthorizations=new Map(),installProbeSeen=new Set();
 const RECONNECT_BASE_MS=250,RECONNECT_MAX_MS=8000;
 // 1029：助手报自己的版本（manifest 带构建号）、会做的动作；ChatHand 版本对不上时发 reload，助手从文件夹重新读一遍。
 const MANIFEST=(()=>{try{return chrome.runtime.getManifest?.()||{};}catch{return {};}})();
 const HELPER_ACTIONS=['tabs','new','select','close','navigate','snapshot','screenshot','click','double_click','fill','select_value','press','scroll','scroll_to','wait_for','read','find','batch','back','forward','reload','upload','detach'];
-const HELPER_FEATURES=['self_reload','click_receipt','find_boxes','page_lang','system_language_v1'];
+const HELPER_FEATURES=['self_reload','click_receipt','find_boxes','page_lang','system_language_v1','upload_payload_v1'];
 let lastReload=null;
 const helperInfo=()=>({version:typeof MANIFEST.version==='string'?MANIFEST.version:null,version_name:typeof MANIFEST.version_name==='string'?MANIFEST.version_name:null,build:Number(String(MANIFEST.version||'').split('.')[3])||null,actions:HELPER_ACTIONS,features:HELPER_FEATURES,...(lastReload?{last_reload:lastReload}:{})});
 const hello=()=>({kind:'hello',version:1,enabled:true,helper:helperInfo()});
@@ -24,7 +25,8 @@ let lastConnectionError=null,hostReady=false;
 
 const fault=code=>Object.assign(new Error(code),{code});
 function clearReconnect(reset=true){if(reconnectTimer!==null){clearTimeout(reconnectTimer);reconnectTimer=null;}if(reset)reconnectAttempt=0;}
-function clearAuthorizations(){for(const a of authorizations.values()){clearTimeout(a.timer);a.resolve(false);}authorizations.clear();for(const a of installAuthorizations.values()){clearTimeout(a.timer);a.resolve(false);}installAuthorizations.clear();}
+function clearUploadChunks(tabId){for(const [key,chunk] of uploadChunks)if(tabId===undefined||chunk.tabId===tabId){clearTimeout(chunk.timer);uploadChunks.delete(key);chunk.reject(fault('TASK_REVOKED'));}}
+function clearAuthorizations(){clearUploadChunks();for(const a of authorizations.values()){clearTimeout(a.timer);a.resolve(false);}authorizations.clear();for(const a of installAuthorizations.values()){clearTimeout(a.timer);a.resolve(false);}installAuthorizations.clear();}
 function scheduleReconnect(){
  if(!canConnect()||port||reconnectTimer!==null)return;
  const delay=Math.min(RECONNECT_MAX_MS,RECONNECT_BASE_MS*2**reconnectAttempt++);
@@ -51,9 +53,10 @@ function connect(){
  if(!safePost(current,hello()))return;
  current.onMessage.addListener(message=>{
   if(current!==port)return;
-  if(message.control==='pause'){generation++;void driver.detachAll();return;}
+  if(message.control==='pause'){generation++;clearAuthorizations();void driver.detachAll();return;}
   if(message.control==='reconnect'){void disconnect().then(()=>connect());return;}
   if(message.control==='reload'){void reloadSelf(current,message);return;}
+  if(message.kind==='upload_chunk'){const chunk=uploadChunks.get(message.chunk_id);if(chunk&&chunk.current===current&&chunk.id===message.id){clearTimeout(chunk.timer);uploadChunks.delete(message.chunk_id);if(message.error)chunk.reject(fault(['TASK_REVOKED','TASK_EXPIRED','ACTION_CANCELLED','UPLOAD_CHUNK_INVALID','UPLOAD_FILE_CHANGED'].includes(message.error.code)?message.error.code:'UPLOAD_CHUNK_INVALID'));else chunk.resolve(message);}return;}
   if(message.kind==='authorization'){const a=authorizations.get(message.id);if(a){clearTimeout(a.timer);authorizations.delete(message.id);a.resolve(message.allowed===true);}return;}
   if(message.kind==='install_authorization'){const a=installAuthorizations.get(message.id);if(a){clearTimeout(a.timer);installAuthorizations.delete(message.id);a.resolve(message.allowed===true);}return;}
   if(message.kind==='system_language'){if(setSystemLanguage(message))void chrome.action.setBadgeText({text:!enabled?text('chrome.disabledBadge'):hostReady?'':text('chrome.offlineBadge')});return;}
@@ -69,10 +72,12 @@ function connect(){
     if(!authorized||!enabled||current!==port||epoch!==generation||Date.now()>message.deadline)throw fault('TASK_REVOKED');
     const remaining=Number(message.deadline)-Date.now();if(!Number.isFinite(remaining)||remaining<=0)throw fault('TASK_EXPIRED');
     const authorizeStep=async()=>{if(!enabled||current!==port||epoch!==generation||Date.now()>message.deadline)throw fault('TASK_REVOKED');if(!await authorize())throw fault('TASK_REVOKED');if(!enabled||current!==port||epoch!==generation||Date.now()>message.deadline)throw fault('TASK_REVOKED');};
-    let timer;const pending=(async()=>{const result=await driver.execute(message.action,message.args,{authorize:authorizeStep,chatgptSelfAllowed:message.options?.chatgptSelfAllowed===true});return result;})();const timeout=new Promise((_,reject)=>{timer=setTimeout(()=>reject(fault('TASK_EXPIRED')),remaining);});
-    let result;try{result=await Promise.race([pending,timeout]);}catch(error){if(error.code==='TASK_EXPIRED'){driver.cancel();void driver.detachAll();}throw error;}finally{clearTimeout(timer);}
+    let active=true;
+    const readUploadChunk=async(index,offset)=>{await authorizeStep();if(!active||message.action!=='upload'||!Number.isSafeInteger(index)||index<0||index>=message.args.files?.length||!Number.isSafeInteger(offset)||offset<0)throw fault('UPLOAD_CHUNK_INVALID');return new Promise((resolve,reject)=>{const chunk_id=crypto.randomUUID(),timer=setTimeout(()=>{uploadChunks.delete(chunk_id);reject(fault('TASK_EXPIRED'));},Math.min(4500,Math.max(0,message.deadline-Date.now())));uploadChunks.set(chunk_id,{id:message.id,tabId:Number(message.args.page_id),current,resolve,reject,timer});if(!safePost(current,{kind:'upload_chunk',id:message.id,chunk_id,index,offset})){clearTimeout(timer);uploadChunks.delete(chunk_id);reject(fault('TASK_REVOKED'));}});};
+    let timer;const pending=(async()=>{const result=await driver.execute(message.action,message.args,{authorize:authorizeStep,chatgptSelfAllowed:message.options?.chatgptSelfAllowed===true,...(message.action==='upload'?{readUploadChunk}:{})});return result;})();const timeout=new Promise((_,reject)=>{timer=setTimeout(()=>reject(fault('TASK_EXPIRED')),remaining);});
+    let result;try{result=await Promise.race([pending,timeout]);}catch(error){if(error.code==='TASK_EXPIRED'){driver.cancel();void driver.detachAll();}throw error;}finally{active=false;clearTimeout(timer);for(const [key,chunk] of uploadChunks)if(chunk.id===message.id){clearTimeout(chunk.timer);uploadChunks.delete(key);chunk.reject(fault('TASK_REVOKED'));}}
     if(epoch===generation&&current===port)safePost(current,{kind:'result',id:message.id,result});
-   }catch(e){safePost(current,{kind:'result',id:message.id,error:{code:String(e.code||'BROWSER_ACTION_FAILED').slice(0,80),message:String(e.message||text('chrome.actionStopped')).slice(0,800),details:e.details}});}
+   }catch(e){safePost(current,{kind:'result',id:message.id,error:{code:String(e.code||'BROWSER_ACTION_FAILED').slice(0,80),message:message.action==='upload'?String(e.code||'BROWSER_ACTION_FAILED').slice(0,80):String(e.message||text('chrome.actionStopped')).slice(0,800),details:message.action==='upload'?undefined:e.details}});}
   };
   queue=queue.then(run,run).catch(()=>{});
  });
@@ -112,9 +117,9 @@ chrome.runtime.onInstalled.addListener(()=>{void loadSavedEnabled().catch(()=>{}
 chrome.runtime.onStartup.addListener(()=>{void loadSavedEnabled().catch(()=>{});});
 chrome.alarms.create('ken-reconnect',{periodInMinutes:0.5});
 chrome.alarms.onAlarm.addListener(a=>{if(a.name==='ken-reconnect'&&canConnect()&&!port&&!reconnectTimer)connect();});
-chrome.tabs.onRemoved.addListener(id=>{driver.attached.delete(id);driver.invalidate(id);});
-chrome.tabs.onUpdated.addListener((id,change)=>{if(change.url||change.status==='loading')driver.invalidate(id);});
-chrome.debugger.onDetach.addListener((source,reason)=>{driver.attached.delete(source.tabId);driver.invalidate(source.tabId);driver.noteDetached?.(source.tabId);if(reason==='canceled_by_user'&&!userStopMarker)void setUserEnabled(false).catch(()=>{});});
+chrome.tabs.onRemoved.addListener(id=>{clearUploadChunks(id);driver.attached.delete(id);driver.invalidate(id);});
+chrome.tabs.onUpdated.addListener((id,change)=>{if(change.url||change.status==='loading'){clearUploadChunks(id);driver.invalidate(id);}});
+chrome.debugger.onDetach.addListener((source,reason)=>{clearUploadChunks(source.tabId);driver.attached.delete(source.tabId);driver.invalidate(source.tabId);driver.noteDetached?.(source.tabId);if(reason==='canceled_by_user'&&!userStopMarker)void setUserEnabled(false).catch(()=>{});});
 chrome.debugger.onEvent?.addListener((source,method,params)=>{void driver.onEvent?.(source,method,params).catch(()=>{});});
 chrome.runtime.onMessage.addListener((m,sender,reply)=>{if(sender.id!==chrome.runtime.id||!sender.url?.startsWith(chrome.runtime.getURL('popup.html')))return false;if(m.action==='status'){reply({language:languageState(),enabled,connected:!!port&&hostReady,connection_state:!enabled?'disabled':port&&hostReady?'connected':'disconnected',connection_error:lastConnectionError,preference_revision:preferenceRevision,preference_ready:preferenceReady(),preference_error:preferenceError(),preference_error_enabled:preferenceError()?preferenceWriteFailedValue:null});return false;}if(m.action==='reconnect'){void disconnect().then(()=>{connect();reply({reconnecting:canConnect()});});return true;}if(m.action==='enable'||m.action==='disable'){const next=m.action==='enable';void setUserEnabled(next).then(result=>reply(result),()=>reply({enabled:next,error:'PREFERENCE_SAVE_FAILED'}));return true;}return false;});
 void loadSavedEnabled().catch(()=>{});
