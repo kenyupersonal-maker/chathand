@@ -14,7 +14,7 @@ async function run(name,args){if(only.length&&!only.includes(name))return;
  try{
   await run('setup-1013',['tests/ui/1012/checks/setup-1013.cjs']);
   await run('static',['tests/ui/harness/check.js','--only=静态,皮肤']);
-  for(const name of ['stream','continuity','clocks','actions','matrix','ui2-behavior','ui2-races','ui2-matrix','ui2-accessibility','ui2-boundaries','uiv-behavior','uiv-matrix','uiv-long','uiv-final','font-scale','grid-snap'])await run(name,['tests/ui/1012/checks/'+name+(name.startsWith('uiv-')?'.cjs':'.js')]);
+  for(const name of ['stream','continuity','clocks','actions','update-check','matrix','ui2-behavior','ui2-races','ui2-matrix','ui2-accessibility','ui2-boundaries','uiv-behavior','uiv-matrix','uiv-long','uiv-final','font-scale','grid-snap'])await run(name,['tests/ui/1012/checks/'+name+(name.startsWith('uiv-')?'.cjs':'.js')]);
   await run('skin-mechanism',['tests/ui/harness/skin-mechanism.js']);
   await run('install-pages',['ui/assets/dmg/src/verify.mjs']);
   await run('real-main',['--test','tests/v1/1012-main-service-ui.test.mjs','tests/v1/1012-static-assets.test.mjs']);

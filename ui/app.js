@@ -1911,7 +1911,7 @@ async function action(name,id,el){switch(name){
  case'copyTech':await copyText(techRows().map(([k,v])=>`${k}：${v}`).join('\n'),el);return;
  case'openLoginItems':{const r=await native('openLoginItemsSettings');if(r?.error)toast(T("ui.window.action.openLoginItems.text"));return;}
  /* 版本与更新 */
- case'checkUpdate':{const r=await api('/api/support/update',{});toast(r?.status==='available'?T("ui.window.updateLine.text2",{"value":r.version||''}):r?.status==='up_to_date'?T("ui.window.updateLine.text3"):T("ui.window.action.checkUpdate.text"),r?.status==='available'||r?.status==='up_to_date'?'':'warn');break;}
+ case'checkUpdate':{const r=await api('/api/support/update',{}),availability=r?.availability??r?.status;toast(availability==='available'?T("ui.window.updateLine.text2",{"value":r.version||''}):availability==='up_to_date'?T("ui.window.updateLine.text3"):T("ui.window.action.checkUpdate.text"),availability==='available'||availability==='up_to_date'?'':'warn');break;}
  case'updateInstall':{try{await api('/api/update/install',{version:id});}catch(e){if(notReady(e)){await openURL(S.update?.url||RELEASES_URL);return;}throw e;}break;}
  case'updateLater':bubbleHidden.add(id);scheduleRender();void api('/api/update/dismiss',{version:id}).catch(()=>{});return;
  case'updateCancel':await api('/api/update/cancel',{}).catch(e=>{if(!notReady(e))throw e;});break;
