@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "__MSG_helperName__",
-  "version": "1.0.0.1080",
+  "version": "1.0.0.1091",
   "description": "__MSG_helperDescription__",
   "minimum_chrome_version": "128",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA0xwX6AmjrgDyiTCLyuYKDzzHbjs0bCHNmrR/pow4tf9PrJMYDHt+YIR6DUi6xy6Pkz73/kGPvj+0Az7nXd6OVGOO8E/DiiTSR2qy1Dp27IS5RLwxY+uMHq1q/jWWuJ/9t1iuydLZm1jwLpYrocvedHcPCQgRtdlzmqttAz+jHdeOnFv8lgIUOkvK0QMSv4eEMuo4uJ0IdFs9suDaM6tgjkIQ/X6PDO/kIy6MGwkq8CWzWU2QdXoRS6L4O83F3avBa8lNfhYNx0V2QCYOoBechDFklpw9gvLIFDv9rUjIHH1MwwN/hMPIbrgR5Fiy1RMtTj4bZkyh5ntuovzROZZTNwIDAQAB",
@@ -28,7 +28,7 @@
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'none';"
   },
-  "version_name": "1.0.0-beta.30 (1080)",
+  "version_name": "1.0.0-beta.41 (1091)",
   "default_locale": "zh_CN",
   "icons": {
     "16": "icons/chathand-16.png",
