@@ -857,6 +857,9 @@ dialog#modal h3{margin:20px 0 6px;font-size:15px;font-weight:650}
 dialog#modal p{margin:0 0 10px;font-size:14px;line-height:1.65;color:var(--ink-2)}
 dialog#modal .actions{margin-top:14px;display:flex;flex-wrap:wrap;gap:8px}
 dialog#modal .actions.ask{justify-content:flex-end;margin-top:18px}
+/* 设置引导中带取消／关闭的操作行：沿用普通按钮的颜色，尺寸与确认弹窗一致。 */
+#modal[data-kind="chrome-store"] .actions,#modal[data-kind="chrome-install"] .actions:has([data-action="extensionCancel"]){justify-content:flex-end;gap:10px;margin-top:24px}
+#modal[data-kind="chrome-store"] .actions .btn,#modal[data-kind="chrome-install"] .actions:has([data-action="extensionCancel"]) .btn{height:40px;min-height:40px;padding:0 14px;font-size:14px}
 /* Chrome 网上应用店：两步、等连上的那一行 */
 dialog#modal p.cs-wait{display:flex;align-items:center;gap:8px;color:var(--ink-3);font-size:13px}
 dialog#modal p.cs-profile .tbtn,dialog#modal p.cs-again .tbtn{margin-left:4px;font-size:13px}
