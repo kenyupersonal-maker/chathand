@@ -37,7 +37,8 @@ try{
  for(const name of ['AppIcon.icns','MenuBarIcon.png','MenuBarIcon@2x.png','AppIcon-rounded-512.png'])fs.copyFileSync(path.join(root,'ui/assets/app',name),path.join(contents,'Resources',name));
  copy(path.join(root,'codex'),path.join(contents,'Resources/codex'));
  const target=process.arch+'-apple-macosx14.0';
- run('/usr/bin/xcrun',['swift','build','--package-path','native','-c','release','--triple',target,'--product','ChatHandShell',...swiftPackagePrivacyFlags(root)]);
+ // A clean optimized package build needs time to populate the isolated compiler caches.
+ run('/usr/bin/xcrun',['swift','build','--package-path','native','-c','release','--triple',target,'--product','ChatHandShell',...swiftPackagePrivacyFlags(root)],600000);
  const swiftBin=run('/usr/bin/xcrun',['swift','build','--package-path','native','-c','release','--triple',target,'--show-bin-path']).trim();
  fs.copyFileSync(path.join(swiftBin,'ChatHandShell'),path.join(contents,'MacOS/KenBridge'));
  copy(path.join(swiftBin,'PermissionFlow_PermissionFlow.bundle'),path.join(contents,'Resources/PermissionFlow_PermissionFlow.bundle'));
