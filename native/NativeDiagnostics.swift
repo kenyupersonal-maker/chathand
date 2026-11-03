@@ -4,6 +4,34 @@ import Darwin
 /// Categorical native receipts only. No URLs, clipboard bytes or exception text.
 enum NativeDiagnostics {
     private static var pending: [[String: Any]] = []
+    // Private exit-status protocol from desktop-cli.mjs. No stderr parsing and
+    // no exception text crosses into native-events.jsonl.
+    static func startupFailureCode(reason: Process.TerminationReason, status: Int32) -> String? {
+        guard reason == .exit, status != 0 else { return nil }
+        switch status {
+        case 71: return "STARTUP_NODE_VERSION"
+        case 72: return "STARTUP_ALREADY_RUNNING"
+        case 73: return "STARTUP_DATA_NEWER"
+        case 74: return "STARTUP_DATA_UNSUPPORTED"
+        case 75: return "STARTUP_ACCESS_DENIED"
+        case 76: return "STARTUP_STORAGE_FULL"
+        case 77: return "STARTUP_PORT_IN_USE"
+        case 78: return "STARTUP_OWNER_EXITED"
+        case 79: return "PILOT_IDENTITY_UNSAFE"
+        case 80: return "PILOT_IDENTITY_CORRUPT"
+        case 81: return "PILOT_IDENTITY_INVALID"
+        case 82: return "RELAY_STATE_VERSION"
+        case 83: return "B_STORE_CONFIG"
+        case 84: return "B_STORE_UNSAFE"
+        case 85: return "MATTER_UNSAFE_PATH"
+        case 86: return "MATTER_UNSAFE_FILE"
+        case 87: return "MATTER_SEQUENCE"
+        case 88: return "MATTER_ID"
+        case 89: return "MATTER_JOURNAL_CONFLICT"
+        case 90: return "STATE_UNSAFE"
+        default: return "STARTUP_FAILURE_UNKNOWN"
+        }
+    }
     static func safe(_ url: URL) throws -> stat {
         var value = stat()
         guard lstat(url.path, &value) == 0, value.st_mode & mode_t(S_IFMT) == mode_t(S_IFREG), value.st_uid == getuid(), value.st_nlink == 1 else { throw Failure.unsafe }

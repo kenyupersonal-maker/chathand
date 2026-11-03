@@ -87,16 +87,16 @@ const checks=[
    let ext=s.automation?.browser?.extension;
    // 1081（Claude，Ken 10/27）：装过、只是没连上：Chrome 多数时候只是没开，先在后台打开它、等插件连上，跟旧装法一样。
    // 打开了还是没连上，按钮是「打开插件页面」（插件被删了在那页重新添加）；这台 Mac 打不开 Chrome，就说装 Chrome。
-   if(ext?.connected!==true&&(ext?.installed===true||ext?.last_seen)){
-    let opened=true;try{await ctx.openChromeInBackground();}catch(e){opened=e?.message!=='CHROME_OPEN_FAILED';}
+   if(ext?.connected!==true){
+    let opened=true;try{await ctx.openChromeInBackground();}catch(e){if(['CAPABILITY_OFF','LOCAL_DISABLED','INSTALL_ACCESS_CHANGED','PERMISSION_TRANSITION','UPGRADE_VERIFYING'].includes(e?.code))return off();if(e?.code==='CHROME_OPEN_FAILED'||e?.message==='CHROME_OPEN_FAILED')opened=false;else throw e;}
     // 结果也记到插件那边（noteWakeFailed），「浏览器控制」页跟这里说的一样。
     if(!opened){ctx.deps.noteWakeFailed?.({chrome_open_failed:true});return {...result('action','无法在这台 Mac 上打开 Google Chrome',action('download_chrome','下载 Chrome'),'repair.browser_helper.noChrome.message'),code:'EXTENSION_DISCONNECTED'};}
-    if(await ctx.wait(x=>x.automation?.browser?.extension?.connected===true&&chromeStoreUsable(x.automation.browser.extension.compatibility),10000))return result('fixed');
-    s=await ctx.snapshot();ext=s.automation?.browser?.extension;
-    if(ext?.connected!==true){ctx.deps.noteWakeFailed?.({});return {...result('action','已打开 Chrome，但插件仍未连接',action('open_extension_page','打开插件页面'),'repair.browser_helper.wakeFailed.message'),code:'EXTENSION_DISCONNECTED'};}
+    if(await ctx.wait(x=>x.automation?.browser?.extension?.connected===true&&chromeStoreUsable(x.automation.browser.extension.compatibility),10000,{browser:true}))return result('fixed');
+    s=await ctx.snapshot();if(!browserFilesAllowed(s,ctx.deps)||ctx.paused(s))return off();ext=s.automation?.browser?.extension;
+    if(ext?.connected!==true){ctx.deps.noteWakeFailed?.({});return {...result('action','已打开 Chrome，但插件仍未连接',action('manage_chrome_extensions','打开扩展管理'),'repair.browser_helper.wakeFailed.message'),code:'EXTENSION_DISCONNECTED'};}
    }
    // 1081（Claude，Ken 10/27 10:03）：插件旧到用不了才算出了问题，说要更新，按钮「打开插件页面」；只缺后来加的动作照常能用，不算。
-   if(ext?.connected===true&&ext.compatibility?.state==='incompatible')return {...result('action','Chrome 插件需要更新后才能继续使用',action('open_store_page','打开插件页面'),'repair.browser_helper.mismatch.message'),code:'CHROME_STORE_INCOMPATIBLE'};
+   if(ext?.connected===true&&ext.compatibility?.state==='incompatible')return {...result('action','Chrome 插件需要更新后才能继续使用',action('update_chrome_extension','检查插件更新'),'repair.browser_helper.mismatch.message'),code:'CHROME_STORE_INCOMPATIBLE'};
    return ext?.connected===true&&chromeStoreUsable(ext?.compatibility)?result('ok'):{...result('action',undefined,action('install_helper','安装')),code:ext?.connected?'CHROME_STORE_INCOMPATIBLE':'EXTENSION_DISCONNECTED'};
   }
   if(s.automation?.browser?.extension?.connected===true)return result('ok');
@@ -139,8 +139,8 @@ export class Repair {
    openChromeInBackground:()=>bounded(()=>deps.openChromeInBackground(),Math.min(2000,remaining())),
    cleanupUpgrade:()=>bounded(()=>deps.cleanupUpgrade(),remaining()),
   };
-  ctx.wait=async(predicate,ms,{connection=false}={})=>{const until=deps.now()+Math.min(ms,remaining());while(remaining()>0){
-   const snapshot=await ctx.snapshot();if(connection&&ctx.paused(snapshot))return false;if(predicate(snapshot))return true;const left=Math.min(until-deps.now(),remaining());if(left<=0)return false;
+  ctx.wait=async(predicate,ms,{connection=false,browser=false}={})=>{const until=deps.now()+Math.min(ms,remaining());while(remaining()>0){
+   const snapshot=await ctx.snapshot();if(connection&&ctx.paused(snapshot)||browser&&(!browserFilesAllowed(snapshot,deps)||ctx.paused(snapshot)))return false;if(predicate(snapshot))return true;const left=Math.min(until-deps.now(),remaining());if(left<=0)return false;
    await deps.sleep(Math.min(250,left));
   }return false;};
   ctx.reconnect=async()=>{if(ctx.paused(await ctx.snapshot()))return false;const until=deps.now()+Math.min(15000,remaining());

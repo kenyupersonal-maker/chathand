@@ -243,6 +243,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
     private var ownerPipeWriter: FileHandle?
     private var instanceLease: InstanceLifecycle.Lease?
     private var startupLease: InstanceLifecycle.Lease?
+    private var lastStartupFailureCode: String?
     private let startupMigration = StartupMigration()
     private var migrationQuitPending = false
     private var termination = NativeTerminationCoordinator()
@@ -845,6 +846,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
     private func ownedBackendExited(_ exited: Process, generation: UUID) {
         guard backendGeneration == generation, process === exited, ownsService, !exited.isRunning,
               !shuttingDown, !uninstallInProgress else { return }
+        if attachedBackend !== exited, stoppingStartupBackend !== exited, !installerOwnsBackend(),
+           let code = NativeDiagnostics.startupFailureCode(reason: exited.terminationReason, status: exited.terminationStatus) {
+            lastStartupFailureCode=code
+            nativeRecord("startup", code)
+        }
         nativeRecord("backend", "BACKEND_EXIT")
         timer?.invalidate(); timer = nil; setComputerPolling(false)
         ComputerControl.stopped = true
@@ -865,7 +871,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
         guard let delay = backendRecovery.recoveryDelay(now: ProcessInfo.processInfo.systemUptime) else {
             backendRecoveryInProgress = false
             nativeRecord("recovery", "RECOVERY_EXHAUSTED")
-            showError(LocalText.text("native.service.startFailed"), LocalText.text("native.service.checkLog")); return
+            showStartupFailure(lastStartupFailureCode ?? "STARTUP_BACKEND_EXIT"); return
         }
         backendRecoveryInProgress = true
         nativeRecord("recovery", "RECOVERY_SCHEDULED", attempt: backendRecovery.attemptCount)
@@ -874,7 +880,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
                   !self.shuttingDown, !self.uninstallInProgress, !self.installerOwnsBackend() else { return }
             self.interfaceKeyShared = false
             do { try self.startService() }
-            catch { self.scheduleBackendRecovery() }
+            catch { self.lastStartupFailureCode=(error as? InstanceLifecycle.Failure)?.code ?? StartupFailureAlert.errorCode(error);self.scheduleBackendRecovery() }
         }
     }
 
@@ -1089,6 +1095,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
         serviceAvailable = false; ownsService = false; event("RUNTIME_EXITED")
     }
     func showError(_ title:String,_ detail:String){let a=NSAlert();a.messageText=title;a.informativeText=detail;a.addButton(withTitle:LocalText.text("native.button.ok"));a.runModal()}
+    private func showStartupFailure(_ code: String) {
+        let (alert,actions)=StartupFailureAlert.make(code:code,canRetry:process?.isRunning != true,text:{LocalText.text($0)})
+        let response=alert.runModal().rawValue-NSApplication.ModalResponse.alertFirstButtonReturn.rawValue
+        guard actions.indices.contains(response) else{return}
+        switch actions[response] {
+        case .retry:
+            guard process?.isRunning != true else{return}
+            backendRecovery=BackendRecoveryPolicy()
+            if instanceLease != nil {
+                do {try startService()} catch {showStartupFailure((error as? InstanceLifecycle.Failure)?.code ?? StartupFailureAlert.errorCode(error))}
+            } else {startupLease=nil;beginStartup()}
+        case .download: NSWorkspace.shared.open(URL(string:"https://github.com/kenyupersonal-maker/chathand/releases/latest")!)
+        case .dataFolder: NSWorkspace.shared.open(stateURL)
+        case .log:
+            let log=stateURL.appendingPathComponent("launcher.log")
+            if FileManager.default.fileExists(atPath:log.path) {NSWorkspace.shared.activateFileViewerSelecting([log])}
+            else {NSWorkspace.shared.open(stateURL)}
+        case .quit: NSApp.terminate(nil)
+        }
+    }
     func observeSitePrompt(_ text: String) {
         guard interfaceKeyShared, ownsService, !text.isEmpty, text.utf8.count <= 256 * 1024 else { return }
         let digest = SHA256.hash(data: Data(text.utf8)).map { String(format: "%02x", $0) }.joined()
@@ -1156,15 +1182,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
                     self.startupLease=gate;self.instanceLease=lease;self.instanceScope=scope;self.priorBackend=frozen
                     guard !self.shuttingDown,!runner.isCancelled else{self.completeMigrationQuit();return}
                     self.nativeRecord("startup","MIGRATION_READY")
-                    do {try self.startService()} catch {self.showError(LocalText.text("native.start.failed"),error.localizedDescription)}
+                    do {try self.startService()} catch {self.showStartupFailure((error as? InstanceLifecycle.Failure)?.code ?? StartupFailureAlert.errorCode(error))}
                 case .existing:
                     self.shuttingDown=true;self.migrationQuitPending=false;self.finishQuit()
                 case let .failed(gate,code):
                     self.startupLease=gate
                     guard !self.shuttingDown else{self.completeMigrationQuit();return}
                     self.nativeRecord("migration",code)
-                    let message=LocalText.text(StartupMigration.messageKey(code:code))
-                    self.showError(LocalText.text("native.start.failed"),message+"\n("+code+")")
+                    self.showStartupFailure(code)
                 }
             }
         }
@@ -1233,7 +1258,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
         try InstanceLifecycle.shutdownOrphan(state:stateURL,source:Bundle.main.bundleURL,scope:scope,prior:priorBackend,diagnostic:instanceRecord)
         priorBackend=nil
         let node=packageURL.appendingPathComponent("bin/ChatHandNode")
-        guard FileManager.default.isExecutableFile(atPath:node.path) else {throw NSError(domain:"KenBridge",code:1,userInfo:[NSLocalizedDescriptionKey:LocalText.text("native.service.nodeMissing")])}
+        guard FileManager.default.isExecutableFile(atPath:node.path) else {throw InstanceLifecycle.Failure(code:"SERVICE_NODE_MISSING")}
         try FileManager.default.createDirectory(at:stateURL,withIntermediateDirectories:true,attributes:[.posixPermissions:0o700])
         let logURL=stateURL.appendingPathComponent("launcher.log")
         // Snapshot the prior launch and append; never truncate launcher evidence.
@@ -1283,7 +1308,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
                 timer.invalidate();self.nativeRecord("startup", "STARTUP_BACKEND_EXIT")
                 self.ownedBackendExited(p, generation:generation)
             } else if ProcessInfo.processInfo.systemUptime >= deadline {
-                timer.invalidate();self.nativeRecord("startup", "INITIAL_START_TIMEOUT")
+                timer.invalidate();self.nativeRecord("startup", "INITIAL_START_TIMEOUT");self.lastStartupFailureCode="INITIAL_START_TIMEOUT"
                 self.stopStartupBackend(p, generation:generation, identity:identity)
             } else if let r=self.readRuntime(),let pid=r["pid"] as? Int,pid==Int(p.processIdentifier) {
                 timer.invalidate();self.attachedBackend=p;self.backendRecovery.attached();self.backendRecoveryInProgress=false;self.attach(r)
@@ -1308,19 +1333,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
             if elapsed >= 4 {
                 timer.invalidate();self.backendRecoveryInProgress=false
                 self.nativeRecord("startup", "STARTUP_STOP_UNCONFIRMED")
-                self.showError(LocalText.text("native.service.startFailed"),LocalText.text("native.service.checkLog"));return
+                self.showStartupFailure("STARTUP_STOP_UNCONFIRMED");return
             }
             let signal: Int32 = elapsed >= 2 ? SIGKILL : elapsed >= 1 ? SIGTERM : 0
             guard signal != 0, signal != signaled else { return }
             guard let identity, let current=try? InstanceLifecycle.identity(p.processIdentifier), current == identity else {
                 timer.invalidate();self.backendRecoveryInProgress=false
                 self.nativeRecord("startup", "STARTUP_IDENTITY_UNKNOWN")
-                self.showError(LocalText.text("native.service.startFailed"),LocalText.text("native.service.checkLog"));return
+                self.showStartupFailure("STARTUP_IDENTITY_UNKNOWN");return
             }
             guard Darwin.kill(identity.pid,signal) == 0 || errno == ESRCH else {
                 timer.invalidate();self.backendRecoveryInProgress=false
                 self.nativeRecord("startup", "STARTUP_STOP_DENIED")
-                self.showError(LocalText.text("native.service.startFailed"),LocalText.text("native.service.checkLog"));return
+                self.showStartupFailure("STARTUP_STOP_DENIED");return
             }
             signaled=signal
             self.nativeRecord("startup", signal == SIGTERM ? "STARTUP_TERM_SENT" : "STARTUP_KILL_SENT")
@@ -1335,7 +1360,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
         return r
     }
     func readRuntime()->[String:Any]? {guard let r=rawRuntime(),RuntimeDescriptor.accepts(r) else{return nil};return r}
-    func attach(_ r:[String:Any]) {nativeRecord("startup", "SERVICE_ATTACHED");origin=r["ui_origin"] as! String;token=r["admin_token"] as! String
+    func attach(_ r:[String:Any]) {lastStartupFailureCode=nil;nativeRecord("startup", "SERVICE_ATTACHED");origin=r["ui_origin"] as! String;token=r["admin_token"] as! String
         onboardingFlush() // First owner handshake has origin + the memory-only UI credential.
         timer?.invalidate(); pollInFlight = false
         clientUIReady = false
@@ -1875,6 +1900,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
         // Repair and setup share the same personal-click, focus and lease gates.
         let repairExtension = action == "extensionRepair"
         switch repairExtension ? "extensionSetup" : action {
+        case "openChromeExtensions", "openChromeExtensionDetails":
+            guard data.isEmpty else { done(["opened":false,"error_code":"ARG_INVALID"]); return }
+            guard ownsService, interfaceKeyShared, !shuttingDown else { done(["opened":false,"error_code":"OWNED_WINDOW_REQUIRED"]); return }
+            guard let chrome = chromeApplicationURL() else { done(["opened":false,"error_code":"CHROME_NOT_INSTALLED"]); return }
+            // Opening the fixed management page needs no Accessibility access
+            // and remains available when the extension is disabled or removed.
+            var target=URL(string:"chrome://extensions/")!
+            if action == "openChromeExtensionDetails" {
+                let file=packageURL.appendingPathComponent("connectors/browser-extension.json")
+                let config=(try? Data(contentsOf:file)).flatMap {try? JSONSerialization.jsonObject(with:$0) as? [String:Any]} ?? [:]
+                do {target=try ChromeExtensionDetailsPolicy.target(data:data,configuration:config)}
+                catch {done(["opened":false,"error_code":(error as NSError).userInfo["error_code"] as? String ?? "CHROME_STORE_CONFIGURATION_PENDING"]);return}
+            }
+            let configuration = NSWorkspace.OpenConfiguration()
+            NSWorkspace.shared.open([target], withApplicationAt:chrome, configuration:configuration) { app, error in
+                DispatchQueue.main.async {
+                    done(error == nil && app != nil ? ["opened":true] : ["opened":false,"error_code":"CHROME_EXTENSIONS_OPEN_FAILED"])
+                }
+            }
         case "relaunchChatHand":
             guard data.isEmpty else{done(["error":"ARG_INVALID"]);return}
             relaunchChatHand(completion:done)

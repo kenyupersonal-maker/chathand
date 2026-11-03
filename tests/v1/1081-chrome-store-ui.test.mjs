@@ -163,44 +163,51 @@ test('1081 legacy_unpacked keeps the parked local installer', async () => {
   assert.equal(f.natives()[0][0], 'extensionSetup');
 });
 
-test('1081 Browser Use card reads store status without claiming the extension is missing', () => {
-  const ctx = vm.createContext({S: {}, T: k => k, capOn: () => true, browserOn: () => false, helperNeedsHand: () => false, extRepairUnsupported: false, browserRetrying: false});
+test('1081 recovery UI: only a fresh connection is ready; install, management and update have separate actions', () => {
+  const ctx = vm.createContext({S: {}, T: k => k, capOn: () => true, browserOn: () => false, helperNeedsHand: () => false, extRepairUnsupported: false,
+    browserRetrying: false, browserRetryError: false, browserUpdateError: false, browserUpdating: false});
   const card = source.slice(source.indexOf('function capBrowser()'), source.indexOf('function capDesktop()'));
   vm.runInContext(source.split('\n').find(l => l.startsWith('function browserState()')) + '\n' + card, ctx);
-  const at = ext => { ctx.S = {automation: {browser: {extension: {distribution: 'chrome_web_store', configuration_state: 'ready', connection_state: 'disconnected', ...ext}}}}; return vm.runInContext('capBrowser()', ctx); };
-  const fresh = plain(at({installed: null, installation_state: 'unknown'}));
-  assert.equal(fresh.tag, 'ui.window.capBrowser.tag.text4');
-  assert.deepEqual(fresh.act, ['ui.window.capBrowser.act.text2', 'extensionSetup']);
-  const seen = plain(at({installed: true, installation_state: 'observed', last_seen: Date.now() - 3600e3}));
-  // 1081（Ken 10/27 02:19 定的，断言跟着改）：装过、只是 Chrome 没开，卡片照常，不标「没连上」、不放按钮；AI 要用浏览器时 ChatHand 自己打开 Chrome。
-  assert.equal(seen.ok, true);
-  assert.equal(seen.tag, '');
-  assert.equal(seen.act, undefined);
-  // 真出了问题才报：ChatHand 打开了 Chrome 插件还是没连上，「连不上」+「打开插件页面」；这台 Mac 上打不开 Chrome，「找不到 Chrome」+「下载 Chrome」。
-  const failed = plain(at({installed: true, installation_state: 'observed', last_seen: Date.now() - 3600e3, wake: {at: Date.now(), connected: false}}));
-  assert.equal(failed.ok, false);
-  assert.equal(failed.tag, 'ui.window.capBrowser.wakeFailed.tag');
-  // 断言跟着 Ken 10/27 10:07 改：两种情况各一行，按钮「打开插件页面」「再试一次」
-  assert.deepEqual(failed.notes, ['ui.window.capBrowser.wakeFailed.off', 'ui.window.capBrowser.wakeFailed.gone']);
-  assert.deepEqual(failed.acts, [['ui.chrome.store.openPage', 'chromeStoreReconnect'], ['ui.wizard.retry', 'browserRetry']]);
-  const noChrome = plain(at({installed: true, installation_state: 'observed', last_seen: Date.now() - 3600e3, wake: {at: Date.now(), connected: false, chrome_open_failed: true}}));
-  assert.equal(noChrome.tag, 'ui.window.capBrowser.noChrome.tag');
-  assert.deepEqual(noChrome.act, ['ui.window.showChromeInstall.text8', 'chromeUpdate']);
-  const old = plain(at({connection_state: 'connected', connected: true, compatibility: {state: 'incompatible'}}));
-  assert.equal(old.res, 'ui.chrome.store.resOld');
-  assert.deepEqual(old.act, ['ui.chrome.store.openPage', 'chromeStoreOpen'], 'an old extension goes straight to the store page, no install intro');
-  assert.equal(old.tag, 'ui.chrome.store.tagMismatch');
-  assert.equal(old.note, 'ui.chrome.store.oldText');
-  // Ken 10/27 10:03：只缺后来加的动作照常能用，卡片什么都不说
-  const partial = plain(at({connection_state: 'connected', connected: true, compatibility: {state: 'partial', missing_later_actions: ['x']}}));
-  assert.equal(partial.ok, true);
-  assert.equal(partial.tag, '');
-  assert.equal(partial.act, undefined);
+  const at = ext => { ctx.S = {automation: {browser: {extension: {distribution: 'chrome_web_store', configuration_state: 'ready', connected: false, connection_state: 'disconnected', ...ext}}}}; return plain(vm.runInContext('capBrowser()', ctx)); };
+  const missing = at({installed: null, installation_previously_observed: false, last_seen: null});
+  assert.equal(missing.ok, false);
+  assert.equal(missing.neutral, true);
+  // Ken 11/2：从没见插件连上过，就当还没装，按钮是「安装插件」。
+  assert.equal(missing.res, 'ui.chrome.store.notInstalled');
+  assert.deepEqual(missing.act, ['ui.chrome.store.install', 'extensionSetup']);
+
+  const historical = at({installed: true, installation_previously_observed: true, installation_state: 'observed', last_seen: Date.now() - 3600e3});
+  assert.equal(historical.ok, false, 'an old installation observation is not a live connection');
+  assert.equal(historical.res, 'ui.chrome.store.disconnected');
+  assert.deepEqual(historical.act, ['ui.chrome.store.reconnect', 'browserRetry']);
+  const chromeClosed = at({installed: true, last_seen: Date.now() - 3600e3});
+  assert.equal(chromeClosed.res, 'ui.chrome.store.disconnected', 'Chrome being closed is normal');
+
+  ctx.browserRetrying = true;
+  const retrying = at({installed: true});
+  ctx.browserRetrying = false;
+  assert.equal(retrying.spin, true);
+  assert.equal(retrying.res, 'ui.chrome.store.connecting');
+  ctx.browserRetryError = true;
+  const retryFailed = at({installed: true});
+  ctx.browserRetryError = false;
+  assert.equal(retryFailed.note, 'ui.chrome.store.retryFailed');
+  assert.deepEqual(retryFailed.act, ['ui.chrome.store.manage', 'chromeExtensionsManage']);
+
+  const notInstalled = at({installed: null, update: {state: 'idle'}});
+  assert.deepEqual(notInstalled.act, ['ui.chrome.store.install', 'extensionSetup'], 'never seen connected: install');
+  const incompatible = at({connected: true, connection_state: 'connected', compatibility: {state: 'incompatible'}});
+  assert.equal(incompatible.res, 'ui.chrome.store.resOld');
+  assert.deepEqual(incompatible.act, ['ui.chrome.store.updateButton', 'browserUpdate']);
+  const failedUpdate = at({connected: true, compatibility: {state: 'incompatible'}, update: {state: 'throttled'}});
+  assert.equal(failedUpdate.note, 'ui.chrome.store.manualRecovery');
+  assert.deepEqual(failedUpdate.act, ['ui.chrome.store.manage', 'chromeExtensionsManage']);
+  const partial = at({connected: true, compatibility: {state: 'partial', missing_later_actions: ['x']}});
+  assert.equal(partial.ok, true, 'partial compatibility remains usable');
   const pending = at({configuration_state: 'pending'});
   assert.equal(pending.tag, 'ui.chrome.store.tagPending');
-  assert.equal(pending.act, undefined);
-  const ok = at({connection_state: 'connected', connected: true, compatibility: {state: 'compatible'}, helper: {build: 1080}});
-  assert.equal(ok.ok, true);
+  const connected = at({connected: true, compatibility: {state: 'compatible'}, helper: {build: 1080}});
+  assert.equal(connected.ok, true);
 });
 
 test('1081 the store page opens in the profile Chrome last used; with several profiles the wait says which one and “Change” picks another', async () => {

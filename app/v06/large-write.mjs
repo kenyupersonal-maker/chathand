@@ -1,7 +1,7 @@
 import fs from 'node:fs';import path from 'node:path';import crypto from 'node:crypto';
 import {fail,digest,saveJSON,hashConflict} from '../../engine/src/core.mjs';
 export function writeLarge(store,rel,content,expected,id){
-  store.checkActive(true);
+  store.checkActive(true);store.requireWorkspace?.({write:true});
   if(typeof content!=='string'||Buffer.byteLength(content)>8*1024*1024||content.includes('\0'))fail('CONTENT_INVALID','文本写入上限为 8 MiB。');
   if(expected!=='MISSING'&&!/^[a-f0-9]{64}$/.test(expected||''))fail('HASH_REQUIRED','提供当前文件 SHA-256。');
   const record=store.operationFile(id),fingerprint=digest(JSON.stringify([store.root,rel,content,expected]));

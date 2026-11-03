@@ -114,7 +114,7 @@ test('1081 D05: with Chrome known to be installed, a failure never says to downl
 });
 
 test('1081: when the local connection is not ready, the window says what to do instead of showing the raw error', () => {
-  const ctx = vm.createContext({S: {}, T: k => k, capOn: () => true, browserOn: () => false, helperNeedsHand: () => false, extRepairUnsupported: false});
+  const ctx = vm.createContext({S: {}, T: k => k, capOn: () => true, browserOn: () => false, helperNeedsHand: () => false, extRepairUnsupported: false, browserRetrying:false, browserRetryError:false, browserUpdateError:false, browserUpdating:false});
   const card = section('function capBrowser()', 'function capDesktop()');
   vm.runInContext(source.split('\n').find(l => l.startsWith('function browserState()')) + '\n' + card, ctx);
   const raw = "EACCES: permission denied, open '/Users/someone/Library/Application Support/Google/Chrome/NativeMessagingHosts/x.json'";
@@ -123,7 +123,7 @@ test('1081: when the local connection is not ready, the window says what to do i
     const m = plain(vm.runInContext('capBrowser()', ctx));
     assert.equal(m.res, 'ui.window.capBrowser.res.text2');
     assert.equal(m.note, 'ui.window.capBrowser.res.hostHint', distribution);
-    assert.deepEqual(m.act, ['ui.window.capBrowser.act.text', 'browserReconnect'], 'Reconnect sets the connection up again');
+    assert.deepEqual(m.act, ['ui.window.capBrowser.act.text', distribution === 'chrome_web_store' ? 'browserRetry' : 'browserReconnect'], 'store extensions use browserRetry; legacy keeps browserReconnect');
   }
   const page = section('function pgBrowser()', 'function pgDesktop()');
   assert.doesNotMatch(page, /registration\.message/, 'the local connection row shows the state only');
@@ -133,7 +133,7 @@ test('1081: when the local connection is not ready, the window says what to do i
 });
 
 test('1081 copy: plain words in both languages, no “too old”, “this version” or “registration”', () => {
-  const changed = ['ui.chrome.store.introText', 'ui.chrome.store.noChrome', 'ui.chrome.store.permNote', 'ui.chrome.store.oldText', 'ui.chrome.store.resOld', 'ui.chrome.store.versionOld',
+  const changed = ['ui.chrome.store.introText', 'ui.chrome.store.noChrome', 'ui.chrome.store.permNote', 'ui.chrome.store.resOld', 'ui.chrome.store.versionOld',
     'ui.chrome.store.resPending', 'ui.chrome.store.notReady', 'ui.chrome.store.cantCheck', 'ui.chrome.store.cantCheckHint', 'ui.window.capBrowser.res.hostHint', 'card.blocked.browser.where',
     'ui.server.repair.browser_host.title', 'ui.server.repair.browser_host.failed.message', 'ui.window.capBrowser.res.text2', 'ui.window.capBrowser.tag.text',
     'ui.window.pgBrowser.text10', 'ui.window.pgBrowser.registered.text', 'ui.window.pgBrowser.pending.text',
@@ -141,7 +141,8 @@ test('1081 copy: plain words in both languages, no “too old”, “this versio
     'card.blocked.browser.whereInstall', 'card.blocked.browser.whereChrome', 'ui.chrome.store.updateTitle', 'ui.chrome.store.tagMismatch', 'ui.window.capBrowser.res.text6',
     'ui.window.capBrowser.wakeFailed.res', 'ui.window.capBrowser.wakeFailed.off', 'ui.window.capBrowser.wakeFailed.gone', 'ui.chrome.store.versionNewer', 'ui.chrome.store.pageOpened', 'ui.window.capBrowser.connecting', 'ui.server.refresh.summary.helperStoreOld', 'ui.window.capBrowser.noChrome.res', 'ui.window.pgBrowser.lostStore',
     'ui.window.toolsRefreshNoteBody.helperFailedStoreOld', 'ui.window.toolsRefreshNoteBody.helperFailedStoreDown', 'ui.server.refresh.message.unavailable.notConnected',
-    'ui.server.repair.browser_helper.wakeFailed.message', 'ui.server.repair.browser_helper.noChrome.message', 'ui.server.repair.browser_helper.mismatch.message'];
+    'ui.server.repair.browser_helper.wakeFailed.message', 'ui.server.repair.browser_helper.noChrome.message', 'ui.server.repair.browser_helper.mismatch.message',
+    'ui.chrome.store.disconnected', 'ui.chrome.store.retryFailed', 'ui.chrome.store.manualRecovery', 'ui.chrome.store.updateButton', 'ui.chrome.store.checkUpdate'];
   for (const k of changed) {
     assert.equal(typeof zh[k], 'string', k); assert.equal(typeof en[k], 'string', k);
     assert.doesNotMatch(zh[k], /太旧|这一版|这版|登记|宿主|回执|凭据|握手|心跳|多半/, k);
@@ -154,9 +155,7 @@ test('1081 copy: plain words in both languages, no “too old”, “this versio
   assert.ok(en['ui.chrome.store.cantCheckHint'].includes('“Check & Repair”') && en['ui.chrome.store.hostUnavailable'].includes('“Check & Repair”'));
   assert.ok(zh['ui.window.capBrowser.res.hostHint'].includes(`「${zh['ui.window.capBrowser.act.text']}」`) && zh['ui.window.capBrowser.res.hostHint'].includes('「检查并修复」'), 'names the button next to it');
   assert.ok(en['ui.window.capBrowser.res.hostHint'].includes(`“${en['ui.window.capBrowser.act.text']}”`) && en['ui.window.capBrowser.res.hostHint'].includes('“Check & Repair”'));
-  // 任务卡上「请你自己打开：…」那一句：说到「浏览器控制」里点哪个按钮，按钮名跟窗口里一样
-  // 1081（Ken 10/27，断言跟着改）：按原因分句，每句只说一个按钮：没装插件、打不开 Chrome。
-  // 装过的连不上（Ken 10/27 10:07 再改）：有两种情况、两个做法，任务卡只说到「浏览器控制」，那里一行一种写清楚。
+  // 本地任务卡上的安装与系统 Chrome 动作仍显示各自的入口。
   assert.equal(zh['card.blocked.browser.where'], 'ChatHand 的「浏览器控制」');
   const buttons = {'card.blocked.browser.whereInstall': 'ui.window.capBrowser.act.text2', 'card.blocked.browser.whereChrome': 'ui.window.showChromeInstall.text8'};
   for (const [where, button] of Object.entries(buttons)) {
@@ -165,6 +164,10 @@ test('1081 copy: plain words in both languages, no “too old”, “this versio
     assert.doesNotMatch(zh[where], /入口|须本人|“/, where);
   }
   for (const L of [zh, en]) assert.match(L['ui.chrome.store.versionOld'], /^\{openSmall\}.+\{closeSmall\}$/);
+  assert.ok(zh['ui.chrome.store.manualRecovery'].includes('开发者模式') && zh['ui.chrome.store.manualRecovery'].includes('更新'));
+  assert.ok(en['ui.chrome.store.manualRecovery'].includes('Developer mode') && en['ui.chrome.store.manualRecovery'].includes('Update'));
+  assert.doesNotMatch(zh['ui.chrome.store.manualRecovery'] + zh['ui.chrome.store.retryFailed'], /从 Chrome 中移除|重新添加/);
+  assert.doesNotMatch(en['ui.chrome.store.manualRecovery'] + en['ui.chrome.store.retryFailed'], /remove and reinstall|remove from Chrome/i);
   // 常见问题「插件显示没连上」：不说「后台」（1081 Ken 10/27 起，AI 要用浏览器时 ChatHand 会自己打开 Chrome，答案照这个说，不用「后台」这个词）
   assert.doesNotMatch(zh['ui.window.faq.text8'], /后台|不抢前台/); assert.doesNotMatch(en['ui.window.faq.text8'], /background|stealing focus/i);
 });

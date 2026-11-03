@@ -505,7 +505,7 @@ html:has(dialog[open]:not(.closing)){overflow:hidden}
 .more{padding:0;border:0;background:none;font-size:13px;color:var(--ink-3);cursor:pointer;white-space:nowrap}
 .more:hover{color:var(--ink)}
 .rl{display:flex;flex-direction:column;margin:0 -12px}
-.rr{position:relative;display:grid;grid-template-columns:24px minmax(140px,260px) minmax(0,190px) minmax(max-content,1fr) auto 12px;align-items:center;gap:16px;height:62px;padding:0 12px;border:0;border-radius:12px;background:transparent;color:var(--ink);text-align:left;cursor:pointer;flex:none;transition:background-color .3s ease,box-shadow .4s var(--ease),scale .4s var(--ease),translate .4s var(--ease),transform .4s var(--ease)}
+.rr{position:relative;display:grid;grid-template-columns:24px minmax(140px,260px) minmax(0,190px) minmax(max-content,1fr) auto;align-items:center;gap:16px;height:62px;padding:0 12px;border:0;border-radius:12px;background:transparent;color:var(--ink);text-align:left;cursor:pointer;flex:none;transition:background-color .3s ease,box-shadow .4s var(--ease),scale .4s var(--ease),translate .4s var(--ease),transform .4s var(--ease)}
 .rr::after{content:"";position:absolute;left:12px;right:12px;bottom:0;height:var(--hair);background:var(--line);transition:opacity .25s}
 .rr:hover{z-index:1;background:var(--card);box-shadow:inset 0 0 0 var(--hair) var(--line),inset 0 var(--hair) 0 var(--glass-hi),var(--card-shadow-hover);scale:calc(1 + (var(--lift) - 1) * .5);translate:0 calc(var(--lift-y) * -1px)}
 html.glass .rr:hover{background:color-mix(in srgb,var(--glass) calc(var(--glass-mix) * 1%),transparent);-webkit-backdrop-filter:blur(calc(var(--glass-blur) * 1px)) saturate(1.6);backdrop-filter:blur(calc(var(--glass-blur) * 1px)) saturate(1.6)}
@@ -523,12 +523,13 @@ html.glass .rr:hover{background:color-mix(in srgb,var(--glass) calc(var(--glass-
 .rr-res.ok{color:var(--g-ink)}
 .rr-res.stop{color:var(--ink-2)}
 .rr-res.fail{color:var(--o-ink)}
-.rr-tm{font-size:13px;color:var(--ink-3);text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
-/* 鼠标放上去（或键盘选中）右边滑出一个小箭头：能点开看详情。位置一直留着，出现时不挤动时间 */
-.rr-go{display:grid;place-items:center;margin-left:-6px;color:var(--ink-3);opacity:0;transform:translateX(-4px);transition:opacity .2s var(--ease),transform .3s var(--ease)}
+.rr-tm{font-size:13px;color:var(--ink-3);text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;transition:padding-right .35s var(--ease)}
+/* 时间平时贴着行的右边，跟上面「查看全部任务」对齐；悬停时箭头从右边滑进来停在原来的右边，把时间往左推开（Ken 11/3） */
+.rr-go{position:absolute;right:var(--rl-out,12px);top:50%;width:12px;height:12px;margin-top:-6px;display:grid;place-items:center;color:var(--ink-3);opacity:0;translate:8px 0;transition:opacity .25s var(--ease),translate .35s var(--ease)}
 .rr-go .i{width:12px;height:12px;stroke-width:2.2}
-.rr:hover .rr-go,.rr:focus-visible .rr-go{opacity:1;transform:none}
-@container (max-width:696px){.rr{grid-template-columns:24px minmax(0,1fr) auto auto 12px}.rr-src{display:none}}
+.rr:hover .rr-go,.rr:focus-visible .rr-go{opacity:1;translate:none}
+.rr:hover>.rr-tm,.rr:focus-visible>.rr-tm{padding-right:22px}
+@container (max-width:696px){.rr{grid-template-columns:24px minmax(0,1fr) auto auto}.rr-src{display:none}}
 
 /* ---------- 右栏卡片 ---------- */
 .card{position:relative;background:var(--card);border:var(--hair) solid var(--line);border-radius:16px;box-shadow:inset 0 var(--hair) 0 var(--glass-hi),var(--card-shadow);flex:none;transition:box-shadow .45s var(--ease),scale .45s var(--ease),translate .45s var(--ease),transform .45s var(--ease)}
@@ -647,6 +648,7 @@ html:has(dialog.drawer[open]) .permission-hint{visibility:hidden}
 .dp-res.stack{flex-wrap:wrap}.dp-res.stack>div{flex:1 1 calc(100% - 40px)}.dp-res.stack>.btn{margin:2px 0 0 28px}
 /* 1081（Claude，Ken 10/27）：几种情况各占一行，中间空一点；几个按钮排一行；正在连的时候是转圈，不是警告色。 */
 .dp-res small+small{margin-top:6px}
+.workspace-recovery .mono{overflow-wrap:anywhere;white-space:normal}
 .dp-res-acts{display:flex;flex-wrap:wrap;gap:8px}.dp-res-acts .btn{margin:0}
 .dp-res.stack>.dp-res-acts{flex:1 1 100%;margin:4px 0 0 28px}
 .dp-res>.sdot.spin{width:14px;height:14px;margin-top:4px;border-width:2px;flex:none}
@@ -682,7 +684,9 @@ html:has(dialog.drawer[open]) .permission-hint{visibility:hidden}
 .risk-row::before,.common-row::before{content:"";position:absolute;inset:-1px -12px;z-index:-1;border-radius:12px;background:var(--flash-bg);opacity:0;pointer-events:none}
 .risk-row.flash::before,.common-row.flash::before{animation:rowBlink 1.4s ease-out .3s 1 both}
 @keyframes rowBlink{0%{opacity:0}14%{opacity:1}34%{opacity:.15}52%{opacity:1}100%{opacity:0}}
-.kv{display:flex;flex-direction:column;border-top:var(--hair) solid var(--line)}
+/* Ken 11/3：信息行只在行与行之间画细线，第一行上面、最后一行下面不画 */
+.kv{display:flex;flex-direction:column}
+.kv>.kvr:last-child{border-bottom:0}
 .kvr{display:flex;align-items:center;gap:12px;min-height:46px;padding:8px 0;border-bottom:var(--hair) solid var(--line);font-size:14px}
 .kvr .k{width:112px;flex:none;color:var(--ink-2)}
 .kvr .v{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -921,7 +925,7 @@ dialog#modal .del{color:var(--o-ink)}
   .tp-ring::before,.tp-glow::before,.sdot.live::after,.nd.run i,.fx-aurora i{animation:none}
   .fx-spot,.fx-wash{display:none}
   dialog.drawer[open],dialog.drawer.closing,dialog.drawer::backdrop,.bubble,.drawer-b.enter>*,.drawer-b.enter-back>*{animation:none}
-  .card,.orow,.rr,.value-header,.value-header::before{transition:none}
+  .card,.orow,.rr,.rr-tm,.rr-go,.value-header,.value-header::before{transition:none}
   .card:hover,.orow:hover,.rr:hover,.tp:hover{scale:none;translate:none}
   .tp{transition:none}
   .common-row.flash::before,.risk-row.flash::before{animation:none;opacity:1}
@@ -1217,17 +1221,33 @@ dialog#modal.closing::backdrop{animation:micro-mask-out .16s var(--ease) forward
 dialog.drawer .sbar{position:absolute}
 .drawer-b{scrollbar-width:none}
 .drawer-b::-webkit-scrollbar{display:none;width:0;height:0}
-/* 回到顶部：左下角，在皮肤按钮上面（正式版没有皮肤按钮时就在它的位置）。往下滚过三分之一屏才出现 */
-.to-top{position:fixed;left:12px;bottom:12px;z-index:109;width:32px;height:32px;display:grid;place-items:center;padding:0;border:var(--hair) solid var(--line);border-radius:50%;background:var(--card);color:var(--ink-2);box-shadow:var(--card-shadow);cursor:pointer;opacity:0;visibility:hidden;transform:translateY(6px) scale(.92);transition:opacity .25s var(--ease),transform .35s var(--ease),visibility 0s linear .35s,border-color .15s,color .15s}
-.to-top.on{opacity:1;visibility:visible;transform:none;transition-delay:0s}
-.to-top:hover{border-color:var(--line-2);color:var(--ink)}
-.to-top:active{transform:scale(.94)}
-.to-top svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-body:has(#ch-skin-tools) .to-top{bottom:52px}
+/* 左下角（Ken 11/3）：咖啡杯和皮肤按钮合成一块，往下滚过三分之一屏换成「回到顶部」，两块在同一个位置，不同时出现。
+   离窗口左边、下边各空 --dock-gap（跟抽屉离边一样，半格网点），右边离正文也是这么宽；块的角跟窗口的圆角同心（窗口圆角减去这条缝）。
+   底色、细边、阴影跟大卡片一样；鼠标放上去整块浮起一点，指着的那个图标垫一层浅底，离块的边 --dock-pad，圆角也跟块同心。
+   换的时候是两块整块对换（Ken 11/3 16:25）：走的那块往下沉出窗口底边、稍微缩小并淡出，来的那块晚 0.1 秒从底边下面升上来；滚回去时倒过来。 */
+:root{--dock-gap:var(--drawer-gap);--dock-w:calc(40px - var(--dock-gap) * 2);--dock-pad:2px;--dock-r:max(var(--win-radius) - var(--dock-gap),var(--win-radius) / 2);--dock-tile-r:max(var(--dock-r) - var(--dock-pad),3px);--dock-hover:color-mix(in srgb,var(--card),var(--fill-ink) calc(var(--fill-mix) * 1.7%));--dock-ease:cubic-bezier(.32,.72,0,1)}
+#corner-dock,.to-top{position:fixed;left:var(--dock-gap);bottom:var(--dock-gap);box-sizing:border-box;width:var(--dock-w);padding:var(--dock-pad);border:var(--hair) solid var(--line);border-radius:var(--dock-r);background:var(--card);box-shadow:inset 0 var(--hair) 0 var(--glass-hi),var(--card-shadow)}
+#corner-dock:hover,.to-top:hover{bottom:calc(var(--dock-gap) + var(--lift-y) * 1px);box-shadow:inset 0 var(--hair) 0 var(--glass-hi),var(--card-shadow-hover)}
+#corner-dock{z-index:110;display:flex;flex-direction:column;gap:5px;transform-origin:50% 100%;transition:transform .42s var(--dock-ease) .1s,opacity .3s linear .1s,visibility 0s linear .1s,bottom .45s var(--ease),box-shadow .45s var(--ease)}
+#corner-dock>[data-slot]{left:auto;bottom:auto;flex:none}
+#corner-dock:empty{display:none}
+/* 皮肤面板开着：块不浮起（面板跟着块，不跳），也不裁边（面板在块里面，要整个露出来） */
+#corner-dock:has(#ch-skin-panel:not([hidden])){bottom:var(--dock-gap)}
+/* 两个图标中间一条细线 */
+#corner-dock>[data-slot]:not(:last-child){position:relative}
+#corner-dock>[data-slot]:not(:last-child)::after{content:"";position:absolute;left:4px;right:4px;bottom:-3px;border-top:var(--hair) solid var(--line);pointer-events:none}
+body:has(.to-top.on):not(:has(#ch-skin-panel:not([hidden]))) #corner-dock{transform:translateY(calc(100% + var(--dock-gap) + 2px)) scale(.94);opacity:0;visibility:hidden;pointer-events:none;transition:transform .26s cubic-bezier(.4,0,1,1),opacity .2s linear .06s,visibility 0s linear .26s,bottom .45s var(--ease),box-shadow .45s var(--ease)}
+.to-top{z-index:109;height:var(--dock-w);display:grid;place-items:center;color:var(--ink-2);cursor:pointer;transform-origin:50% 100%;transform:translateY(calc(100% + var(--dock-gap) + 2px)) scale(.94);opacity:0;visibility:hidden;pointer-events:none;transition:transform .26s cubic-bezier(.4,0,1,1),opacity .2s linear .06s,visibility 0s linear .26s,bottom .45s var(--ease),box-shadow .45s var(--ease),color .15s}
+.to-top::before{content:"";position:absolute;inset:var(--dock-pad);border-radius:var(--dock-tile-r);background:var(--dock-hover);opacity:0;transition:opacity .15s}
+.to-top svg{position:relative;width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.to-top.on{transform:none;opacity:1;visibility:visible;pointer-events:auto;transition:transform .42s var(--dock-ease) .1s,opacity .3s linear .1s,visibility 0s linear .1s,bottom .45s var(--ease),box-shadow .45s var(--ease),color .15s}
+.to-top:hover{color:var(--ink)}
+.to-top:hover::before{opacity:1}
 body:has(#ch-skin-panel:not([hidden])) .to-top{opacity:0;visibility:hidden}
+#app[inert]~#corner-dock{display:none}
 /* 背景不动（--bg-motion 为 0）：右上角背景只画一帧，旧的极光也停住（省电） */
 html.bg-still .fx-aurora i{animation-play-state:paused}
-@media (prefers-reduced-motion:reduce){.sbar,.sbar i,.to-top,.drag-strip::before,.drag-strip::after{transition:none!important}}
+@media (prefers-reduced-motion:reduce){.sbar,.sbar i,.to-top,.to-top::before,#corner-dock,.drag-strip::before,.drag-strip::after{transition:none!important}}
 
 /* 1021：首页卡片里的时间线行距收紧 */
 .tp .tl li{min-height:46px}
@@ -1625,3 +1645,8 @@ html[lang="en"] .conn-res.cur>div>b{padding-right:64px}
 .conn-menu button:hover{background:var(--fill)}
 .conn-menu button small{margin-left:auto;font-size:12px;color:var(--ink-3)}
 .conn-menu .ck{width:14px;display:grid;place-items:center}
+
+/* Ken 11/3：按钮、链接、卡片一律不显示焦点框（黑框），鼠标、Tab、脚本移焦点都一样。输入框打字时的边框不受影响。 */
+:focus,:focus-visible{outline:none!important}
+.kvr.kv-go:focus-visible::before,.tp-h.tp-hit:focus-visible::before{box-shadow:none!important}
+#ch-skin-tools .ch-skin-pick:focus-visible .ch-skin-frame,.matter-row:has(>.matter-open:focus-visible){outline:none!important}

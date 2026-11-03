@@ -255,7 +255,9 @@
   const label = () => { const text = t('ui.tip.open'); trigger.setAttribute('aria-label', text); trigger.title = text; };
   label();
   const skin = document.getElementById('ch-skin-tools');
+  const dock = document.querySelector('[data-skin-slot]');
   if (skin?.hasAttribute('data-slot')) { host.dataset.slot = ''; skin.before(host); }
+  else if (dock) { host.dataset.slot = ''; dock.prepend(host); }
   else { if (!skin) host.dataset.alone = ''; document.body.append(host); }
   trigger.addEventListener('click', show);
   /* 换语言：按钮的读屏名字跟着换；弹窗开着就按新语言重画 */

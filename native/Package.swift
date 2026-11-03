@@ -24,6 +24,7 @@ let package = Package(
                 "ProcessOwnership.swift",
                 "InstanceLifecycle.swift",
                 "StartupMigration.swift",
+                "StartupFailureAlert.swift",
                 "NativeTermination.swift",
                 "LocalText.swift",
                 "RuntimeDescriptor.swift",

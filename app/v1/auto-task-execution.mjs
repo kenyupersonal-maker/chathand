@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import {privateDir,fail} from '../../engine/src/core.mjs';
+import {usesWorkspace,workspaceRecord} from './workspace-recovery.mjs';
 
 // Only these existing mutators take part in automatic task creation. Reads,
 // task control, installation, and image selection keep their own state machines.
@@ -24,7 +25,7 @@ function atomic(file,body){
  finally{if(fd!==undefined&&fd!==null)fs.closeSync(fd);try{fs.unlinkSync(tmp);}catch(e){if(e.code!=='ENOENT')throw e;}}
 }
 function stableStringify(value){if(Array.isArray(value))return '['+value.map(stableStringify).join(',')+']';if(value&&typeof value==='object')return '{'+Object.keys(value).sort().map(k=>JSON.stringify(k)+':'+stableStringify(value[k])).join(',')+'}';return JSON.stringify(value);}
-function valid(record,key){return record?.format===1&&record.key===key&&UUID.test(record.task_id)&&typeof record.digest==='string'&&typeof record.root==='string'&&['auto','full'].includes(record.access_mode)&&Number.isSafeInteger(record.permission_revision)&&['reserved','task_bound','started','completed','failed_definite','unknown'].includes(record.state);}
+function valid(record,key){return record?.format===1&&record.key===key&&UUID.test(record.task_id)&&typeof record.digest==='string'&&(typeof record.root==='string'||record.root===null)&&['auto','full'].includes(record.access_mode)&&Number.isSafeInteger(record.permission_revision)&&['reserved','task_bound','started','completed','failed_definite','unknown'].includes(record.state);}
 
 function uncertainResult(value,depth=0){
  if(!value||typeof value!=='object'||depth>8)return false;
@@ -68,15 +69,25 @@ export class AutoTaskExecution{
  save(file,record){atomic(file,JSON.stringify(record));}
  fingerprint(name,args,deliveryDigest=null){return crypto.createHmac('sha256',this.secret).update(stableStringify([name,args,deliveryDigest])).digest('hex');}
  needsTask(name,args){return !!this.kind(name,args)&&typeof args?.task_id==='string';}
- sameScope(r){return r.project_id===this.policy.state.data.active&&r.root===this.policy.store.root&&r.epoch===this.policy.epoch&&r.access_mode===this.policy.store.accessMode&&r.permission_revision===(this.policy.permissionRevision||0);}
- live(id){let t;try{t=this.policy.get(id);}catch(e){if(e.code==='TASK_MISSING')return null;throw e;}if(t.status==='active'&&(t.project_id!==this.policy.state.data.active||t.root!==this.policy.store.root||t.epoch!==this.policy.epoch))fail('ROOT_CHANGED','当前文件范围或权限已改变；原任务不可恢复。');return t.status==='active'?t:null;}
+ sameScope(r){return (!workspaceRecord(r)||(r.workspace_epoch||0)===(this.policy.store.workspaceEpoch||0))&&r.project_id===this.policy.state.data.active&&(this.policy.store.matchesRoot?.(r.root)??r.root===this.policy.store.root)&&r.epoch===this.policy.epoch&&r.access_mode===this.policy.store.accessMode&&r.permission_revision===(this.policy.permissionRevision||0);}
+ assertOriginalWorkspace(id,caller){
+  let original=this.policy.tasks.get(id);
+  if(!original){
+   const receipt=this.policy.receipts?.read(id,caller);
+   if(receipt&&receipt.owner_hash===this.policy.receipts.owner(caller))original=receipt.result;
+  }
+  if(original&&((original.workspace_epoch||0)!==(this.policy.store.workspaceEpoch||0)||original.project_id!==this.policy.state.data.active))fail('ROOT_CHANGED','当前文件范围或权限已改变；原任务不可恢复。');
+ }
+ live(id){let t;try{t=this.policy.get(id);}catch(e){if(e.code==='TASK_MISSING')return null;throw e;}if(t.status==='active'&&(t.project_id!==this.policy.state.data.active||!(this.policy.store.matchesRoot?.(t.root)??t.root===this.policy.store.root)||t.epoch!==this.policy.epoch))fail('ROOT_CHANGED','当前文件范围或权限已改变；原任务不可恢复。');return t.status==='active'?t:null;}
  recipe(name,args){
   const request_id=crypto.randomUUID();return {execution_state:'not_started',task_created:false,next_action:'call_run_capability',message:'这一步尚未执行。按下面的编号继续，不需要你确认。',capability:'execute_task_step',parameters:{request_id,task_id:args.task_id,tool:name,arguments:args}};
  }
  result(r,state=r.state){return {execution_state:state,task_created:r.task_created!==false,previous_task_id:r.previous_task_id,new_task_id:r.task_id,task_id:r.task_id,local_capabilities:this.capabilities(),...(r.receipt_reference?{receipt_reference:r.receipt_reference}:{}),...(state==='unknown'?{do_not_replay:true,next_action:'查看原任务和操作回执；结果不明时不要用同一编号重做。'}:{})};}
  async execute(name,args,caller,context,run){
   if(!this.needsTask(name,args))return run(args);
-  const identity=this.identity(name,args,context),existingTask=this.live(args.task_id);
+  const identity=this.identity(name,args,context);
+  if(usesWorkspace(name,args))this.assertOriginalWorkspace(args.task_id,caller);
+  const existingTask=this.live(args.task_id);
   if(!identity)return existingTask?run(args):this.recipe(name,args);
   const key=identity.namespace+'\0'+identity.id,file=this.file(identity),prior=this.read(file,key);
   const canonical=prior&&args.task_id===prior.task_id?{...args,task_id:prior.previous_task_id}:args;
@@ -96,13 +107,14 @@ export class AutoTaskExecution{
   if(r?.state==='failed_definite')return {...this.result(r,'failed_definite'),replayed:true,next_action:'原操作已明确失败；新意图请使用新的调用编号。'};
   this.policy.check();
   if(!r){
-   const task_id=existingTask?.id||crypto.randomUUID();r={format:1,key,digest,name,state:'reserved',task_created:!existingTask,previous_task_id:args.task_id,task_id,begin_request_id:'at_'+crypto.createHash('sha256').update(key).digest('hex').slice(0,48),title:name+' 自动任务',title_key:'autoTask.task.title',title_params:{name},project_id:this.policy.state.data.active,root:this.policy.store.root,epoch:this.policy.epoch,access_mode:this.policy.store.accessMode,permission_revision:this.policy.permissionRevision||0,created_at:Date.now()};this.save(file,r);
+   const task_id=existingTask?.id||crypto.randomUUID();r={format:1,key,digest,name,state:'reserved',task_created:!existingTask,previous_task_id:args.task_id,task_id,begin_request_id:'at_'+crypto.createHash('sha256').update(key).digest('hex').slice(0,48),title:name+' 自动任务',title_key:'autoTask.task.title',title_params:{name},project_id:this.policy.state.data.active,root:usesWorkspace(name,args)?this.policy.store.root:(typeof this.policy.store.workspacePath==='string'?this.policy.store.workspacePath:this.policy.store.root),epoch:this.policy.epoch,access_mode:this.policy.store.accessMode,permission_revision:this.policy.permissionRevision||0,workspace_epoch:this.policy.store.workspaceEpoch||0,workspace_dependent:usesWorkspace(name,args),created_at:Date.now()};this.save(file,r);
   }
   if(!this.sameScope(r))fail('ROOT_CHANGED','当前文件范围或权限已改变；原自动任务不可恢复。');
   // The reserved UUID precedes begin(), so a crash at either boundary always
   // recovers the same task identity. No assistant-visible task is required.
   let t=this.policy.tasks.get(r.task_id);
   if(!t&&r.task_created!==false){const out=this.policy.begin({request_id:r.begin_request_id,title:r.title},caller,{session_hash:context.session_hash||null,connection_principal:context.connectionPrincipal||null,reservedId:r.task_id});t=this.policy.get(out.task_id);}
+  if(t&&r.task_created!==false)t.workspace_epoch=r.workspace_epoch||0;
   if(t&&r.task_created!==false&&r.title_key){t.title_key=r.title_key;t.title_params=structuredClone(r.title_params||{});}
   if(!t)fail('TASK_MISSING','原任务已不在本机；不能重做这一步。');
   if(r.state==='reserved'){r={...r,state:'task_bound'};this.save(file,r);}

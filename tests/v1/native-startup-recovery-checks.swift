@@ -38,13 +38,17 @@ final class Timer {
     func deliverQueued() {block(self)}
 }
 final class Process {
+    enum TerminationReason { case exit, uncaughtSignal }
     let processIdentifier: Int32
     var isRunning=true
     var exitOnSignal=true
+    var terminationReason: TerminationReason = .exit
+    var terminationStatus: Int32 = 1
     init(_ pid: Int32) {processIdentifier=pid}
     func terminate() {_=Darwin.kill(processIdentifier,SIGTERM)}
 }
 enum InstanceLifecycle {
+    struct Failure: Error {let code:String}
     struct Identity: Equatable {let pid: Int32;let stamp: Int}
     static var identities: [Int32:Identity] = [:]
     static func identity(_ pid: Int32) throws -> Identity? {identities[pid]}
@@ -62,11 +66,15 @@ enum Darwin {
 }
 enum LocalText {static func text(_ key: String) -> String {key}}
 enum ComputerControl {static var stopped=false}
+enum NativeDiagnostics {
+    // ACTUAL_STARTUP_FAILURE_CODE
+}
 final class Cancelable {func cancel() {}}
 final class KeepAwake {func update(_ value: Bool) {}}
 
 final class App {
     var process: Process?,attachedBackend: Process?,stoppingStartupBackend: Process?
+    var lastStartupFailureCode:String?,displayedStartupCodes:[String]=[]
     var backendGeneration=UUID(),backendRecovery=BackendRecoveryPolicy(),backendRecoveryInProgress=false
     var ownsService=false,shuttingDown=false,uninstallInProgress=false,installer=false,interfaceKeyShared=true
     var timer: Timer?,onboardingSending=false,onboardingRetryAfter: TimeInterval=0
@@ -77,6 +85,7 @@ final class App {
     var launchThrows=false,eofStops=false,nextExitOnSignal=true
     func nativeRecord(_ phase: String,_ code: String,attempt: Int? = nil) {codes.append(code)}
     func showError(_ title: String,_ detail: String) {errors += 1}
+    func showStartupFailure(_ code:String) {errors += 1;displayedStartupCodes.append(code)}
     func installerOwnsBackend() -> Bool {installer}
     func cancelChromePreparation() {}
     func setComputerPolling(_ enabled: Bool) {}
@@ -196,9 +205,46 @@ final class App {
         for time in [1.0,2.0,3.0] {precondition(rapid.recoveryDelay(now:time) != nil);rapid.attached()}
         precondition(rapid.recoveryDelay(now:4)==nil)
     }
+    static func startupCategories() throws {
+        let expected: [(Int32,String)] = [(1,"STARTUP_FAILURE_UNKNOWN"),(70,"STARTUP_FAILURE_UNKNOWN"),(71,"STARTUP_NODE_VERSION"),(72,"STARTUP_ALREADY_RUNNING"),(73,"STARTUP_DATA_NEWER"),(74,"STARTUP_DATA_UNSUPPORTED"),(75,"STARTUP_ACCESS_DENIED"),(76,"STARTUP_STORAGE_FULL"),(77,"STARTUP_PORT_IN_USE"),(78,"STARTUP_OWNER_EXITED"),(79,"PILOT_IDENTITY_UNSAFE"),(80,"PILOT_IDENTITY_CORRUPT"),(81,"PILOT_IDENTITY_INVALID"),(82,"RELAY_STATE_VERSION"),(83,"B_STORE_CONFIG"),(84,"B_STORE_UNSAFE"),(85,"MATTER_UNSAFE_PATH"),(86,"MATTER_UNSAFE_FILE"),(87,"MATTER_SEQUENCE"),(88,"MATTER_ID"),(89,"MATTER_JOURNAL_CONFLICT"),(90,"STATE_UNSAFE"),(255,"STARTUP_FAILURE_UNKNOWN")]
+        for (status,code) in expected {
+            let a=fresh();try a.startService();let p=a.process!,generation=a.backendGeneration,oldTimer=a.timer!
+            p.terminationStatus=status;a.exit(p,generation:generation)
+            a.ownedBackendExited(p,generation:generation);oldTimer.deliverQueued()
+            precondition(a.codes.filter{$0==code}.count==1,"categorical receipt is once per exact failed child")
+            precondition(!a.codes.contains("INITIAL_START_TIMEOUT"))
+            for delay in [0.5,1.0,2.0] {Scheduler.advance(delay);let next=a.process!;next.terminationStatus=status;a.exit(next,generation:a.backendGeneration)}
+            precondition(a.displayedStartupCodes == [code],"the final native alert retains the actual exit reason")
+        }
+        let retry=fresh();try retry.startService();let first=retry.process!,generation=retry.backendGeneration
+        first.terminationStatus=73;retry.exit(first,generation:generation);Scheduler.advance(0.5)
+        let second=retry.process!;second.terminationStatus=75
+        retry.ownedBackendExited(first,generation:generation);retry.exit(second,generation:retry.backendGeneration)
+        precondition(retry.codes.filter{$0=="STARTUP_DATA_NEWER"}.count==1 && retry.codes.filter{$0=="STARTUP_ACCESS_DENIED"}.count==1,"retry must not reuse the prior child's cause")
+    }
+    static func suppressedCategories() throws {
+        for reason in ["normal","signal","attached","timeout","installer","quit","uninstall","foreign","stale"] {
+            let a=fresh();try a.startService();let p=a.process!,generation=a.backendGeneration
+            p.terminationStatus=73
+            switch reason {
+            case "normal":p.terminationStatus=0
+            case "signal":p.terminationReason = .uncaughtSignal
+            case "attached":a.runtime=["pid":Int(p.processIdentifier)];Scheduler.advance(0.25)
+            case "timeout":a.stoppingStartupBackend=p
+            case "installer":a.installer=true
+            case "quit":a.shuttingDown=true
+            case "uninstall":a.uninstallInProgress=true
+            case "foreign":a.process=Process(9999)
+            case "stale":a.backendGeneration=UUID()
+            default:break
+            }
+            a.exit(p,generation:generation)
+            precondition(!a.codes.contains(where:{$0.hasPrefix("STARTUP_")}),"expected or unrelated exit must not become a startup failure: "+reason)
+        }
+    }
     static func main() throws {
         let requested=CommandLine.arguments.dropFirst().first ?? "all"
-        let cases:[(String,() throws -> Void)]=[("early-exit",earlyExit),("late-ready",lateReady),("bounded-timeouts",boundedTimeouts),("bounded-early-exits",boundedEarlyExits),("unconfirmed-stop",unconfirmedStop),("launch-errors",launchErrors),("identity",identityAndOwnership),("races",races),("runtime-reset",exactRuntimeAndReset)]
+        let cases:[(String,() throws -> Void)]=[("early-exit",earlyExit),("late-ready",lateReady),("bounded-timeouts",boundedTimeouts),("bounded-early-exits",boundedEarlyExits),("unconfirmed-stop",unconfirmedStop),("launch-errors",launchErrors),("identity",identityAndOwnership),("races",races),("runtime-reset",exactRuntimeAndReset),("startup-categories",startupCategories),("suppressed-categories",suppressedCategories)]
         for (name,check) in cases where requested=="all" || requested==name {try check();print("PASS: "+name)}
     }
 }

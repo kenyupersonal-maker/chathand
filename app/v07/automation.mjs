@@ -47,5 +47,6 @@ export class Automation {
   const actions={browser_open:()=>this.browser.open(o,caller),browser_tabs:()=>this.browser.tabs(o,caller),browser_action:()=>this.browser.action(o,caller),browser_upload:()=>this.browser.upload(o,caller),browser_download:()=>this.browser.download(o,caller),browser_close:()=>this.browser.close(caller),computer_action:()=>this.computer.action(o,caller),computer_focus:()=>this.computer.focus(o,caller)};
   return this.ops.run(name,o,caller,actions[name]);
  }
+ cancelTask(task){this.computer.cancelTask(task);this.browser.cancelTask(task);}
  async close(){this.computer.cancelAll();await this.browser.closeAll();}
 }

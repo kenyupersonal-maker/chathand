@@ -16,7 +16,7 @@ const safeWork=v=>v&&typeof v==='object'?Object.fromEntries(['work','legacy_work
 const isWithin=(child,root)=>child===root||child.startsWith(root+path.sep);
 
 function safeExportDirectory(store){
- store.checkActive(true); // A report file is still a local write; export never overrides the write switch.
+ store.checkActive(true);store.requireWorkspace?.({write:true}); // A report file is still a local write; export never overrides the write switch.
  const root=fs.realpathSync(store.root),rel=dirName;
  if(root!==store.root)fail('EXPORT_ROOT_CHANGED','当前工作区已改变。');
  const requested=path.join(root,rel);

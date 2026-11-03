@@ -1,3 +1,4 @@
+import {usesWorkspace} from './v1/workspace-recovery.mjs';
 import {READ_TASK_INTERNAL} from './v1/read-task-tracker.mjs';
 import {OnboardingTelemetry,onboardingFailure} from './onboarding-telemetry.mjs';
 import {t as displayText} from './i18n.mjs';
@@ -44,7 +45,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import {TOOLS as LEGACY,validate,withCacheHints,toolListCapabilities} from '../engine/src/mcp.mjs';
-import {cleanError,fail} from '../engine/src/core.mjs';
+import {cleanError,fail,withFileTask} from '../engine/src/core.mjs';
 import {APP_ROOT} from './v06/access.mjs';
 import {callContext,A_TRANSPORTS} from './v1/call-context.mjs';
 import {Blocks,CAPABILITIES,capabilityOf,capabilityOn,capabilityAllowed,capabilityError,gateCommand,permissionsInfo,adminReadyFor,selfInfo} from './v1/permissions.mjs';
@@ -296,6 +297,11 @@ export class Tools {
   return v;
  }
  async invoke(name,args={},caller='chatgpt',context={}){
+  if(usesWorkspace(name,args))await this.ensureWorkspace?.();
+  const task=this.policy.tasks.get(args?.task_id);
+  return task?withFileTask(this.store,task,()=>this.invokeBound(name,args,caller,context)):this.invokeBound(name,args,caller,context);
+ }
+ async invokeBound(name,args={},caller='chatgpt',context={}){
   try{
   if(currentSiteExecution()){await beforeSiteExecution();assertSiteExecution();}context.signal?.throwIfAborted();
   const cardDomain=context.cardDomain||context.transport||'legacy',relayMode=context.relayMode||(context.transport==='site_b'||context.transport==='2026-07-28'?'mcp_app':'legacy');
@@ -855,7 +861,7 @@ export class Tools {
     if(observerAuthorized&&!fromCard&&!presentsFile&&!note)note=this.resume?.takeCarried(hash)||null;
     note=mergeNotes(result?.chathand_note,note,confirmationNote,refreshNote,completionNote,presentsFile?null:this.resume?.takeBlockNote(hash));
     if(result&&typeof result==='object'&&!Array.isArray(result)&&(note||forecast))result={...result,...(note?{chathand_note:note}:{}),...(forecast?{chathand_forecast:forecast}:{})};
-    if(!desktop&&card.meta===undefined){result=compactToolReturn(result,{store:this.store,tool:name,args});if(result?.output_summary)this.events?.record('return.paged',{tool:name,n:Object.values(result.output_summary.omitted_items||{}).reduce((a,b)=>a+b,0),chars:result.output_summary.original_chars,saved:result.output_summary.saved===true});}
+    if(!desktop&&card.meta===undefined){const archiveTask=this.policy.tasks.get(args.task_id||result?.task_id||this.policy.jobOwners.get(args.job_id)),workspace=this.store.workspaceStatus?.(),archive=workspace?workspace.available===true&&(!archiveTask||(archiveTask.workspace_epoch||0)===(this.store.workspaceEpoch||0)):true;result=withFileTask(this.store,archiveTask,()=>compactToolReturn(result,{store:this.store,tool:name,args,archive}));if(result?.output_summary)this.events?.record('return.paged',{tool:name,n:Object.values(result.output_summary.omitted_items||{}).reduce((a,b)=>a+b,0),chars:result.output_summary.original_chars,saved:result.output_summary.saved===true});}
     if(desktop&&result?.observation?.image_base64){const {image_base64,...observation}=result.observation,metadata={...result,observation};response=ok({content:[{type:'text',text:JSON.stringify(metadata)},{type:'image',mimeType:observation.mimeType||'image/jpeg',data:image_base64}],structuredContent:metadata,isError:false});}
     else response=ok(toolResult(card.meta===undefined?result:{...result,_card_meta:card.meta}));
     if(name==='command_result'&&args.full===true&&JSON.stringify(response).length>12000){

@@ -13,9 +13,8 @@ import {legacyChromeDistribution} from '../../app/v1/chrome-distribution.mjs';
 import {storeTestDistribution,storeTestHelper} from '../support/chrome-store-fixture.mjs';
 
 // 1081 B 线（Ken 10/27 02:19，ChatGPT 复查 D03/D06/D07/D08）：
-// Chrome 只是没开不算出错，界面上什么都不说；AI 要用浏览器时 ChatHand 自己在后台打开 Chrome，等插件连上接着做。
-// 只有真出了问题才报，按原因只给一个按钮：没装插件「安装 Chrome 插件」；打开了 Chrome 插件还是没连上「打开插件页面」；
-// 这台 Mac 上打不开 Chrome「下载 Chrome」；插件和 ChatHand 版本对不上「打开插件页面」（不重装）。
+// 浏览器状态只在插件真实连接时显示可用；商店版重连走 browserRetry，更新失败提供 Chrome 扩展管理手动入口。
+// Chrome 未打开不报错；历史安装记录不作为在线状态。legacy_unpacked 保留原重连入口。
 const zh = JSON.parse(fs.readFileSync(new URL('../../locales/zh.json', import.meta.url), 'utf8'));
 const en = JSON.parse(fs.readFileSync(new URL('../../locales/en.json', import.meta.url), 'utf8'));
 const app = fs.readFileSync(new URL('../../ui/app.js', import.meta.url), 'utf8');
@@ -51,21 +50,13 @@ test('1081 B: the extension is installed and Chrome is just closed: ChatHand ope
   assert.equal(b.ext.status().wake, null);
 });
 
-test('1081 B: never installed: no Chrome is opened; the card and ChatGPT both say “Install Extension”', t => {
+test('authorized browser work without installation history wakes Chrome and completes after a fresh handshake', async t => {
   const b = browser(t, {installed: false});
-  let error;
-  try { b.ext.request('snapshot', {}, 'caller', 'task'); } catch (e) { error = e; }
-  assert.equal(error?.code, 'EXTENSION_NOT_CONNECTED', 'thrown synchronously, like every other refusal');
-  assert.equal(b.opened.length, 0);
-  assert.equal(error.message, '还没装 Chrome 插件。');
-  assert.match(error.recovery, /「安装 Chrome 插件」/);
-  assert.match(error.recovery, /「添加至 Chrome」和「添加扩展程序」/);
-  assert.doesNotMatch(error.message + error.recovery, /辅助功能|自动安装|本人|多半|可能是/, 'D03: no promise of an automatic install');
-  const receipt = error.details.blocked;
-  assert.equal(receipt.item.id, 'install');
-  assert.equal(receipt.where.path, zh['card.blocked.browser.whereInstall']);
-  assert.equal(receipt.cause, error.message, 'D08: the receipt sentence is the reason, not a tool name');
-  assert.equal(error.details.where_to_enable, 'ChatHand →「浏览器控制」');
+  const running=b.ext.request('snapshot', {}, 'caller', 'task');
+  await b.deliver({ok:true});
+  assert.deepEqual(await running,{ok:true});
+  assert.equal(b.opened.length,1);
+  assert.equal(b.ext.status().installed,true);
 });
 
 test('1081 B: checking whether a chat is still generating never opens Chrome; without a way to open Chrome it refuses as before', t => {
@@ -76,14 +67,15 @@ test('1081 B: checking whether a chat is still generating never opens Chrome; wi
   assert.throws(() => b.ext.request('snapshot', {}, 'caller', 'task'), {code: 'EXTENSION_DISCONNECTED'});
 });
 
-test('1081 B: ChatHand opened Chrome and the extension still did not connect: one clear reason, “Open Extension Page”, and no reopening for a minute', async t => {
+test('1081 B: ChatHand opened Chrome and the extension still did not connect: show reconnect and extension management steps', async t => {
   const b = browser(t, {waitMs: 300});
   b.ext.wakeChrome = () => { b.opened.push(Date.now()); }; // Chrome 开了，插件没来（被关掉或删了）
   await assert.rejects(b.ext.request('snapshot', {}, 'caller', 'task'), e => {
     assert.equal(e.code, 'EXTENSION_DISCONNECTED');
     assert.equal(e.message, zh['ui.window.capBrowser.wakeFailed.res'] + '。', 'ChatGPT hears the same sentence the window shows');
-    assert.match(e.recovery, /「打开插件页面」/);
-    assert.doesNotMatch(e.message + e.recovery, /多半|可能是|重新连接/);
+    assert.match(e.recovery, /「重新连接」/);
+    assert.match(e.recovery, /「打开扩展管理」/);
+    assert.doesNotMatch(e.message + e.recovery, /多半|可能是|打开插件页面/);
     assert.equal(e.details.blocked.item.id, 'connect');
     assert.equal(e.details.blocked.where.path, zh['card.blocked.browser.where']);
     assert.equal(e.details.blocked.cause, e.message);
@@ -162,7 +154,7 @@ test('1081 B: “Check and Repair” opens Chrome for an installed extension and
   const wakeFailed = repairHarness(t, installed);
   const failedItem = await wakeFailed.item();
   assert.equal(failedItem.status, 'action');
-  assert.equal(failedItem.action.kind, 'open_extension_page');
+  assert.equal(failedItem.action.kind, 'manage_chrome_extensions');
   assert.equal(failedItem.message_key, 'repair.browser_helper.wakeFailed.message');
   assert.equal(failedItem.message, zh['ui.server.repair.browser_helper.wakeFailed.message']);
   assert.deepEqual(wakeFailed.noted, [{}], 'the browser page says the same thing');
@@ -175,17 +167,19 @@ test('1081 B: “Check and Repair” opens Chrome for an installed extension and
 
   const mismatch = repairHarness(t, {connected: true, installed: true, compatibility: {state: 'incompatible'}});
   const mismatchItem = await mismatch.item();
-  assert.equal(mismatchItem.action.kind, 'open_store_page', 'D07: reinstalling the same extension would not help');
+  assert.equal(mismatchItem.action.kind, 'update_chrome_extension', 'D07: reinstalling the same extension would not help');
   assert.equal(mismatchItem.message, zh['ui.server.repair.browser_helper.mismatch.message']);
   assert.equal(mismatch.calls.open, 0);
 
   const never = repairHarness(t, {connected: false, installed: null, last_seen: null, compatibility: {state: 'unknown'}});
-  assert.equal((await never.item()).action.kind, 'install_helper');
-  assert.equal(never.calls.open, 0, 'nothing to wake when the extension was never installed');
+  assert.equal((await never.item()).action.kind, 'manage_chrome_extensions');
+  assert.equal(never.calls.open, 1, 'a missing installation observation is not proof that the extension was removed');
 
   // 窗口里这三个按钮各去哪儿
   const ctx = vm.createContext({CHATGPT_URL: 'https://chatgpt.com/'});
   vm.runInContext(app.split('\n').find(l => l.startsWith('const REPAIR_ACTIONS=')) + '\nthis.actions=REPAIR_ACTIONS;', ctx);
+  assert.deepEqual(plain(ctx.actions.manage_chrome_extensions), ['chromeExtensionsManage', '']);
+  assert.deepEqual(plain(ctx.actions.update_chrome_extension), ['browserUpdate', '']);
   assert.deepEqual(plain(ctx.actions.open_extension_page), ['chromeStoreReconnect', '']);
   assert.deepEqual(plain(ctx.actions.open_store_page), ['chromeStoreOpen', '']);
   assert.deepEqual(plain(ctx.actions.download_chrome), ['chromeUpdate', '']);
@@ -204,7 +198,7 @@ test('1081 B: refreshing ChatGPT tools wakes Chrome once before giving up', asyn
   const failed = await run({ext: closed, wakeConnects: false});
   assert.equal(failed.woke, 1, 'only once');
   assert.equal(failed.result.code, 'EXTENSION_DISCONNECTED');
-  assert.equal((await run({ext: {connected: false, installed: null, last_seen: null}})).woke, 0);
+  assert.equal((await run({ext: {connected: false, installed: null, last_seen: null}})).woke, 1, 'the extension may still be installed; wake once before giving up');
   // 旧装法也一样，没成时那句不猜原因
   assert.deepEqual(await run({ext: {connected: false, last_seen: 1}, legacy: true, wakeConnects: true}), {result: {ok: true}, woke: 1});
   const legacy = await run({ext: {connected: false, last_seen: 1}, legacy: true, wakeConnects: false});
@@ -212,22 +206,23 @@ test('1081 B: refreshing ChatGPT tools wakes Chrome once before giving up', asyn
   assert.equal(legacy.result.message, zh['ui.server.refresh.message.unavailable.notConnected']);
 });
 
-test('1081 B: the setup list and the H10 check count an installed extension as done while Chrome is closed, but not after a failed wake', () => {
+test('1081 B: store setup items require a live connection; legacy retains installation history behavior', () => {
   const state = {data: {mode: 'auto', browser_enabled: true, terminal_enabled: true}, project: () => ({path: '/synthetic'})};
   const item = browser => setupOpenItems(state, {browser}).find(i => i.id === 'browser');
   assert.equal(item({backend: 'extension', connected: true}).status, 'done');
-  const closed = item({backend: 'extension', connected: false, installed: true, last_seen: 1, wake: null});
-  assert.equal(closed.status, 'done');
-  assert.equal(closed.detail.connected, false, 'the wizard shows “Installed” instead of “Connected”');
-  assert.equal(item({backend: 'extension', connected: false, installed: true, wake: {at: 1, connected: false}}).status, 'todo');
-  assert.equal(item({backend: 'extension', connected: false, installed: null, last_seen: null}).status, 'todo');
+  const closed = item({backend: 'extension', distribution: 'chrome_web_store', connected: false, installed: true, last_seen: 1, wake: null});
+  assert.equal(closed.status, 'todo');
+  assert.equal(closed.detail.connected, false, 'historical installation is not a connected state');
+  assert.equal(item({backend: 'extension', distribution: 'chrome_web_store', connected: false, installed: true, wake: {at: 1, connected: false}}).status, 'todo');
+  assert.equal(item({backend: 'extension', distribution: 'chrome_web_store', connected: false, installed: null, last_seen: null}).status, 'todo');
+  assert.equal(item({backend: 'extension', distribution: 'legacy_unpacked', connected: false, installed: true, last_seen: 1}).status, 'done', 'legacy install evidence remains supported');
 
   const host = fs.readFileSync(new URL('../../ui/h10/host.mjs', import.meta.url), 'utf8');
   const linked = vm.runInNewContext(host.split('\n').find(l => l.startsWith('const browserLinked=')) + '\nbrowserLinked');
   const at = (extension, personal) => linked({automation: {browser: {extension, ...(personal ? {personal} : {})}}});
-  assert.equal(at({connection_state: 'connected'}), true);
-  assert.equal(at({connected: false, installed: true}), true);
-  assert.equal(at({connected: false, last_seen: 1}), true);
+  assert.equal(at({distribution: 'legacy_unpacked', connection_state: 'connected'}), true);
+  assert.equal(at({distribution: 'chrome_web_store', connected: false, installed: true}), false);
+  assert.equal(at({distribution: 'chrome_web_store', connected: false, last_seen: 1}), false);
   assert.equal(at({connected: false, installed: true, wake: {connected: false}}), false);
   assert.equal(at({connected: false, installed: null}), false);
   assert.equal(at({}, {connected: true}), true);
@@ -237,35 +232,60 @@ test('1081 B: the setup list and the H10 check count an installed extension as d
   assert.match(wizard, /detail\.installed&&!detail\.connected&&!browserStore\(\)\?window\.ChatHandText\.t\("ui\.wizard\.browserAwaitChrome"\)/, 'no “waiting for Chrome” line for the store extension');
 });
 
-test('1081 B: the Browser Use page: Chrome closed reads as installed, a real problem reads as what it is', () => {
-  const ctx = vm.createContext({S: {}, T: k => k, TH: (k, p) => k + (p ? JSON.stringify(p) : ''), E: String, btn: (text, action) => `[${text}|${action}]`,
-    capOn: () => true, browserOn: () => false, helperNeedsHand: () => false, extRepairUnsupported: false, browserRetrying: false,
-    dpHead: () => '', dpRes: m => `<res:${m.res}|${m.act ? m.act[1] : (m.acts || []).map(a => a[1]).join(',')}${m.notes ? '|' + m.notes.join(',') : ''}>`, kvRow: (k, v) => `<${k}=${v}>`, browserBackends: () => [['extension', 'Extension']],
+test('1081 B recovery UI: Browser Use separates ChatGPT, extension installation, connection and update states', () => {
+  const ctx = vm.createContext({S: {}, T: k => k, TH: (k, p) => k + (p ? JSON.stringify(p) : ''), E: String, btn: (text, action) => `[${text}|${action}]`, tbtn: (text, action) => `{${text}|${action}}`,
+    capOn: () => true, browserOn: () => false, helperNeedsHand: () => false, extRepairUnsupported: false, browserRetrying: false, browserRetryError: false, browserUpdateError: false, browserUpdating: false,
+    dpHead: () => '', dpRes: m => `<res:${m.res}|${m.act ? m.act[1] : (m.acts || []).map(a => a[1]).join(',')}${m.note ? '|' + m.note : ''}${m.notes ? '|' + m.notes.join(',') : ''}>`, kvRow: (k, v) => `<${k}=${v}>`, browserBackends: () => [['extension', 'Extension']],
     icon: () => '', timed: () => '', ago: () => '', helperFolderGuide: () => '', folderScopeNote: () => ''});
   const pg = app.slice(app.indexOf('function pgBrowser()'), app.indexOf('\nfunction ', app.indexOf('function pgBrowser()') + 1));
-  vm.runInContext('var browserRepairNotice=true,reconnectConfirm=false;\n' + app.split('\n').find(l => l.startsWith('function browserState()')) + '\n' + app.slice(app.indexOf('function capBrowser()'), app.indexOf('function capDesktop()')) + '\n' + pg, ctx);
-  const page = (extension, personal) => { ctx.S = {settings: {browser_backend: 'extension'}, automation: {browser: {extension: {configuration_state: 'ready', connection_state: 'disconnected', ...extension}, ...(personal ? {personal} : {})}}}; return vm.runInContext('pgBrowser()', ctx); };
-  const store = {distribution: 'chrome_web_store', installed: true, last_seen: 1};
+  vm.runInContext('var browserRepairNotice=false,reconnectConfirm=false;\n' + app.split('\n').find(l => l.startsWith('function browserState()')) + '\n' + app.slice(app.indexOf('function capBrowser()'), app.indexOf('function capDesktop()')) + '\n' + pg, ctx);
+  const page = extension => { ctx.S = {settings: {browser_backend: 'extension', browser_enabled: true}, automation: {browser: {extension: {distribution: 'chrome_web_store', configuration_state: 'ready', connected: false, connection_state: 'disconnected', installed: true, installation_previously_observed: true, last_seen: 1, compatibility: {state: 'compatible'}, helper: {build: 1092}, ...extension}, personal: {connected: false, chrome: {version: '140.0.7339.80'}}}}}; return vm.runInContext('pgBrowser()', ctx); };
 
-  const closed = page(store);
-  assert.match(closed, /ui\.window\.pgBrowser\.lostStore/, 'the strip after a dropped action says ChatGPT can continue');
-  assert.doesNotMatch(closed, /\|chromeStoreReconnect\]|\|browserReconnect\]/, 'no button: there is nothing to fix');
-  assert.match(closed, /<ui\.window\.pgBrowser\.text2=ui\.window\.pgBrowser\.installed>/);
-  assert.match(closed, /<res:ui\.window\.capBrowser\.res\.text5\|>/);
+  const closed = page({});
+  assert.match(closed, /<res:ui\.chrome\.store\.disconnected\|browserRetry>/, 'Chrome being closed shows a neutral disconnected state');
+  assert.doesNotMatch(closed, /capBrowser\.connectedBuild|<ui\.window\.pgBrowser\.text4=/, 'a disconnected extension version is not presented as current');
+  assert.match(closed, /\{ui\.chrome\.store\.install\|extensionSetup\}/, 'install remains available');
+  // Ken 11/2：底下只常留「安装插件」；「打开扩展管理」「重新连接」只在上面的框里，不重复。
+  assert.doesNotMatch(closed, /\{ui\.chrome\.store\.(manage|reconnect)\|/, 'other actions live only in the status box');
 
-  const failed = page({...store, wake: {at: 1, connected: false}});
-  assert.match(failed, /ui\.window\.pgBrowser\.text\{"openSpan":"<span>","closeSpan":"<\/span>","btn":""\}/, 'the strip has no button of its own; the card below has one');
-  assert.match(failed, /<ui\.window\.pgBrowser\.text2=ui\.window\.capBrowser\.wakeFailed\.tag>/);
-  // 断言跟着 Ken 10/27 10:07 改：两个按钮，「插件被关掉了」「插件被删了」各一行
-  assert.match(failed, /<res:ui\.window\.capBrowser\.wakeFailed\.res\|chromeStoreReconnect,browserRetry\|ui\.window\.capBrowser\.wakeFailed\.off,ui\.window\.capBrowser\.wakeFailed\.gone>/);
+  const missing = page({installed: null, installation_previously_observed: false, last_seen: null, helper: null});
+  assert.match(missing, /<res:ui\.chrome\.store\.notInstalled\|extensionSetup>/, 'never seen connected: install from the status box');
+  assert.doesNotMatch(missing, /\{ui\.chrome\.store\.install\|extensionSetup\}/, 'install is not repeated below the box');
+  assert.match(missing, /<ui\.window\.pgBrowser\.text2=ui\.window\.pgBrowser\.text3>/, 'the extension row agrees with the box');
 
-  const noChrome = page({...store, wake: {at: 1, connected: false, chrome_open_failed: true}});
-  assert.match(noChrome, /<ui\.window\.pgBrowser\.text2=ui\.window\.capBrowser\.noChrome\.tag>/);
-  assert.match(noChrome, /<res:ui\.window\.capBrowser\.noChrome\.res\|chromeUpdate>/);
-  assert.match(page(store, {chrome: {installed: false}}), /<res:ui\.window\.capBrowser\.noChrome\.res\|chromeUpdate>/, 'Chrome missing from this Mac counts too');
+  // Claude（Ken 11/3）：后台读到 Chrome 自己的记录（presence）时，框和「Chrome 插件」那一行说同一件事。
+  const enabled = page({presence: {state: 'enabled'}});
+  assert.match(enabled, /<res:ui\.window\.capBrowser\.res\.text5\|\|ui\.chrome\.store\.installedChrome>/, 'installed and on, Chrome just closed: ready, nothing to click');
+  assert.match(enabled, /<ui\.window\.pgBrowser\.text2=ui\.chrome\.store\.rowInstalled>/);
+  assert.match(enabled, /\{ui\.chrome\.store\.install\|extensionSetup\}/);
+  const off = page({presence: {state: 'disabled'}});
+  assert.match(off, /<res:ui\.chrome\.store\.disabled\|chromeExtensionDetails\|ui\.chrome\.store\.disabledNote>/);
+  assert.match(off, /<ui\.window\.pgBrowser\.text2=ui\.chrome\.store\.tagDisabled>/);
+  const removed = page({presence: {state: 'missing'}});
+  assert.match(removed, /<res:ui\.chrome\.store\.removed\|extensionSetup>/);
+  assert.match(removed, /<ui\.window\.pgBrowser\.text2=ui\.chrome\.store\.tagRemoved>/);
+  assert.doesNotMatch(removed, /\{ui\.chrome\.store\.install\|extensionSetup\}/, 'reinstall is not repeated below the box');
 
-  const legacy = page({distribution: 'legacy_unpacked', last_seen: 1});
-  assert.match(legacy, /\[ui\.window\.capBrowser\.act\.text\|browserReconnect\]/, 'the old local install keeps “Reconnect”');
+  const connected = page({connected: true, connection_state: 'connected'});
+  assert.match(connected, /<res:ui\.window\.capBrowser\.res\.text5\|/, 'only a connected extension gets ready state');
+  assert.match(connected, /<ui\.window\.pgBrowser\.text4=.*"build":"1092"/);
+  assert.match(connected, /\{ui\.chrome\.store\.checkUpdate\|browserUpdate\}/);
+
+  const incompatible = page({connected: true, connection_state: 'connected', compatibility: {state: 'incompatible'}});
+  assert.match(incompatible, /<res:ui\.chrome\.store\.resOld\|browserUpdate\|ui\.chrome\.store\.oldText>/);
+  assert.doesNotMatch(incompatible, /从 Chrome 中移除|remove from Chrome/i);
+  assert.match(incompatible, /\{ui\.chrome\.store\.install\|extensionSetup\}/);
+  assert.doesNotMatch(incompatible, /\{ui\.chrome\.store\.(manage|reconnect|checkUpdate)\|/, 'only the box offers the update');
+
+  ctx.browserUpdateError = true;
+  const failed = page({connected: true, connection_state: 'connected', compatibility: {state: 'incompatible'}});
+  ctx.browserUpdateError = false;
+  assert.match(failed, /<res:ui\.chrome\.store\.updateFailed\|chromeExtensionsManage\|ui\.chrome\.store\.manualRecovery>/);
+  assert.doesNotMatch(failed, /从 Chrome 中移除/);
+
+  // 本地测试版仍保留原有重连动作。
+  ctx.S.automation.browser.extension = {distribution: 'legacy_unpacked', connection_state: 'disconnected', last_seen: 1};
+  assert.match(vm.runInContext('pgBrowser()', ctx), /<res:ui\.window\.capBrowser\.res\.text6\|browserReconnect>/);
 });
 
 test('1081 B: the new sentences use plain words and name each button the way it is spelled', () => {
@@ -281,11 +301,13 @@ test('1081 B: the new sentences use plain words and name each button the way it 
   // D07 断言跟着 Ken 10/27 10:03 改：原来是「版本对不上」、不让人移除再添加。现在只有插件旧到用不了才报，像强制更新一样直说要更新，
   // 做法一句话（在插件页面移除再添加）；只缺后来加的动作照常用，版本那行只写「有新版本」。都不说「旧」、不说要等多久。
   for (const k of ['ui.chrome.store.resOld', 'ui.chrome.store.updateTitle', 'ui.chrome.store.tagMismatch', 'ui.chrome.store.versionOld']) assert.match(zh[k], /更新/, k);
-  for (const k of ['ui.chrome.store.resOld', 'ui.chrome.store.updateTitle', 'ui.chrome.store.oldText', 'ui.chrome.store.tagMismatch', 'ui.chrome.store.versionOld', 'ui.chrome.store.versionNewer']) {
+  for (const k of ['ui.chrome.store.resOld', 'ui.chrome.store.updateTitle', 'ui.chrome.store.tagMismatch', 'ui.chrome.store.versionOld', 'ui.chrome.store.versionNewer']) {
     assert.doesNotMatch(zh[k], /旧|对不上|分钟|小时|几天|；/, k);
     assert.doesNotMatch(en[k], /too old|outdated|minute|hour|day|;/i, k);
   }
   assert.equal(zh['ui.chrome.store.versionNewer'], '{openSmall}有新版本{closeSmall}');
-  assert.ok(zh['ui.chrome.store.oldText'].includes(`「${zh['ui.chrome.store.openPage']}」`) && zh['ui.chrome.store.oldText'].includes('「从 Chrome 中移除」') && zh['ui.chrome.store.oldText'].includes('「添加至 Chrome」'));
-  assert.doesNotMatch(zh['ui.chrome.store.oldText'], /自动/, 'unusable now: only what to do, not “it updates itself”');
+  assert.ok(zh['ui.chrome.store.manualRecovery'].includes('开发者模式') && zh['ui.chrome.store.manualRecovery'].includes('更新'));
+  assert.ok(en['ui.chrome.store.manualRecovery'].includes('Developer mode') && en['ui.chrome.store.manualRecovery'].includes('Update'));
+  assert.doesNotMatch(zh['ui.chrome.store.manualRecovery'] + zh['ui.chrome.store.retryFailed'], /从 Chrome 中移除|重新添加/);
+  assert.doesNotMatch(en['ui.chrome.store.manualRecovery'] + en['ui.chrome.store.retryFailed'], /remove and reinstall|remove from Chrome/i);
 });

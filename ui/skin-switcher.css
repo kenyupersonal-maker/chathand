@@ -15,6 +15,12 @@
 #ch-skin-tools .ch-skin-trigger{width:32px;height:32px;min-height:32px;display:grid;place-items:center;padding:7px;border:var(--hair,1px) solid var(--p-line);border-radius:50%;background:var(--p-card);box-shadow:var(--card-shadow,0 2px 8px rgba(0,0,0,.13))}
 #ch-skin-tools .ch-skin-trigger:hover{background:var(--p-card);border-color:var(--p-line-2)}
 #ch-skin-tools .ch-skin-trigger svg{width:18px;height:18px;fill:none;stroke:var(--p-ink-2);stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+/* 放进左下角那一块（#corner-dock，Ken 11/3）时：按钮没有自己的边和底色，鼠标指着垫一层浅底；面板开着时也垫着。面板贴着块的上面弹出来 */
+#corner-dock #ch-skin-tools .ch-skin-trigger{width:100%;height:auto;min-height:0;aspect-ratio:1;padding:0;border:0;border-radius:var(--dock-tile-r);background:transparent;box-shadow:none;transition:background .15s}
+#corner-dock #ch-skin-tools .ch-skin-trigger:hover,#corner-dock #ch-skin-tools .ch-skin-trigger[aria-expanded="true"]{background:var(--dock-hover)}
+#corner-dock #ch-skin-tools .ch-skin-trigger svg{width:16px;height:16px}
+#corner-dock #ch-skin-tools .ch-skin-trigger:hover svg,#corner-dock #ch-skin-tools .ch-skin-trigger[aria-expanded="true"] svg{stroke:var(--p-ink)}
+#corner-dock #ch-skin-tools .ch-skin-panel{position:absolute;left:calc(var(--hair) * -1);bottom:calc(100% + 8px);max-height:calc(100vh - 100px)}
 /* 面板分两段：上面的标题固定不动，下面的皮肤列表在皮肤多、窗口矮时滚动。
    列表压到标题下面时，标题下面才出现一条淡淡的边线。 */
 #ch-skin-tools .ch-skin-panel{position:fixed;left:12px;bottom:54px;width:340px;max-width:calc(100vw - 24px);max-height:calc(100vh - 76px);display:flex;flex-direction:column;overflow:hidden;border:var(--hair,1px) solid var(--p-line);border-radius:16px;background:var(--p-bg);box-shadow:var(--pop-shadow);padding:0}

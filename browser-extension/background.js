@@ -8,9 +8,9 @@ const RECONNECT_BASE_MS=250,RECONNECT_MAX_MS=8000;
 // 1029：助手报自己的版本（manifest 带构建号）、会做的动作；ChatHand 版本对不上时发 reload，助手从文件夹重新读一遍。
 const MANIFEST=(()=>{try{return chrome.runtime.getManifest?.()||{};}catch{return {};}})();
 const HELPER_ACTIONS=['tabs','new','select','close','navigate','snapshot','screenshot','click','double_click','fill','select_value','press','scroll','scroll_to','wait_for','read','find','batch','back','forward','reload','upload','detach'];
-const HELPER_FEATURES=['self_reload','click_receipt','find_boxes','page_lang','system_language_v1','upload_payload_v1'];
+const HELPER_FEATURES=['self_reload','click_receipt','find_boxes','page_lang','system_language_v1','upload_payload_v1','store_update_v1'];
 let lastReload=null;
-const helperInfo=()=>({version:typeof MANIFEST.version==='string'?MANIFEST.version:null,version_name:typeof MANIFEST.version_name==='string'?MANIFEST.version_name:null,build:Number(String(MANIFEST.version||'').split('.')[3])||null,actions:HELPER_ACTIONS,features:HELPER_FEATURES,...(lastReload?{last_reload:lastReload}:{})});
+const helperInfo=()=>({version:typeof MANIFEST.version==='string'?MANIFEST.version:null,version_name:typeof MANIFEST.version_name==='string'?MANIFEST.version_name:null,build:Number(String(MANIFEST.version||'').split('.')[3])||null,actions:HELPER_ACTIONS,features:HELPER_FEATURES,...(typeof storeUpdateReport!=='undefined'&&storeUpdateReport?{update:storeUpdateReport}:{}),...(lastReload?{last_reload:lastReload}:{})});
 const hello=()=>({kind:'hello',version:1,enabled:true,helper:helperInfo()});
 // 两分钟里最多重新加载一次，防止来回重载；记下从哪一版换、为了换成哪一版，下次连上时报给 ChatHand。
 async function reloadSelf(current,message){
@@ -22,11 +22,36 @@ async function reloadSelf(current,message){
 }
 let port=null,enabled=false,generation=0,queue=Promise.resolve(),reconnectTimer=null,reconnectAttempt=0,preferenceRevision=0,preferenceReadyRevision=-1,preferenceWriteFailedRevision=-1,preferenceWriteFailedValue=null,preferenceQueue=Promise.resolve(),loadSavedEnabledPromise=null,userStopMarker=null;
 let lastConnectionError=null,hostReady=false;
+let queueDepth=0,storeUpdateReport=null,storeUpdateSession=null,storeUpdateTimer=null,storeUpdateAuthorization=null,storeReloadStarted=false,storeApplyPending=false,storeUpdateSequence=0;
+const updateVersion=v=>typeof v==='string'&&v.length<=32&&v===v.trim()&&/^\d+(?:\.\d+){1,3}$/.test(v)&&v.split('.').every(n=>Number(n)<=65535);
+const updateNewer=v=>updateVersion(v)&&v.split('.').some((n,i,a)=>Number(n)>Number(MANIFEST.version?.split('.')[i]||0)&&a.slice(0,i).every((x,j)=>Number(x)===Number(MANIFEST.version?.split('.')[j]||0)));
+function reportStoreUpdate(current,state,fields={}){storeUpdateReport={...storeUpdateReport,...fields,state,sequence:++storeUpdateSequence};if(current===port&&canConnect())safePost(current,hello());}
+function stopStoreUpdate(){clearTimeout(storeUpdateTimer);storeUpdateTimer=null;if(storeUpdateAuthorization){clearTimeout(storeUpdateAuthorization.timer);storeUpdateAuthorization.resolve(false);storeUpdateAuthorization=null;}}
+function updateControlValid(message){return typeof message.id==='string'&&message.id.length>=8&&message.id.length<=96&&!/[^A-Za-z0-9_-]/.test(message.id)&&typeof message.session==='string'&&message.session.length===36&&/^[-a-f0-9]{36}$/.test(message.session)&&message.from_version===MANIFEST.version&&Number.isSafeInteger(message.deadline)&&message.deadline>Date.now()&&message.deadline<=Date.now()+35000;}
+function checkStoreUpdate(current,message){
+ if(!updateControlValid(message)||!canConnect()||storeReloadStarted)return;stopStoreUpdate();storeUpdateSession=message.session;const epoch=generation,id=message.id;storeUpdateReport={id,from_version:MANIFEST.version,target_version:null,state:'checking'};reportStoreUpdate(current,'checking');let settled=false;
+ const done=(status,details)=>{if(settled)return;settled=true;clearTimeout(storeUpdateTimer);if(current!==port||epoch!==generation||!canConnect()||storeUpdateReport?.id!==id)return;
+  if(status==='update_available'&&updateNewer(details?.version))reportStoreUpdate(current,'update_available',{target_version:details.version});
+  else if(status==='no_update'&&storeUpdateReport.target_version)reportStoreUpdate(current,'update_available');
+  else if(['no_update','throttled'].includes(status))reportStoreUpdate(current,status);
+  else reportStoreUpdate(current,'failed',{code:'UPDATE_CHECK_FAILED'});};
+ storeUpdateTimer=setTimeout(()=>{if(!settled){settled=true;if(current===port&&epoch===generation&&storeUpdateReport?.id===id)reportStoreUpdate(current,'failed',{code:'UPDATE_CHECK_TIMEOUT'});}},Math.min(30000,message.deadline-Date.now()));
+ try{if(typeof chrome.runtime.requestUpdateCheck!=='function'){done('unsupported');return;}const result=chrome.runtime.requestUpdateCheck((status,details)=>{if(chrome.runtime.lastError)done('failed');else done(status,details);});if(result?.then)void result.then(value=>done(value?.status,value),()=>done('failed'));}catch{done('failed');}
+}
+async function applyStoreUpdate(current,message){
+ if(!updateControlValid(message)||(storeUpdateSession!==null&&message.session!==storeUpdateSession)||message.id!==storeUpdateReport?.id||message.target_version!==storeUpdateReport?.target_version||!updateNewer(message.target_version)||!canConnect()||storeReloadStarted||storeApplyPending)return;
+ storeUpdateSession=message.session;if(queueDepth||authorizations.size||uploadChunks.size){reportStoreUpdate(current,'waiting_idle',{code:'BROWSER_BUSY'});return;}const epoch=generation;storeApplyPending=true;
+ const authorized=await new Promise(resolve=>{const timer=setTimeout(()=>{if(storeUpdateAuthorization?.id===message.id)storeUpdateAuthorization=null;resolve({allowed:false,code:'UPDATE_APPLY_FAILED'});},Math.min(4500,message.deadline-Date.now()));storeUpdateAuthorization={id:message.id,session:message.session,resolve,timer};if(!safePost(current,{kind:'store_update_authorize',id:message.id,session:message.session,from_version:message.from_version,target_version:message.target_version,deadline:message.deadline})){clearTimeout(timer);storeUpdateAuthorization=null;resolve({allowed:false,code:'UPDATE_APPLY_FAILED'});}});
+ storeApplyPending=false;if(current!==port||epoch!==generation||!canConnect()||Date.now()>message.deadline)return;
+ if(authorized?.allowed!==true){if(authorized?.code==='BROWSER_BUSY')reportStoreUpdate(current,'waiting_idle',{code:'BROWSER_BUSY'});else reportStoreUpdate(current,'failed',{code:authorized?.code==='ACCESS_CHANGED'?'ACCESS_CHANGED':'UPDATE_APPLY_FAILED'});return;}if(queueDepth||authorizations.size||uploadChunks.size){reportStoreUpdate(current,'waiting_idle',{code:'BROWSER_BUSY'});return;}
+ try{storeReloadStarted=true;reportStoreUpdate(current,'applying',{code:null});chrome.runtime.reload();}catch{storeReloadStarted=false;reportStoreUpdate(current,'failed',{code:'UPDATE_APPLY_FAILED'});}
+}
+chrome.runtime.onUpdateAvailable?.addListener(details=>{if(!updateNewer(details?.version)||storeReloadStarted)return;const id=storeUpdateReport?.state==='checking'?storeUpdateReport.id:crypto.randomUUID();storeUpdateReport={id,state:'update_available',from_version:MANIFEST.version,target_version:details.version,sequence:++storeUpdateSequence};if(port&&canConnect())safePost(port,hello());});
 
 const fault=code=>Object.assign(new Error(code),{code});
 function clearReconnect(reset=true){if(reconnectTimer!==null){clearTimeout(reconnectTimer);reconnectTimer=null;}if(reset)reconnectAttempt=0;}
 function clearUploadChunks(tabId){for(const [key,chunk] of uploadChunks)if(tabId===undefined||chunk.tabId===tabId){clearTimeout(chunk.timer);uploadChunks.delete(key);chunk.reject(fault('TASK_REVOKED'));}}
-function clearAuthorizations(){clearUploadChunks();for(const a of authorizations.values()){clearTimeout(a.timer);a.resolve(false);}authorizations.clear();for(const a of installAuthorizations.values()){clearTimeout(a.timer);a.resolve(false);}installAuthorizations.clear();}
+function clearAuthorizations(){stopStoreUpdate();clearUploadChunks();for(const a of authorizations.values()){clearTimeout(a.timer);a.resolve(false);}authorizations.clear();for(const a of installAuthorizations.values()){clearTimeout(a.timer);a.resolve(false);}installAuthorizations.clear();}
 function scheduleReconnect(){
  if(!canConnect()||port||reconnectTimer!==null)return;
  const delay=Math.min(RECONNECT_MAX_MS,RECONNECT_BASE_MS*2**reconnectAttempt++);
@@ -34,13 +59,13 @@ function scheduleReconnect(){
 }
 function portLost(current){
  if(port!==current)return;
- port=null;hostReady=false;lastConnectionError='NATIVE_HOST_DISCONNECTED';generation++;clearAuthorizations();void driver.detachAll();void chrome.action.setBadgeText({text:text('chrome.offlineBadge')});scheduleReconnect();
+ port=null;storeUpdateSession=null;hostReady=false;lastConnectionError='NATIVE_HOST_DISCONNECTED';generation++;clearAuthorizations();void driver.detachAll();void chrome.action.setBadgeText({text:text('chrome.offlineBadge')});scheduleReconnect();
 }
 function safePost(current,message){if(current!==port)return false;try{current.postMessage(message);return true;}catch{portLost(current);return false;}}
 async function disconnect(){
  generation++;clearReconnect();
  clearAuthorizations();
- const old=port;port=null;hostReady=false;
+ const old=port;port=null;storeUpdateSession=null;hostReady=false;
  await driver.detachAll();try{old?.disconnect();}catch{}
  await chrome.action.setBadgeText({text:enabled?'':text('chrome.disabledBadge')});
 }
@@ -55,6 +80,8 @@ function connect(){
   if(current!==port)return;
   if(message.control==='pause'){generation++;clearAuthorizations();void driver.detachAll();return;}
   if(message.control==='reconnect'){void disconnect().then(()=>connect());return;}
+  if(message.control==='store_update'){if(message.operation==='check')checkStoreUpdate(current,message);else if(message.operation==='apply')void applyStoreUpdate(current,message);else if(message.operation==='cancel'&&updateControlValid(message)&&message.id===storeUpdateReport?.id){stopStoreUpdate();storeUpdateReport=null;}return;}
+  if(message.kind==='store_update_authorization'){const a=storeUpdateAuthorization;if(a&&message.id===a.id&&message.session===a.session){clearTimeout(a.timer);storeUpdateAuthorization=null;a.resolve({allowed:message.allowed===true,code:message.code});}return;}
   if(message.control==='reload'){void reloadSelf(current,message);return;}
   if(message.kind==='upload_chunk'){const chunk=uploadChunks.get(message.chunk_id);if(chunk&&chunk.current===current&&chunk.id===message.id){clearTimeout(chunk.timer);uploadChunks.delete(message.chunk_id);if(message.error)chunk.reject(fault(['TASK_REVOKED','TASK_EXPIRED','ACTION_CANCELLED','UPLOAD_CHUNK_INVALID','UPLOAD_FILE_CHANGED'].includes(message.error.code)?message.error.code:'UPLOAD_CHUNK_INVALID'));else chunk.resolve(message);}return;}
   if(message.kind==='authorization'){const a=authorizations.get(message.id);if(a){clearTimeout(a.timer);authorizations.delete(message.id);a.resolve(message.allowed===true);}return;}
@@ -79,7 +106,7 @@ function connect(){
     if(epoch===generation&&current===port)safePost(current,{kind:'result',id:message.id,result});
    }catch(e){safePost(current,{kind:'result',id:message.id,error:{code:String(e.code||'BROWSER_ACTION_FAILED').slice(0,80),message:message.action==='upload'?String(e.code||'BROWSER_ACTION_FAILED').slice(0,80):String(e.message||text('chrome.actionStopped')).slice(0,800),details:message.action==='upload'?undefined:e.details}});}
   };
-  queue=queue.then(run,run).catch(()=>{});
+  queueDepth++;const finish=async()=>{try{return await run();}finally{queueDepth--;}};queue=queue.then(finish,finish).catch(()=>{});
  });
 }
 

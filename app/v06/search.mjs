@@ -9,18 +9,18 @@ const glob=s=>new RegExp('^'+s.replace(/[.+^${}()|[\]\\]/g,'\\$&').replace(/\*/g
 export class SearchManager {
   constructor(store,policy){this.store=store;this.policy=policy;this.jobs=new Map();}
   start(o,caller,session_hash){
-    this.store.checkActive();if(typeof session_hash!=='string'||!/^[a-f0-9]{64}$/.test(session_hash))fail('SEARCH_SESSION_REQUIRED','没有可信的当前连接会话，不能启动搜索。');
+    this.store.checkActive();this.store.requireWorkspace?.();if(typeof session_hash!=='string'||!/^[a-f0-9]{64}$/.test(session_hash))fail('SEARCH_SESSION_REQUIRED','没有可信的当前连接会话，不能启动搜索。');
     if(!o.query||o.query.length>256)fail('QUERY_INVALID','请输入 1–256 字符的搜索内容。');
     const type=o.type||'content';if(!['content','files'].includes(type))fail('SEARCH_TYPE_INVALID','选择 files 或 content。');
     for(const [id,j] of this.jobs)if(j.status!=='running'&&Date.now()-j.finished_at>300000)this.jobs.delete(id);
     const running=[...this.jobs.values()].filter(j=>j.status==='running');if(running.length>=3){const e=Object.assign(Error('已经有 3 个搜索在跑。用 search_results（wait_ms）等其中一个跑完，或者 stop_search 停掉不要的，再开新的。这是暂时的，不要因为它结束任务。'),{code:'SEARCH_LIMIT',running:running.map(j=>({search_id:j.id,run_ms:Math.max(0,Date.now()-j.created_at)})),retry_after_ms:PACING.wait.poll_ms});throw e;}
     while(this.jobs.size>=40){const oldest=[...this.jobs.values()].filter(j=>j.status!=='running').sort((a,b)=>(a.finished_at||0)-(b.finished_at||0))[0];if(!oldest)break;this.jobs.delete(oldest.id);}
     const base=this.store.resolve(o.path||'.',{directory:true});
-    const j={id:crypto.randomUUID(),caller,session_hash,project_id:this.policy.state.data.active,root:this.store.root,epoch:this.policy.epoch,permissionRevision:this.policy.permissionRevision||0,status:'running',results:[],visited:0,skipped:0,bytes:0,incomplete:false,reasons:[],created_at:Date.now(),streams:new Set(),base,options:o,type};
+    const j={id:crypto.randomUUID(),caller,session_hash,project_id:this.policy.state.data.active,root:this.store.root,epoch:this.policy.epoch,workspace_epoch:this.store.workspaceEpoch||0,permissionRevision:this.policy.permissionRevision||0,status:'running',results:[],visited:0,skipped:0,bytes:0,incomplete:false,reasons:[],created_at:Date.now(),streams:new Set(),base,options:o,type};
     this.jobs.set(j.id,j);void this.walk(j).catch(e=>{j.status='failed';j.error=e.code||'SEARCH_FAILED';}).finally(()=>{j.finished_at=Date.now();if(j.status==='running')j.status='completed';for(const s of j.streams)s.destroy();});
     return this.view(j,0,0);
   }
-  valid(j){return j.status==='running'&&j.epoch===this.policy.epoch&&j.permissionRevision===(this.policy.permissionRevision||0)&&j.root===this.store.root&&!this.store.paused;}
+  valid(j){return j.status==='running'&&j.epoch===this.policy.epoch&&j.workspace_epoch===(this.store.workspaceEpoch||0)&&j.permissionRevision===(this.policy.permissionRevision||0)&&j.root===this.store.root&&!this.store.paused;}
   incomplete(j,reason){j.incomplete=true;if(!j.reasons.includes(reason))j.reasons.push(reason);}
   async walk(j){
     const {options:o}=j;const needle=o.case_sensitive?o.query:o.query.toLocaleLowerCase();const filter=o.file_pattern?glob(o.file_pattern):null;const nameMatch=j.type==='files'?glob(o.query.includes('*')||o.query.includes('?')?o.query:'*'+o.query+'*'):null;
@@ -84,9 +84,9 @@ export class SearchManager {
   get(id,caller,session_hash){const j=this.jobs.get(id);if(!j)fail('SEARCH_MISSING','搜索已过期或不存在。');
     if(typeof session_hash!=='string'||!/^[a-f0-9]{64}$/.test(session_hash)||j.caller!==caller||j.session_hash!==session_hash||j.project_id!==this.policy.state.data.active)
       fail('SEARCH_OWNER','搜索不属于当前连接、会话和工作区。');
-    if(j.epoch!==this.policy.epoch||j.permissionRevision!==(this.policy.permissionRevision||0)||j.root!==this.store.root){j.results=[];fail('SEARCH_REVOKED','权限或工作区已改变，请重新搜索。');}return j;}
+    if(j.workspace_epoch!==(this.store.workspaceEpoch||0)||j.epoch!==this.policy.epoch||j.permissionRevision!==(this.policy.permissionRevision||0)||j.root!==this.store.root){j.results=[];fail('SEARCH_REVOKED','权限或工作区已改变，请重新搜索。');}return j;}
   view(j,offset=0,limit=50,cursor=null){
-    if(j.epoch!==this.policy.epoch||j.permissionRevision!==(this.policy.permissionRevision||0)||j.root!==this.store.root){j.results=[];fail('SEARCH_REVOKED','搜索范围的授权已变化，旧结果不能继续读取。');}
+    if(j.workspace_epoch!==(this.store.workspaceEpoch||0)||j.epoch!==this.policy.epoch||j.permissionRevision!==(this.policy.permissionRevision||0)||j.root!==this.store.root){j.results=[];fail('SEARCH_REVOKED','搜索范围的授权已变化，旧结果不能继续读取。');}
     if(!Number.isInteger(offset)||offset<0||!Number.isInteger(limit)||limit<0||limit>100)fail('ARG_INVALID','搜索分页范围无效。');
     const stable=j.status==='completed',snapshot=stable?digest(JSON.stringify([j.id,j.epoch,j.results])):null;
     if(cursor!==null){const match=typeof cursor==='string'&&/^v1:(\d+):([a-f0-9]{64})$/.exec(cursor);
