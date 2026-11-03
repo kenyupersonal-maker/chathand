@@ -11,7 +11,7 @@ const unchanged = (a,b) => ['dev','ino','size','mtimeNs','ctimeNs','nlink'].ever
 // Paths and descriptors never enter the native-messaging payload.
 export class UploadFiles {
  constructor(store, paths) {
-  this.store=store;this.files=[];this.index=0;this.closed=false;
+  this.store=store;this.workspaceEpoch=store.workspaceEpoch||0;this.files=[];this.index=0;this.closed=false;
   if(!Array.isArray(paths)||paths.length<1||paths.length>10)throw fault('ARG_INVALID');
   try {
    for(const requested of paths){
@@ -29,6 +29,7 @@ export class UploadFiles {
  metadata(){return this.files.map(({name,mimeType,size})=>({name,mimeType,size}));}
  read(index,offset){
   if(this.closed)throw fault('BROWSER_REQUEST_EXPIRED');
+  if(this.workspaceEpoch!==(this.store.workspaceEpoch||0))throw fault('ROOT_CHANGED');
   if(!Number.isSafeInteger(index)||index!==this.index||!Number.isSafeInteger(offset)||offset<0)throw fault('UPLOAD_CHUNK_INVALID');
   const file=this.files[index];if(!file||offset!==file.offset)throw fault('UPLOAD_CHUNK_INVALID');
   // Re-resolve through the current file policy on every read; never follow a new path.

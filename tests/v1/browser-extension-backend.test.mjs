@@ -11,7 +11,7 @@ test('missing store configuration stays pending and old installation observation
   f.state.data.extension_last_seen=Date.now()-20000;assert.equal(ext.status().installation_state,'unknown');assert.throws(()=>ext.heartbeat(crypto.randomUUID()),{code:'CHROME_STORE_CONFIGURATION_PENDING'});
 });
 test('extension reauthorization rejects a disabled browser and revoked task', async t => {
-  const f = fixture();t.after(() => f.ext.closeAll());const session = crypto.randomUUID();f.ext.heartbeat(session);f.ext.pauseRequested = false;const pending = f.ext.request('batch', {steps: []}, 'caller', 'task');pending.catch(() => {});const request = f.ext.next(session);assert.equal(request.kind, 'request');assert.equal(f.ext.authorize(session, request.id).authorized, true);
+  const f = fixture();t.after(() => f.ext.closeAll());const session = crypto.randomUUID();f.ext.next(session);f.ext.pauseRequested = false;const pending = f.ext.request('batch', {steps: []}, 'caller', 'task');pending.catch(() => {});const request = f.ext.next(session);assert.equal(request.kind, 'request');assert.equal(f.ext.authorize(session, request.id).authorized, true);
   f.state.data.browser_enabled = false;assert.throws(() => f.ext.authorize(session, request.id), {code: 'CAPABILITY_OFF'});f.ext.cancelAll();await assert.rejects(pending, {code: 'TASK_REVOKED'});
 });
 test('encoded nested snapshots carry fresh page ids, cache hints and folder scope note', async t => {

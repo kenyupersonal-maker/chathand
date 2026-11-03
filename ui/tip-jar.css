@@ -2,16 +2,18 @@
 /* 左下角的圆按钮：跟皮肤按钮一个样子（卡片底色、细描边、线性图标），在它正上方隔 8px；皮肤面板打开时先藏起来 */
 #ch-tip-tools{position:fixed;left:12px;bottom:52px;z-index:109;--p-card:var(--card);--p-line:var(--line);--p-line-2:var(--line-2);--p-ink-2:var(--ink-2);--p-focus:color-mix(in srgb,var(--ink) 50%,transparent)}
 #ch-tip-tools[data-alone]{bottom:12px}
-/* 「回到顶部」按钮（滚动后才出现）原来在皮肤按钮上面那一格；咖啡杯常驻在那一格，它就再往上挪一格，常驻的两个按钮不跟着跳 */
-body:has(#ch-tip-tools:not([data-alone]):not([data-slot])) .to-top{bottom:92px}
-body:has(#ch-tip-tools[data-alone]) .to-top{bottom:52px}
-/* 皮肤面板打开时，面板底边跟咖啡杯按钮差一两像素对不齐，干脆藏起来 */
-body:has(#ch-skin-tools .ch-skin-trigger[aria-expanded="true"]) #ch-tip-tools{visibility:hidden}
-#ch-tip-tools[data-slot]{position:static;margin-bottom:8px}
+/* 皮肤面板打开时，面板底边跟单独的咖啡杯按钮差一两像素对不齐，干脆藏起来（放在左下角那一块里时不用） */
+body:has(#ch-skin-tools .ch-skin-trigger[aria-expanded="true"]) #ch-tip-tools:not([data-slot]){visibility:hidden}
+#ch-tip-tools[data-slot]{position:static}
 #ch-tip-tools .ch-tip-trigger{box-sizing:border-box;width:32px;height:32px;min-height:32px;display:grid;place-items:center;margin:0;padding:7px;border:var(--hair,1px) solid var(--p-line);border-radius:50%;background:var(--p-card);box-shadow:var(--card-shadow,0 2px 8px rgba(0,0,0,.13));cursor:pointer;transform:none}
 #ch-tip-tools .ch-tip-trigger:hover{border-color:var(--p-line-2)}
 #ch-tip-tools .ch-tip-trigger:focus-visible{outline:2px solid var(--p-focus);outline-offset:2px}
 #ch-tip-tools .ch-tip-cup{width:18px;height:18px;fill:none;stroke:var(--p-ink-2);stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+/* 放进左下角那一块（#corner-dock，Ken 11/3）时：没有自己的边和底色，鼠标指着垫一层浅底 */
+#corner-dock #ch-tip-tools .ch-tip-trigger{width:100%;height:auto;min-height:0;aspect-ratio:1;padding:0;border:0;border-radius:var(--dock-tile-r);background:transparent;box-shadow:none;transition:background .15s}
+#corner-dock #ch-tip-tools .ch-tip-trigger:hover{background:var(--dock-hover)}
+#corner-dock #ch-tip-tools .ch-tip-cup{width:16px;height:16px}
+#corner-dock #ch-tip-tools .ch-tip-trigger:hover .ch-tip-cup{stroke:var(--ink)}
 
 /* ---------- 弹窗：上面图标、标题、一句话；下面左边是收款方式，右边是选中那个的二维码和地址 ---------- */
 dialog#modal[data-kind="tip"]{width:600px;--ch-tip-ease:cubic-bezier(.32,.72,0,1);--ch-tip-slide:.45s;--ch-tip-mark:.4s;--ch-tip-distance:22px}

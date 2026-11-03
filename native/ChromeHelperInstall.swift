@@ -47,6 +47,20 @@ enum ChromeWebStoreOpeningPolicy {
     }
 }
 
+/// The extension target comes only from the signed app configuration.
+enum ChromeExtensionDetailsPolicy {
+    static func target(data: [String:Any], configuration: [String:Any]) throws -> URL {
+        guard data.isEmpty else { throw NSError(domain:"ChatHand",code:1,userInfo:["error_code":"ARG_INVALID"]) }
+        guard configuration["distribution"] as? String == "chrome_web_store",
+              let id=configuration["extension_id"] as? String, id.utf8.count==32,
+              id.utf8.allSatisfy({$0>=97 && $0<=112}),
+              let url=URL(string:"chrome://extensions/?id="+id) else {
+            throw NSError(domain:"ChatHand",code:2,userInfo:["error_code":"CHROME_STORE_CONFIGURATION_PENDING"])
+        }
+        return url
+    }
+}
+
 /// Main-thread coordinator; late preparation/open callbacks cannot finish a cancelled or newer attempt.
 final class ChromeWebStoreFlow {
     typealias Reply = ([String: Any]) -> Void

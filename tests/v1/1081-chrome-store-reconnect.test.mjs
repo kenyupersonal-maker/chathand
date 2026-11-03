@@ -17,12 +17,12 @@ const plain = x => JSON.parse(JSON.stringify(x));
 const section = (from, to) => { const start = source.indexOf(from), end = source.indexOf(to, start); assert.ok(start >= 0 && end > start, from); return source.slice(start, end); };
 
 // status 里的一项是 'fail' 时，查连接状态那一下报错。
-function fixture({replies = [], status = [{connected: false, compatibility: {state: 'unknown'}}], published = true} = {}) {
+function fixture({replies = [], status = [{connected: false, compatibility: {state: 'unknown'}}], published = true, update = {state: 'updated'}} = {}) {
   const views = [], log = [], toasts = [], timers = new Map(), dialog = {open: false, dataset: {}};
   let next = 0;
   const S = {automation: {browser: {extension: {distribution: 'chrome_web_store', store_published: published, configuration_state: 'ready'}}}, settings: {browser_enabled: true}};
   const context = vm.createContext({
-    S, Date, E: String, T: (k, p) => k + (p ? JSON.stringify(p) : ''), TH: k => k,
+    S, Date, E: String, T: (k, p) => k + (p ? JSON.stringify(p) : ''), TH: k => k, browserRetrying: false, browserRetryError: false, browserUpdateError: false, browserUpdating: false, browserUpdatePending: false, browserUpdateNotice: '',
     btn: (text, action, id = '', cls = '') => `[${text}|${action}|${id}|${cls}]`,
     tbtn: (text, action, id = '') => `{${text}|${action}|${id}}`,
     modal: (html, kind) => { views.push({html, kind}); dialog.open = true; dialog.dataset.kind = kind; },
@@ -32,51 +32,77 @@ function fixture({replies = [], status = [{connected: false, compatibility: {sta
     api: async (route, body) => {
       log.push(['api', route, body]);
       if (route === '/api/browser/extension/store/status') { const r = status.length > 1 ? status.shift() : status[0]; if (r === 'fail') throw Object.assign(Error('X'), {code: 'X'}); return r; }
+      if (route === '/api/browser/extension/update') { S.automation.browser.extension.update = update; if (update.state === 'updated') { S.automation.browser.extension.connected = true; S.automation.browser.extension.compatibility = {state: 'compatible'}; } return {ext: {update}}; }
+      if (route === '/api/browser/extension/reconnect') return {connected: true};
       return {};
     },
-    refresh: async () => {}, capOn: k => S.settings[k] === true, toast: m => toasts.push(m), browserFixPending: false,
+    refresh: async () => {}, render: () => {}, capOn: k => S.settings[k] === true, toast: m => toasts.push(m), browserFixPending: false,
     extensionSuccessToast: async (m, kind) => toasts.push([m, kind]),
     setTimeout: fn => { timers.set(++next, fn); return next; }, clearTimeout: id => timers.delete(id),
   });
   vm.runInContext(section('let chromeInstallView=', 'function desktopSheet()'), context);
   vm.runInContext(source.split('\n').find(l => l.startsWith('function noteBrowserFixed()')), context);
+  vm.runInContext(source.split('\n').find(l => l.startsWith('function noteBrowserUpdate()')), context);
   const cases = section(" case'extensionSetup':", " case'revealHelperFolder':");
   vm.runInContext('async function perform(name,id=""){switch(name){' + cases + '}}', context);
   const tick = async () => { const first = [...timers][0]; if (!first) return false; timers.delete(first[0]); await first[1](); return true; };
   const natives = () => plain(log.filter(x => x[0] === 'native').map(x => [x[1], x[2] ?? null]));
-  return {context, views, toasts, timers, tick, natives, last: () => views.at(-1), run: (name, id) => context.perform(name, id)};
+  return {context, views, log, toasts, timers, tick, natives, last: () => views.at(-1), run: (name, id) => context.perform(name, id)};
 }
 
-test('1081 (Ken 10/27): Chrome closed shows nothing wrong; a failed wake lists the two cases on their own lines with two buttons; retrying only spins', () => {
-  const ctx = vm.createContext({S: {}, T: k => k, capOn: () => true, browserOn: () => false, helperNeedsHand: () => false, extRepairUnsupported: false, browserRetrying: false});
+test('1081 recovery UI: disconnected or unobserved store extensions are neutral, and legacy reconnection stays separate', () => {
+  const ctx = vm.createContext({S: {}, T: k => k, capOn: () => true, browserOn: () => false, helperNeedsHand: () => false, extRepairUnsupported: false, browserRetrying: false, browserRetryError: false, browserUpdateError: false, browserUpdating: false});
   const card = source.slice(source.indexOf('function capBrowser()'), source.indexOf('function capDesktop()'));
   vm.runInContext(source.split('\n').find(l => l.startsWith('function browserState()')) + '\n' + card, ctx);
-  const at = (distribution, ext = {}) => { ctx.S = {automation: {browser: {extension: {distribution, configuration_state: 'ready', connection_state: 'disconnected', installed: true, installation_state: 'observed', last_seen: Date.now() - 3600e3, ...ext}}}}; return plain(vm.runInContext('capBrowser()', ctx)); };
-  const store = at('chrome_web_store');
-  assert.equal(store.ok, true);
-  assert.equal(store.tag, '');
-  assert.equal(store.act, undefined);
-  assert.equal(store.acts, undefined);
-  // 断言跟着 Ken 10/27 10:07 改：原来是一条 hint 把两种情况写在一起、一个按钮；现在两种情况各一行（notes），两个按钮（acts）
-  const failed = at('chrome_web_store', {wake: {at: Date.now(), connected: false}});
-  assert.equal(failed.tag, 'ui.window.capBrowser.wakeFailed.tag');
-  assert.equal(failed.res, 'ui.window.capBrowser.wakeFailed.res');
-  assert.deepEqual(failed.notes, ['ui.window.capBrowser.wakeFailed.off', 'ui.window.capBrowser.wakeFailed.gone']);
-  assert.equal(failed.note, undefined);
-  assert.deepEqual(failed.acts, [['ui.chrome.store.openPage', 'chromeStoreReconnect'], ['ui.wizard.retry', 'browserRetry']]);
-  // 点了「再试一次」：只转圈、说正在连接，不写原因和做法，也没有按钮
+  const at = (distribution, ext = {}) => { ctx.S = {automation: {browser: {extension: {distribution, configuration_state: 'ready', connected: false, connection_state: 'disconnected', installed: true, installation_previously_observed: true, last_seen: Date.now() - 3600e3, compatibility: {state: 'compatible'}, ...ext}}}}; return plain(vm.runInContext('capBrowser()', ctx)); };
+  const disconnected = at('chrome_web_store');
+  assert.equal(disconnected.ok, false);
+  assert.equal(disconnected.neutral, true);
+  assert.equal(disconnected.tag, '');
+  assert.equal(disconnected.res, 'ui.chrome.store.disconnected');
+  assert.deepEqual(disconnected.act, ['ui.chrome.store.reconnect', 'browserRetry']);
+  const chromeClosed = at('chrome_web_store');
+  assert.equal(chromeClosed.res, 'ui.chrome.store.disconnected', 'Chrome being closed is not an error');
+  assert.deepEqual(chromeClosed.act, ['ui.chrome.store.reconnect', 'browserRetry']);
+  const wakeFailed = at('chrome_web_store', {wake: {connected: false}});
+  assert.equal(wakeFailed.res, 'ui.chrome.store.disconnected');
+  assert.equal(wakeFailed.note, 'ui.chrome.store.retryFailed');
+  assert.deepEqual(wakeFailed.act, ['ui.chrome.store.manage', 'chromeExtensionsManage']);
+
   ctx.browserRetrying = true;
-  const retrying = at('chrome_web_store', {wake: {at: Date.now(), connected: false}});
+  const retrying = at('chrome_web_store');
   ctx.browserRetrying = false;
   assert.equal(retrying.spin, true);
-  assert.equal(retrying.res, 'ui.window.capBrowser.connecting');
-  assert.equal(retrying.tag, '');
-  for (const k of ['notes', 'note', 'acts', 'act']) assert.equal(retrying[k], undefined, k);
+  assert.equal(retrying.res, 'ui.chrome.store.connecting');
+  ctx.browserRetryError = true;
+  const failed = at('chrome_web_store');
+  ctx.browserRetryError = false;
+  assert.equal(failed.res, 'ui.chrome.store.disconnected');
+  assert.equal(failed.note, 'ui.chrome.store.retryFailed');
+  assert.deepEqual(failed.act, ['ui.chrome.store.manage', 'chromeExtensionsManage']);
+  assert.ok(zh['ui.chrome.store.retryFailed'].includes('检查插件是否已开启') && zh['ui.chrome.store.retryFailed'].includes('重新安装'));
+  assert.ok(en['ui.chrome.store.retryFailed'].includes('enabled') && en['ui.chrome.store.retryFailed'].includes('install it again'));
+
+  const missing = at('chrome_web_store', {installed: null, installation_previously_observed: false, last_seen: null});
+  assert.equal(missing.neutral, true);
+  // Ken 11/2：从没见插件连上过，就当还没装，按钮是「安装插件」（装过的点了也会在 Chrome 打开后自己连上）。
+  assert.equal(missing.res, 'ui.chrome.store.notInstalled');
+  assert.equal(missing.act[1], 'extensionSetup');
+  const incompatible = at('chrome_web_store', {connected: true, connection_state: 'connected', compatibility: {state: 'incompatible'}});
+  assert.equal(incompatible.ok, false);
+  assert.equal(incompatible.act[1], 'browserUpdate');
+  ctx.browserUpdateError = true;
+  const updateFailed = at('chrome_web_store', {connected: true, compatibility: {state: 'incompatible'}});
+  ctx.browserUpdateError = false;
+  assert.equal(updateFailed.res, 'ui.chrome.store.updateFailed');
+  assert.equal(updateFailed.note, 'ui.chrome.store.manualRecovery');
+  assert.deepEqual(updateFailed.act, ['ui.chrome.store.manage', 'chromeExtensionsManage']);
+  assert.ok(zh['ui.chrome.store.manualRecovery'].includes('开发者模式') && zh['ui.chrome.store.manualRecovery'].includes('更新'));
+  assert.ok(en['ui.chrome.store.manualRecovery'].includes('Developer mode') && en['ui.chrome.store.manualRecovery'].includes('Update'));
+
   assert.deepEqual(at('legacy_unpacked').act, ['ui.window.capBrowser.act.text', 'browserReconnect']);
-  assert.match(source, /x\.distribution==='chrome_web_store'\?\(storeTrouble\(x\)\?TH\("ui\.window\.pgBrowser\.text",\{"openSpan":\("<span>"\),"closeSpan":\("<\/span>"\),"btn":''\}\):TH\("ui\.window\.pgBrowser\.lostStore"/);
-  assert.match(source, /x\.connection_state==='not_installed'\?btn\(T\("ui\.window\.capBrowser\.act\.text2"\),'extensionSetup','','sm'\):btn\(T\("ui\.window\.capBrowser\.act\.text"\),'browserReconnect','','sm'\)/);
-  // 「再试一次」走后台的重新连接（应用店装的会在后台打开 Chrome、等插件连上），连上了提示一句
-  assert.match(source, /case'browserRetry':\{browserRetrying=true;render\(\);let r=null;try\{r=await api\('\/api\/browser\/extension\/reconnect',\{\}\);\}catch\{\}browserRetrying=false;await refresh\(\);render\(\);if\(r\?\.connected===true\)void extensionSuccessToast\(T\("ui\.window\.capBrowser\.connected"\),'chrome-store'\);break;\}/);
+  assert.match(source, /api\('\/api\/browser\/extension\/reconnect',\{\}\)/);
+  assert.match(source, /browserRetrying\)return/);
 });
 
 test('1081 (Ken 10/27 10:07): “Open Extension Page” only opens the page in Chrome, closes the box and says so; no spinning wait; connecting later says so once', async () => {
@@ -102,17 +128,36 @@ test('1081 (Ken 10/27 10:07): “Open Extension Page” only opens the page in C
   assert.equal(vm.runInContext('browserFixPending', f.context), false);
 });
 
-test('1081 (Ken 10/27 10:03): updating an old extension is the same: open the page, close the box, say so; the title says Update', async () => {
-  const f = fixture({replies: [{opened: true, selected_profile: 'Default'}]});
+test('1081 recovery: an incompatible extension uses the update API and only an updated result reports success', async () => {
+  const f = fixture({update: {state: 'updated', from_version: '1.0.0', target_version: '1.0.1'}});
   f.context.S.automation.browser.extension = {...f.context.S.automation.browser.extension, connection_state: 'connected', connected: true, compatibility: {state: 'incompatible'}};
-  await f.run('chromeStoreOpen');
-  assert.match(f.views[0].html, /^<h2>ui\.chrome\.store\.updateTitle<\/h2>/);
-  assert.equal(f.views.length, 1);
-  assert.deepEqual(plain(f.toasts), ['ui.chrome.store.pageOpened']);
-  assert.equal(f.timers.size, 0);
-  f.context.S.automation.browser.extension = {distribution: 'chrome_web_store', connected: true, compatibility: {state: 'partial'}};
-  vm.runInContext('noteBrowserFixed()', f.context);
-  assert.deepEqual(plain(f.toasts), ['ui.chrome.store.pageOpened', ['ui.window.capBrowser.connected', 'chrome-store']], 'works again even if a later action is still missing');
+  await f.run('browserUpdate');
+  assert.equal(f.context.S.automation.browser.extension.compatibility.state, 'compatible', 'updated means the new extension reconnected');
+  assert.ok(f.context.browserUpdateError === false);
+  assert.ok(f.log.some(x => x[0] === 'api' && x[1] === '/api/browser/extension/update'));
+  assert.deepEqual(plain(f.toasts), [['ui.chrome.store.updated', 'chrome-store']]);
+  assert.deepEqual(f.natives(), [], 'no store page or remove-and-reinstall action');
+
+  const checking = fixture({update: {state: 'checking'}});
+  checking.context.S.automation.browser.extension = {distribution: 'chrome_web_store', connected: false, installed: true, update: {state: 'idle'}};
+  await checking.run('browserUpdate');
+  assert.deepEqual(plain(checking.toasts), [], 'checking does not say the extension is updated');
+  checking.context.S.automation.browser.extension.update = {state: 'updated', from_version: '1.0.0', target_version: '1.0.1'};
+  vm.runInContext('noteBrowserUpdate()', checking.context);
+  assert.deepEqual(plain(checking.toasts), [['ui.chrome.store.updated', 'chrome-store']], 'the update push ends with the success confirmation');
+
+  const noUpdate = fixture({update: {state: 'no_update', from_version: '1.0.0'}});
+  noUpdate.context.S.automation.browser.extension = {distribution: 'chrome_web_store', connected: true, compatibility: {state: 'incompatible'}};
+  await noUpdate.run('browserUpdate');
+  assert.ok(!plain(noUpdate.toasts).some(t => Array.isArray(t) && t[0] === 'ui.chrome.store.updated'), 'no_update while incompatible is not success');
+  assert.equal(noUpdate.context.S.automation.browser.extension.update.state, 'no_update');
+  const failed = fixture({update: {state: 'throttled'}});
+  failed.context.S.automation.browser.extension = {distribution: 'chrome_web_store', connected: true, compatibility: {state: 'incompatible'}};
+  await failed.run('browserUpdate');
+  assert.equal(failed.context.S.automation.browser.extension.update.state, 'throttled');
+  assert.ok(!plain(failed.toasts).includes('ui.chrome.store.updated'));
+  assert.ok(zh['ui.chrome.store.manualRecovery'].includes('开发者模式') && !/从 Chrome 中移除/.test(zh['ui.chrome.store.manualRecovery']));
+  assert.ok(en['ui.chrome.store.manualRecovery'].includes('Developer mode') && !/remove/i.test(en['ui.chrome.store.manualRecovery']));
 });
 
 test('1081 D06: choosing a profile and a failed open stay a reconnect; installing afterwards is a normal install', async () => {

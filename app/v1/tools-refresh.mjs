@@ -208,7 +208,7 @@ export class ToolsRefresher{
  isDetail(url){return typeof url==='string'&&url.startsWith(this.pluginsUrl+'/');}
  async waitHelper(reason){
   // 1081（Claude，Ken 10/27）：插件装过、只是没连上（Chrome 没开），先叫醒 Chrome 一次（ExtensionBrowser.wakeAndWait，会等它连上），再接着看。
-  let woke=false;const wake=async ext=>{if(woke||typeof this.wakeChrome!=='function'||!(ext?.installed===true||ext?.last_seen))return false;woke=true;try{await this.wakeChrome();}catch{}return true;};
+  let woke=false;const wake=async ext=>{if(woke||typeof this.wakeChrome!=='function'||!storeMode(this.distribution)&&!(ext?.installed===true||ext?.last_seen))return false;woke=true;try{await this.wakeChrome();}catch{}return true;};
   if(storeMode(this.distribution)){
    const offlineUntil=this.now()+(reason==='update'?45000:0);
    for(;;){

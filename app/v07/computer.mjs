@@ -78,7 +78,7 @@ export class NativeComputer {
  scopeNote(){
   if(this.state.data.mode==='full')return null;
   const project=this.state.project?.()||this.state.data.projects?.find(p=>p.id===this.state.data.active);
-  const folder=path.basename(project?.path||this.policy.store?.root||'')||project?.name||'当前工作区';
+  const root=project?.path||this.policy.store?.root,folder=(typeof root==='string'?path.basename(root):'')||project?.name||'当前工作区';
   return '文件范围是『'+folder+'』：不要改动这个文件夹以外的文件；要下载、保存，存进这个文件夹。';
  }
  withScope(result){const note=this.scopeNote();return note?{...result,details:{...result?.details,scope_note:note}}:result;}
@@ -254,11 +254,12 @@ export class NativeComputer {
  async applications(o,caller){return this.withScope({...await this.request('applications',{},o.task_id,caller),ttlMs:1000,cacheScope:'private'});}
  async focus(o,caller){this.target(o);if(!o.bundle_id)fail('ARG_INVALID','请提供应用标识。');return this.postResult(await this.request('focus',{bundle_id:o.bundle_id},o.task_id,caller),o,caller);}
  async openPath(o,caller,store=this.policy.store){
-  this.check(o.task_id,caller,{fileOpen:true});
+  this.check(o.task_id,caller,{fileOpen:true});this.policy.useWorkspace?.(this.policy.require(o.task_id,caller));
   if(!store?.resolve)fail('COMPUTER_PATH_SCOPE_REQUIRED','打开文件需要当前文件范围的解析器。');
   const resolved=store.resolve(o.path),st=fs.statSync(resolved);
   if(!st.isFile()&&!st.isDirectory())fail('TYPE_BLOCKED','只能用默认程序打开普通文件或应用包。');
   return this.withScope(await this.request('open_path',{path:resolved,identity:{device:st.dev,inode:st.ino,size:st.size,mtime_ms:st.mtimeMs}},o.task_id,caller));
  }
+ cancelTask(task){for(const p of [...this.pending.values()])if(p.task===task)this.reject(p,nativeError({code:'TASK_REVOKED',message:'桌面操作已停止。'}));for(const [id,c]of this.captures)if(c.task===task)this.captures.delete(id);for(const [id,o]of this.observations)if(o.task===task)this.observations.delete(id);}
  cancelAll(){for(const p of [...this.pending.values()])this.reject(p,nativeError({code:'TASK_REVOKED',message:'桌面操作已停止。'}));this.captures.clear();this.observations.clear();}
 }

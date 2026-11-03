@@ -28,7 +28,7 @@ function footerOK(value){return value.buttons.length>0&&Math.abs(value.right-val
    await p.locator('#modal').screenshot({path:path.join(OUT,`tip-${locale}-${theme}.png`)});
    await p.keyboard.press('ArrowDown');
    const keyboard=await p.locator('#modal .ch-tip-tab[aria-selected="true"]').evaluate(e=>({active:e===document.activeElement,input:document.documentElement.dataset.input,outline:getComputedStyle(e).outlineStyle,id:e.dataset.tipPick}));
-   check(`${locale} ${theme}: keyboard navigation retains focus border`,keyboard.input==='keyboard'&&keyboard.active&&keyboard.outline==='solid'&&keyboard.id==='alipay',keyboard);
+   check(`${locale} ${theme}: keyboard navigation moves selection without focus border (Ken 11/3)`,keyboard.input==='keyboard'&&keyboard.active&&keyboard.outline==='none'&&keyboard.id==='alipay',keyboard);
    await p.keyboard.press('ArrowUp');
    await p.keyboard.press('Escape');await p.waitForFunction(()=>!document.querySelector('#modal').open);
    await p.click('.ch-tip-trigger');await p.waitForSelector('#modal .ch-tip-tab[aria-selected="true"]');
@@ -44,7 +44,7 @@ function footerOK(value){return value.buttons.length>0&&Math.abs(value.right-val
    await p.locator('#modal').screenshot({path:path.join(OUT,`store-${locale}-${theme}.png`)});
    await p.keyboard.press('Tab');
    const focused=await p.locator('#modal [data-action="closeModal"]').evaluate(e=>({active:e===document.activeElement,outline:getComputedStyle(e).outlineStyle}));
-   check(`${locale} ${theme}: keyboard focus remains visible`,focused.active&&focused.outline==='solid',focused);
+   check(`${locale} ${theme}: keyboard focus shows no focus border (Ken 11/3)`,focused.active&&focused.outline==='none',focused);
    const before=await p.evaluate(()=>window.__calls.filter(c=>c.name==='/api/settings').length);
    await p.click('#modal [data-action="closeModal"]');await p.waitForFunction(()=>!document.querySelector('#modal').open);
    check(`${locale} ${theme}: cancel does not change settings`,await p.evaluate(before=>window.__calls.filter(c=>c.name==='/api/settings').length===before,before));

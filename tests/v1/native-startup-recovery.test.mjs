@@ -15,16 +15,20 @@ test('owned native startup recovers with exact-child cleanup and a finite unatta
  const main=fs.readFileSync('native/main.swift','utf8');
  const section=(start,end)=>{const from=main.indexOf(start),to=main.indexOf(end,from);assert.ok(from>=0&&to>from,start);return main.slice(from,to);};
  const adapt=source=>source.replaceAll('private func ','func ').replaceAll('ProcessInfo.processInfo.systemUptime','Clock.now').replaceAll('DispatchQueue.main.asyncAfter','Scheduler.after');
+ const diagnostics=fs.readFileSync('native/NativeDiagnostics.swift','utf8');
+ const failureFrom=diagnostics.indexOf('    static func startupFailureCode('),failureTo=diagnostics.indexOf('    static func safe(',failureFrom);
+ assert.ok(failureFrom>=0&&failureTo>failureFrom);
  let source=fs.readFileSync('tests/v1/native-startup-recovery-checks.swift','utf8').replace('final class App {','final class App {\n    var chromeWebStoreFlow=Cancelable()\n    func invalidateClientAppearance() {}')
+  .replace('// ACTUAL_STARTUP_FAILURE_CODE',diagnostics.slice(failureFrom,failureTo))
   .replace('// ACTUAL_OWNED_EXIT',adapt(section('    private func ownedBackendExited(', '    private func scheduleBackendRecovery()')))
   .replace('// ACTUAL_SCHEDULE_RECOVERY',adapt(section('    private func scheduleBackendRecovery()', '    private let chromeDataAccessResume=')))
   .replace('// ACTUAL_STARTUP_OBSERVER',adapt(section('    private func observeBackendStartup(', '    private func stopStartupBackend(')))
   .replace('// ACTUAL_STARTUP_STOP',adapt(section('    private func stopStartupBackend(', '    func rawRuntime()')));
  const fixture=path.join(root,'Checks.swift'),binary=path.join(root,'checks');fs.writeFileSync(fixture,source);
  const env={PATH:'/usr/bin:/bin:/usr/sbin:/sbin',HOME:path.join(root,'home'),TMPDIR:path.join(root,'tmp'),CLANG_MODULE_CACHE_PATH:path.join(root,'cache')};
- const build=spawnSync('/usr/bin/xcrun',['swiftc','-swift-version','5','-parse-as-library','-module-cache-path',path.join(root,'cache'),'native/BackendRecovery.swift',fixture,'-o',binary],{env,encoding:'utf8',timeout:90000});
+ const build=spawnSync('/usr/bin/xcrun',['swiftc','-swift-version','5','-parse-as-library','-module-cache-path',path.join(root,'cache'),'native/BackendRecovery.swift','native/StartupFailureAlert.swift',fixture,'-o',binary],{env,encoding:'utf8',timeout:90000});
  assert.equal(build.status,0,build.stderr);
- for(const name of ['early-exit','late-ready','bounded-timeouts','bounded-early-exits','unconfirmed-stop','launch-errors','identity','races','runtime-reset']){
+ for(const name of ['early-exit','late-ready','bounded-timeouts','bounded-early-exits','unconfirmed-stop','launch-errors','identity','races','runtime-reset','startup-categories','suppressed-categories']){
   const run=spawnSync(binary,[name],{env,encoding:'utf8',timeout:5000});assert.equal(run.status,0,name+'\n'+run.stderr);assert.match(run.stdout,new RegExp('PASS: '+name));console.log(run.stdout.trim());
  }
  const launch=section('    func startService() throws {','    private func observeBackendStartup(');

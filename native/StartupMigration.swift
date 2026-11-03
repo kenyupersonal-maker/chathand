@@ -38,6 +38,9 @@ final class StartupMigration {
         guard !cancelled else{lock.unlock();return Result(code:"MIGRATION_CANCELLED",pid:0,succeeded:false)}
         active=true;lock.unlock()
         defer {lock.lock();active=false;lock.unlock()}
+        // This is the first use of the bundled runtime, before startService.
+        // Preserve the actionable missing-program cause for the native alert.
+        guard FileManager.default.isExecutableFile(atPath:executable.path) else{return Result(code:"SERVICE_NODE_MISSING",pid:0,succeeded:false)}
 
         let process=Process(),errorPipe=Pipe(),outputPipe=Pipe(),started=ProcessInfo.processInfo.systemUptime
         let deadline=started+Self.runTimeout
@@ -89,7 +92,7 @@ final class StartupMigration {
         if !process.isRunning && wait(until:min(deadline,ProcessInfo.processInfo.systemUptime+0.2)) {
             diagnostic("MIGRATION_CHILD_GONE",pid)
             let raw=String(data:stderr,encoding:.utf8)?.trimmingCharacters(in:.whitespacesAndNewlines)
-            let formatCode: String? = process.terminationReason == .exit && process.terminationStatus==73 && raw=="DATA_FORMAT_NEWER" ? "DATA_FORMAT_NEWER" : process.terminationReason == .exit && process.terminationStatus==74 && raw=="DATA_FORMAT_UNSUPPORTED" ? "DATA_FORMAT_UNSUPPORTED" : nil
+            let formatCode: String? = process.terminationReason == .exit && process.terminationStatus==73 && raw=="DATA_FORMAT_NEWER" ? "DATA_FORMAT_NEWER" : process.terminationReason == .exit && process.terminationStatus==74 && raw=="DATA_FORMAT_UNSUPPORTED" ? "DATA_FORMAT_UNSUPPORTED" : process.terminationReason == .exit && process.terminationStatus==75 && raw=="STARTUP_ACCESS_DENIED" ? "STARTUP_ACCESS_DENIED" : nil
             if let formatCode {diagnostic(formatCode,pid)}
             return Result(code:isCancelled ? "MIGRATION_CANCELLED" : formatCode ?? (process.terminationStatus==0 ? "MIGRATION_COMPLETE":"MIGRATION_CHILD_FAILED"),pid:pid,succeeded:!isCancelled && process.terminationStatus==0)
         }

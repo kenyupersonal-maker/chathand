@@ -15,7 +15,7 @@ export class TaskPolicy {
   if([...this.tasks.values()].filter(t=>['active','pending_approval'].includes(t.status)).length>=300)fail('TASK_LIMIT','同时进行的任务已达300条，请先完成或停止现有任务。');
   const chat=conversation_id?this.state.data.conversations.find(c=>c.id===conversation_id&&c.project_id===this.state.data.active):null;if(conversation_id&&!chat)fail('CHAT_NOT_BOUND','该对话未绑定当前项目。');
   if(session_hash){this.state.data.session_groups||={};const group=this.state.data.session_groups[session_hash]||={title,created_at:Date.now()};if(conversation_title){group.title=conversation_title.trim();group.explicit_title=true;}if(chat&&!group.conversation_id){group.conversation_id=chat.id;group.link_source='user_bound';}this.state.save();}
-  const t={...profile,session_hash,connection_principal,conversation_title:conversation_title?.trim()||null,id:reservedId||crypto.randomUUID(),request_id,fingerprint:fp,title,conversation_id,caller,project_id:this.state.data.active,root:this.store.root,epoch:this.epoch,status:'active',created_at:Date.now(),expires_at:null,jobs:[]};
+  const t={...profile,session_hash,connection_principal,conversation_title:conversation_title?.trim()||null,id:reservedId||crypto.randomUUID(),request_id,fingerprint:fp,title,conversation_id,caller,project_id:this.state.data.active,root:this.store.root,epoch:this.epoch,workspace_epoch:this.store.workspaceEpoch||0,status:'active',created_at:Date.now(),expires_at:null,jobs:[]};
   this.tasks.set(t.id,t);this.diagnostics?.record('task.begin',{task:t.id,...profile});this.requests.set(key,{id:t.id,fingerprint:fp});this.emit('task_started',{task_id:t.id,conversation_id,title});return this.view(t);
  }
  pruneTerminal(now=Date.now()){
@@ -34,7 +34,7 @@ export class TaskPolicy {
  view(t){
   if(t.completion)return structuredClone(t.completion);
   const terminal=['completed','failed','expired','superseded','revoked','rejected','cancelled','paused','permission_changed','workspace_changed','connection_lost'].includes(t.status);
-  return {...(t.internal_source==='tools_refresh'?{source:'chathand_auto',source_kind:'tools_refresh',...((this.automaticTaskView?.(t)||t.automatic_task)?{automatic_task:structuredClone(this.automaticTaskView?.(t)||t.automatic_task)}:{})}:{}),model:t.model||'unknown',trial:t.trial||'medium',root:t.root,session_hash:t.session_hash||null,conversation_title:t.conversation_title||null,...(t.end_reason?{end_reason:t.end_reason}:{}),task_id:t.id,created_at:t.created_at,title:t.title,...taskTitleMetadata(t),request_id:t.request_id,status:t.status,project_id:t.project_id,conversation_id:t.conversation_id,expires_at:t.expires_at,jobs:[...t.jobs],mode:this.state.data.mode,
+  return {workspace_dependent:t.workspace_dependent===true,workspace_epoch:t.workspace_epoch||0,...(t.internal_source==='tools_refresh'?{source:'chathand_auto',source_kind:'tools_refresh',...((this.automaticTaskView?.(t)||t.automatic_task)?{automatic_task:structuredClone(this.automaticTaskView?.(t)||t.automatic_task)}:{})}:{}),model:t.model||'unknown',trial:t.trial||'medium',root:t.root,session_hash:t.session_hash||null,conversation_title:t.conversation_title||null,...(t.end_reason?{end_reason:t.end_reason}:{}),task_id:t.id,created_at:t.created_at,title:t.title,...taskTitleMetadata(t),request_id:t.request_id,status:t.status,project_id:t.project_id,conversation_id:t.conversation_id,expires_at:t.expires_at,jobs:[...t.jobs],mode:this.state.data.mode,
     ...(t.continuity?{continuity:structuredClone(t.continuity)}:{}),...(t.stop_context?{stop_context:structuredClone(t.stop_context)}:{}),...(t.continuation?{continuation:structuredClone(t.continuation)}:{}),
     execution_complete:['completed','failed'].includes(t.status),terminal,next_action:t.status==='pending_approval'?'wait_for_user':t.status==='active'?'continue_existing_task':'stop',
     retry:{create_new_task:false,poll_automatically:false,max_status_checks_per_turn:1}};
@@ -55,7 +55,7 @@ export class TaskPolicy {
    if(!saved)fail('TASK_MISSING','找不到任务，请检查原任务回执。');
    t=saved.result;
   }
-  if(t.project_id!==this.state.data.active||t.root!==this.store.root)fail('ROOT_CHANGED','原任务所在工作区已改变，请在当前范围新建任务。');
+  if(t.project_id!==this.state.data.active||!(this.store.matchesRoot?.(t.root)??t.root===this.store.root))fail('ROOT_CHANGED','原任务所在工作区已改变，请在当前范围新建任务。');
   // Reads of old terminal receipts remain possible; effects use require().
   return saved?{...t,id,caller,jobs:[...t.jobs],completion:t,connection_principal:saved.connection_principal??null,archived:true,finish_success:saved.success}:this.get(id);
  }
@@ -63,7 +63,7 @@ export class TaskPolicy {
   this.check();const t=this.get(id,caller);
   const errors={pending_approval:['TASK_PENDING_APPROVAL','任务等 ChatHand 窗口批准；保留原任务号，不执行、不重建。'],completed:['TASK_COMPLETED','任务已完成，请使用原回执。'],failed:['TASK_FAILED','任务已经按失败结束；保留结果，不自动重跑。'],expired:['TASK_EXPIRED','任务已过期，请保留原结果。'],superseded:['TASK_SUPERSEDED','原任务已由新任务接替，请查看原回执，不要重跑。'],rejected:['TASK_REJECTED','这条任务已被拒绝。'],cancelled:['TASK_CANCELLED','任务已停止。']};
   if(t.status!=='active'){const [code,msg]=errors[t.status]||['TASK_REVOKED','任务已撤销。'];fail(code,msg);}
-  if(t.project_id!==this.state.data.active||t.root!==this.store.root||t.epoch!==this.epoch)fail('ROOT_CHANGED','工作区或权限已改变，请重新开始任务。');return t;
+  if(t.project_id!==this.state.data.active||!(this.store.matchesRoot?.(t.root)??t.root===this.store.root)||t.epoch!==this.epoch)fail('ROOT_CHANGED','工作区或权限已改变，请重新开始任务。');return t;
  }
  approve(id,{minutes=30}={}){this.check();const t=this.get(id);if(t.status!=='pending_approval')fail('TASK_STATE','任务已处理。');if(t.epoch!==this.epoch||t.project_id!==this.state.data.active)fail('ROOT_CHANGED','工作区已更换。');if(!Number.isInteger(minutes)||minutes<1||minutes>240)fail('ARG_INVALID','授权时长为 1–240 分钟。');t.status='active';t.expires_at=Date.now()+minutes*60000;this.emit('task_started',{task_id:id});return this.view(t);}
  revokeTask(t,status='revoked'){

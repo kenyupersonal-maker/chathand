@@ -31,6 +31,7 @@ export function hashConflict(store,rel,current,expected){
  throw Object.assign(new Error('文件和你给的 SHA 对不上，没有改。'),{code:'HASH_CONFLICT',conflict});
 }
 export function withFileTask(store,task,run){return fileTasks.run({store,task},run);}
+export function currentFileTask(store){const context=fileTasks.getStore();return context?.store===store?context.task:null;}
 // Only these codes may carry structured guidance for the AI (what was blocked, where the user can enable it).
 const DETAIL_CODES = new Set(['HIGH_RISK_DISABLED', 'CAPABILITY_OFF', 'NEEDS_FULL_ACCESS', 'ADMIN_FORM_UNSUPPORTED', 'ADMIN_SETUP_REQUIRED', 'NEVER_ALLOWED', 'PROGRAM_BLOCKED', 'PERSONAL_DOWNLOAD_LOCATION', 'SCOPE_REQUIRED', 'CONFIRMATION_PENDING']);
 export function redactErrorText(value) {
@@ -61,7 +62,7 @@ export function cleanError(e) {
   return {code: e.code || 'INTERNAL_ERROR', message: known[e.code] || '操作失败；在本机检查错误记录。'};
 }
 export class FileStore {
-  constructor(root, stateDir) {
+  constructor(root, stateDir, {deferRoot = false} = {}) {
     this.stateDir = path.resolve(stateDir);
     privateDir(this.stateDir);
     // Keep the leaf-symlink rejection above; then match setRoot's canonical paths.
@@ -70,7 +71,7 @@ export class FileStore {
     this.opsDir = path.join(this.stateDir, 'receipts'); privateDir(this.opsDir);
     this.auditFile = path.join(this.stateDir, 'audit.jsonl');
     this.writesEnabled = false; this.paused = false;
-    this.setRoot(root);
+    if (!deferRoot) this.setRoot(root);
   }
   setRoot(root) {
     const real = fs.realpathSync(root);
@@ -134,7 +135,7 @@ export class FileStore {
   }
   info() {
     this.checkActive();
-    return {name:'Ken Local Bridge',version:VERSION,workspace_name:path.basename(this.root),writes_enabled:this.writesEnabled,scope:'file tools: selected project; terminal: user-account privileges with local approval',max_file_bytes:MAX_FILE_BYTES,not_os_sandbox:true};
+    return {name:'Ken Local Bridge',version:VERSION,workspace_name:typeof this.root==='string'?path.basename(this.root):'',writes_enabled:this.writesEnabled,scope:'file tools: selected project; terminal: user-account privileges with local approval',max_file_bytes:MAX_FILE_BYTES,not_os_sandbox:true};
   }
   list(rel = '.') {
     this.checkActive();

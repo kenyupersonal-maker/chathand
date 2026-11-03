@@ -105,7 +105,7 @@ export function permissionTier(state) {
 
 export function scopeNote(state) {
   if (state.data.mode === "full") return null;
-  const folder = path.basename(state.project?.()?.path || "") || "当前工作区";
+  const root=state.project?.()?.path,folder = (typeof root==='string'?path.basename(root):'') || "当前工作区";
   return `文件范围是『${folder}』：不要改动这个文件夹以外的文件；要下载、保存，存进这个文件夹。`;
 }
 export function withScopeNote(state, result) {
@@ -198,10 +198,10 @@ export function setupOpenItems(state, { adminReady = null, computer = {}, browse
       if (permissions.needs_restart === true) status = "needs_restart";
       else if (["accessibility", "screen_recording"].includes(permissions.step)) status = "waiting";
     } else if (id === "browser") {
-      // 1081（Claude，Ken 10/27）：插件装过就算开好了。Chrome 只是没开，用到时 ChatHand 自己打开，首页不提示「还有几项没开通」。
-      // ChatHand 打开过 Chrome 插件还是没连上（wake 记着），那是真出了问题，不算开好。
-      done = browser.connected === true || browser.backend === "extension" && (browser.installed === true || !!browser.last_seen) && browser.wake?.connected !== false;
-      detail = { connected: browser.connected === true, installed: browser.installed === true, last_seen: browser.last_seen || null };
+      // Store installation history is informative; only a live connection completes browser setup.
+      const store = browser.distribution === "chrome_web_store";
+      done = browser.connected === true || !store && browser.backend === "extension" && (browser.installed === true || !!browser.last_seen) && browser.wake?.connected !== false;
+      detail = { connected: browser.connected === true, installed: store ? browser.connected === true ? true : null : browser.installed === true, last_seen: browser.last_seen || null, ...(store ? {installation_previously_observed: browser.installation_previously_observed === true} : {}) };
       if (browser.phase === "connecting") status = "waiting";
     } else {
       done = state.data.setup_workspace_confirmed === true;

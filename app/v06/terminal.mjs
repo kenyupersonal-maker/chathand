@@ -13,6 +13,8 @@ export class SandboxQueue extends DesktopCommandQueue {
   set adminAccess(v){this._adminAccess=v;}
   full(){return this.store.accessMode==='full';}
   status(){
+    const workspace=this.store.workspaceStatus?.();
+    if(workspace?.available===false)return {enabled:false,available:false,scope:this.full()?'computer':'folder',code:'WORKSPACE_UNAVAILABLE',workspace,node_path:process.execPath};
     if(this.full())return {enabled:this.enabled,available:true,node_path:process.execPath,stdin:'pipe',pty:true,backend:'none',scope:'computer',approval:'task_grant_or_per_action',not_os_sandbox:true,note:'整台电脑：命令按当前账户权限运行，不套系统沙箱；管理员（sudo）命令在用户打开「以管理员身份运行」后直接运行，不用输密码。'};
     return {enabled:this.enabled&&sandboxAvailable(),available:sandboxAvailable(),node_path:process.execPath,stdin:'pipe',pty:true,backend:'macOS Seatbelt',scope:'folder',approval:'task_grant_or_per_action',not_os_sandbox:false,sandbox_acceptance:'LOCAL_PASS'};
   }

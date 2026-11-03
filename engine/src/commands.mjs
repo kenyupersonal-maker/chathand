@@ -129,7 +129,7 @@ export class CommandQueue {
   }
   recordLater(j) { try { this.record(j); } catch(e) { j.persistence_error=e.code||'PERSISTENCE_FAILED'; } }
   auditLater(j,event) { try { this.store.audit(event); } catch(e) { j.persistence_error=e.code||'AUDIT_FAILED'; } }
-  active() { this.store.checkActive(); if(this.closed)fail('QUEUE_CLOSED','终端正在关闭。'); if(!this.enabled)fail('COMMANDS_DISABLED','本机暂时关闭了终端，请在本机面板恢复。'); }
+  active() { this.store.checkActive(); this.store.requireWorkspace?.(); if(this.closed)fail('QUEUE_CLOSED','终端正在关闭。'); if(!this.enabled)fail('COMMANDS_DISABLED','本机暂时关闭了终端，请在本机面板恢复。'); }
   propose({program,args=[],cwd='.',request_id,mode='task',timeout_ms,stdin_mode='closed'}) {
     this.active(); checkId(request_id);
     if(!Array.isArray(args)||args.length>200||args.some(x=>typeof x!=='string'||x.length>65536||x.includes('\0'))||Buffer.byteLength(JSON.stringify(args))>128*1024)fail('ARG_INVALID','命令参数不正确或过长。');
@@ -158,7 +158,7 @@ export class CommandQueue {
     const dir=this.store.resolve(cwd,{directory:true}); if(!fs.statSync(dir).isDirectory())fail('ARG_INVALID','cwd 不是目录。');
     const executable=findExecutable(program);
     if(['sudo','su','doas'].includes(path.basename(executable)))fail('PROGRAM_BLOCKED','客户端不执行提权入口。');
-    const j={siteExecution:currentSiteExecution(),id:crypto.randomUUID(),request_id,stamp,program:executable,programIdentity:identity(executable),args:[...args],cwd,absoluteCwd:dir,dirIdentity:`${fs.statSync(dir).dev}:${fs.statSync(dir).ino}`,root:this.store.root,mode,timeout_ms:timeout,stdin_mode,status:'pending_approval',created_at:Date.now(),stdout:'',stderr:'',exit_code:null,truncated:false,raw_bytes:0,events:[],next_cursor:0,base_cursor:0,kept_bytes:0};
+    const j={siteExecution:currentSiteExecution(),id:crypto.randomUUID(),request_id,stamp,program:executable,programIdentity:identity(executable),args:[...args],cwd,absoluteCwd:dir,dirIdentity:`${fs.statSync(dir).dev}:${fs.statSync(dir).ino}`,root:this.store.root,workspace_epoch:this.store.workspaceEpoch||0,mode,timeout_ms:timeout,stdin_mode,status:'pending_approval',created_at:Date.now(),stdout:'',stderr:'',exit_code:null,truncated:false,raw_bytes:0,events:[],next_cursor:0,base_cursor:0,kept_bytes:0};
     this.record(j); this.jobs.set(j.id,j);
     this.store.audit({event:'command_proposed',job_id:j.id,program:path.basename(j.program),mode});
     return this.publicJob(j);
@@ -228,7 +228,7 @@ export class CommandQueue {
     this.active(); const j=this.get(id);assertSiteExecution(j.siteExecution);
     if(j.status==='expired')fail('JOB_EXPIRED','这条命令已过期。');
     if(j.status!=='pending_approval')fail('JOB_STATE','这条命令已经处理。');
-    if(j.root!==this.store.root)fail('ROOT_CHANGED','项目已更换。');
+    if(j.root!==this.store.root||(j.workspace_epoch||0)!==(this.store.workspaceEpoch||0))fail('ROOT_CHANGED','项目已更换。');
     if([...this.jobs.values()].filter(x=>x.child).length>=this.maxRunning)fail('JOB_BUSY','同时运行的任务已达上限；先停止或等现有任务完成。');
     const current=this.store.resolve(j.cwd,{directory:true}),st=fs.statSync(current);
     if(current!==j.absoluteCwd||`${st.dev}:${st.ino}`!==j.dirIdentity)fail('ROOT_CHANGED','工作目录已被替换。');
@@ -316,7 +316,7 @@ export class CommandQueue {
     this.active();checkId(request_id);
     if(typeof text!=='string'||Buffer.byteLength(text)>16384||text.includes('\0')||typeof close!=='boolean')fail('ARG_INVALID','输入需为最多 16 KiB 的文本。');
     for(const p of this.inputs.values())if(p.request_id===request_id) { if(p.job_id!==job_id||p.text!==text||p.close!==close)fail('OP_CONFLICT','输入 request_id 冲突。'); return {...p}; }
-    const j=this.get(job_id);if(j.status!=='running'||!j.child?.stdin||j.child.stdin.writableEnded)fail('STDIN_CLOSED','该进程没有可写输入；创建时需 stdin_mode=pipe。');
+    const j=this.get(job_id);if((j.workspace_epoch||0)!==(this.store.workspaceEpoch||0))fail('ROOT_CHANGED','工作区权限已改变。');if(j.status!=='running'||!j.child?.stdin||j.child.stdin.writableEnded)fail('STDIN_CLOSED','该进程没有可写输入；创建时需 stdin_mode=pipe。');
     if(this.inputs.size>=200||[...this.inputs.values()].filter(p=>p.status==='pending_approval').length>=30)fail('QUEUE_FULL','输入队列已满。');
     const p={input_id:crypto.randomUUID(),job_id,text,close,request_id,status:'pending_approval',created_at:Date.now()};Object.defineProperty(p,'siteExecution',{value:currentSiteExecution(),enumerable:false});this.inputs.set(p.input_id,p);return {...p};
   }
@@ -324,7 +324,7 @@ export class CommandQueue {
     this.active(); const p=this.inputs.get(inputId);if(!p)fail('INPUT_MISSING','找不到这项输入。');
     assertSiteExecution(p.siteExecution);if(p.status!=='pending_approval')fail('JOB_STATE','输入已经处理。');
     if(Date.now()-p.created_at>this.approvalMs){p.status='expired';fail('JOB_EXPIRED','输入已过期。');}
-    const j=this.get(p.job_id);if(j.status!=='running'||!j.child?.stdin||j.child.stdin.writableEnded)fail('STDIN_CLOSED','进程输入已关闭。');
+    const j=this.get(p.job_id);if((j.workspace_epoch||0)!==(this.store.workspaceEpoch||0))fail('ROOT_CHANGED','工作区权限已改变。');if(j.status!=='running'||!j.child?.stdin||j.child.stdin.writableEnded)fail('STDIN_CLOSED','进程输入已关闭。');
     p.status='sent';this.store.audit({event:'stdin_approved',job_id:j.id,input_id:p.input_id,bytes:Buffer.byteLength(p.text),close:p.close});
     if(p.close)j.child.stdin.end(p.text);else j.child.stdin.write(p.text);
     return {input_id:p.input_id,status:p.status};

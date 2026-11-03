@@ -165,7 +165,7 @@ const openaiTunnel=s=>!!(s?.settings?.tunnel?.tunnel_id||s?.connection?.tunnel_i
 const openaiLinked=s=>{const c=s?.connection||{};return !!(c.display?c.display.connected:c.ready&&c.healthy&&c.control_plane?.state!=='down');};
 // 完成页两个开关：Chrome 助手连上了没有（跟 app.js 的 browserOn 一样），桌面控制两项授权开了没有。
 // 1081（Claude，Ken 10/27）：插件装好了、只是 Chrome 没开，也算接好了（AI 要用时 ChatHand 自己打开 Chrome）；ChatHand 打开过 Chrome 插件还是没连上，才不算。
-const browserLinked=s=>{const x=s?.automation?.browser||{},e=x.extension||{};return e.connection_state==='connected'||e.connected===true||x.personal?.connected===true||(e.installed===true||!!e.last_seen)&&e.wake?.connected!==false;};
+const browserLinked=s=>{const x=s?.automation?.browser||{},e=x.extension||{};return e.distribution==='chrome_web_store'?e.connected===true:e.connection_state==='connected'||e.connected===true||x.personal?.connected===true||(e.installed===true||!!e.last_seen)&&e.wake?.connected!==false;};
 const desktopGranted=s=>{const p=s?.automation?.computer?.permissions||{};return !!(p.accessibility&&p.screen_recording);};
 // 1068 第 100 条：Site 的测试记录也写进 setup_test（route:'site'），这里只认不是 Site 的那一份。
 const openaiTested=s=>s?.setup_test?.verified===true&&s.setup_test.route!=='site';

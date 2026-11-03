@@ -9,6 +9,7 @@ import {verifyPayload} from '../app/v09/payload-integrity.mjs';
 import {upgradeTransaction,recoverUpgrade} from '../app/v07/upgrade-transaction.mjs';import {dataDirectory,upgradeHome} from '../app/v07/paths.mjs';
 import {saveJSON} from '../engine/src/core.mjs';
 import {assertTemporaryUpdatePaths,clientSettings} from '../app/v1/client-features.mjs';
+import {assertDesktopDataFormat} from '../app/v1/data-compatibility.mjs';
 const source=path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 export function readUpgradeLifecycleKey({input=process.stdin,timeout=1000}={}) {
  if(input.isTTY)return Promise.resolve(null);
@@ -39,6 +40,22 @@ export function retainedUpgradeSetting(before,after,field) {
  if(field==='high_risk')return JSON.stringify(normalizeSwitches(before[field]))===JSON.stringify(normalizeSwitches(after[field]));
  if(field==='admin_requested')return (before[field]===true)===(after[field]===true);
  return JSON.stringify(after[field])===JSON.stringify(before[field]);
+}
+function upgradeDesktopBytes(stateDir){
+ const fd=fs.openSync(path.join(stateDir,'desktop.json'),fs.constants.O_RDONLY|fs.constants.O_NOFOLLOW|fs.constants.O_NONBLOCK);
+ try{const before=fs.fstatSync(fd);if(!before.isFile()||before.nlink!==1)throw Error('SETTING_NOT_RETAINED_NEWER_DATA');const bytes=fs.readFileSync(fd),after=fs.fstatSync(fd);if(bytes.length!==before.size||before.size!==after.size||before.mtimeMs!==after.mtimeMs||before.ctimeMs!==after.ctimeMs)throw Error('SETTING_NOT_RETAINED_NEWER_DATA');return bytes;}finally{fs.closeSync(fd);}
+}
+export function captureUpgradeSettings(stateDir){
+ let bytes;try{bytes=upgradeDesktopBytes(stateDir);}catch(e){if(e.code==='ENOENT')return {settings:null,newerDataSha256:null};throw e;}
+ let settings;try{settings=JSON.parse(bytes);}catch{return {settings:null,newerDataSha256:null};}
+ if(!settings||typeof settings!=='object'||Array.isArray(settings))return {settings:null,newerDataSha256:null};
+ // A read-only startup uses temporary safe defaults. Never interpret its future
+ // envelope as preferences or compare those defaults with the protected data.
+ return assertDesktopDataFormat(settings).kind==='newer'?{settings:null,newerDataSha256:crypto.createHash('sha256').update(bytes).digest('hex')}:{settings,newerDataSha256:null};
+}
+export function verifyRetainedUpgradeSettings(baseline,after,stateDir){
+ if(baseline?.newerDataSha256){let hash;try{hash=crypto.createHash('sha256').update(upgradeDesktopBytes(stateDir)).digest('hex');}catch{throw Error('SETTING_NOT_RETAINED_NEWER_DATA');}if(hash!==baseline.newerDataSha256)throw Error('SETTING_NOT_RETAINED_NEWER_DATA');return;}
+ for(const field of UPGRADE_SETTINGS)if(baseline?.settings&&!retainedUpgradeSetting(baseline.settings,after,field))throw Error('SETTING_NOT_RETAINED_'+field.toUpperCase());
 }
 /** Only this installer's committed transaction family, after successful self-check.
  * Never send backups to Trash or delete them. Foreign/unfinished backups stay put. */
@@ -87,9 +104,7 @@ function command(program,args,extra={}){
 }
 function runtime(){try{const r=JSON.parse(fs.readFileSync(path.join(stateDir,'runtime.json'),'utf8'));if(!Number.isInteger(r.pid)||r.pid<2)return null;try{process.kill(r.pid,0);}catch(e){if(e.code==='ESRCH')return null;throw e;}if(!/^http:\/\/127\.0\.0\.1:\d+$/.test(r.ui_origin)||typeof r.admin_token!=='string')throw Error();return r;}catch{return null;}}
 async function owner(route,body){const r=runtime();if(!r)throw Error('RUNTIME_NOT_READY');const response=await fetch(r.ui_origin+route,{method:body===undefined?'GET':'POST',headers:upgradeOwnerHeaders(r.admin_token,route,lifecycleKey),...(body===undefined?{}:{body:JSON.stringify(body)}),signal:AbortSignal.timeout(4000)});if(!response.ok)throw Object.assign(Error('OWNER_NOT_READY'),{httpStatus:response.status});return response.json();}
-function metadata(){try{return JSON.parse(fs.readFileSync(path.join(stateDir,'desktop.json'),'utf8'));}catch{return null;}}
-const fields=UPGRADE_SETTINGS;
-let before=null,expectedVersion='',expectedBuild=null,from='',schemaFrom=null,schemaTo=null,connectorBefore=null,expectedContract=null;
+let before=null,settingsBaseline=null,expectedVersion='',expectedBuild=null,from='',schemaFrom=null,schemaTo=null,connectorBefore=null,expectedContract=null;
 function appInfo(app){const file=path.join(app,'Contents/Info.plist');return {bundle_id:command('/usr/libexec/PlistBuddy',['-c','Print :CFBundleIdentifier',file]),version:command('/usr/libexec/PlistBuddy',['-c','Print :CFBundleShortVersionString',file])};}
 function pending(){try{return JSON.parse(fs.readFileSync(path.join(stateDir,'update-pending.json'),'utf8'));}catch{return {};}}
 function capture(state){if(!state)return;from=state.version||from;schemaFrom=state.manifest?.schema_sha256||schemaFrom;connectorBefore=state.manifest?.connector_api??connectorBefore;}
@@ -159,7 +174,7 @@ const hooks={
  async verify(){
   const until=Date.now()+60000;let last='NEW_APP_NOT_READY';
   while(Date.now()<until){try{const state=await owner('/api/state');if(state.version!==expectedVersion){last='VERSION_MISMATCH';await sleep(400);continue;}schemaTo=state.manifest?.schema_sha256||null;verifyUpgradeContract(state.manifest,expectedContract);
-   const after=state.settings;for(const field of fields)if(before&&!retainedUpgradeSetting(before,after,field))throw Error('SETTING_NOT_RETAINED_'+field.toUpperCase());
+   verifyRetainedUpgradeSettings(settingsBaseline,state.settings,stateDir);
    const needsTunnel=before?.connection_preference==='tunnel'&&before.auto_connect===true;
    if(needsTunnel&&!(state.connection?.ready&&state.connection?.healthy)){last='CONNECTION_NOT_RESTORED';await sleep(500);continue;}
    if(before?.connection_preference==='relay'&&before.auto_connect===true&&!state.relay?.online){last='RELAY_NOT_RESTORED';await sleep(500);continue;}
@@ -181,7 +196,7 @@ async function main(mode){
  try{
   if(process.platform!=='darwin')throw Error('MAC_REQUIRED');if(!['--install','--recover'].includes(mode))throw Error('USE_INSTALL_OR_RECOVER');fs.mkdirSync(path.dirname(destination),{recursive:true});
   if(requireExistingDestination&&!fs.existsSync(destination))throw Error('DESTINATION_APP_REQUIRED');if(fs.existsSync(destination)){const info=appInfo(destination);if(info.bundle_id!=='com.kenyu.chathand')throw Error('WRONG_DESTINATION_APP_ID');from=info.version;try{const pkg=JSON.parse(fs.readFileSync(path.join(destination,'Contents/Resources/runtime/package.json'),'utf8'));connectorBefore=pkg.kenBridge?.connector_api??null;}catch{}}
-  before=metadata();const current=runtime();if(current){const state=await owner('/api/state');capture(state);if(mode==='--install'&&state.jobs?.some(j=>j.process_alive||j.cleanup_pending))throw Error('TASKS_RUNNING_FINISH_THEM_FIRST');}
+  settingsBaseline=captureUpgradeSettings(stateDir);before=settingsBaseline.settings;const current=runtime();if(current){const state=await owner('/api/state');capture(state);if(mode==='--install'&&state.jobs?.some(j=>j.process_alive||j.cleanup_pending))throw Error('TASKS_RUNNING_FINISH_THEM_FIRST');}
   let outcome;
   if(mode==='--recover'){const file=path.join(backupRoot,'current.json');if(fs.existsSync(file)){const j=JSON.parse(fs.readFileSync(file));if(j.destination!==destination||j.stateDir!==stateDir)throw Error('RECOVERY_TARGET_MISMATCH');}const p=pending();from=p.from||from;schemaFrom=p.schema_from||schemaFrom;expectedVersion=p.to||expectedVersion;outcome=await recoverUpgrade({backupRoot,hooks});}
   else{try{expectedVersion=appInfo(candidate).version;if(connectorBefore===null){const pkg=JSON.parse(fs.readFileSync(path.join(candidate,'Contents/Resources/runtime/package.json'),'utf8'));connectorBefore=pkg.kenBridge?.connector_api??null;}}catch{}if(!(connectorBefore>0))throw Error('OLD_CONNECTOR_API_UNKNOWN');

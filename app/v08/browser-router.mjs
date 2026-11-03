@@ -10,6 +10,7 @@ export class BrowserRouter {
  get headless(){return this.managed.headless;}set headless(v){this.managed.headless=v;}
  status(){return {...this.backend.status(),selected_backend:this.state.data.browser_backend||'extension',extension:this.extension.status(),personal:this.personal.status(),fallback_to_isolated:false};}
  async setBackend(mode){if(!['extension','personal','isolated'].includes(mode))throw Object.assign(new Error('浏览器选择无效。'),{code:'ARG_INVALID'});if((this.state.data.browser_backend||'extension')===mode)return this.status();await this.closeAll();this.state.data.browser_backend=mode;this.state.save();return this.status();}
+ cancelTask(task){for(const backend of [this.extension,this.personal,this.managed])backend.cancelTask?.(task);}
  async closeAll(options){await Promise.allSettled([this.extension.closeAll(options),this.personal.closeAll(options),this.managed.closeAll()]);}
 }
 for(const name of ['open','tabs','snapshot','action','screenshot','upload','download','close'])BrowserRouter.prototype[name]=function(o,caller){return this.backend[name](o,caller);};

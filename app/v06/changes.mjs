@@ -11,7 +11,7 @@ function artifactEntry({operation_id,directory,task_folder,files}){
  return {tool:'save_files',path:directory,directory,...(task_folder?{task_folder}:{}),operation_id,status:'applied',time:Date.now(),files:files.map(f=>({path:f.path,bytes:f.bytes,sha256:f.sha256,...image(f.image)}))};
 }
 export function editFile(store,o){
-  store.checkActive(true);
+  store.checkActive(true);store.requireWorkspace?.({write:true});
   if(!o.old_text||typeof o.new_text!=='string'||Buffer.byteLength(o.old_text+o.new_text)>128*1024)fail('EDIT_INVALID','提供唯一匹配的原文和替换文本，合计不超过 128 KiB。');
   const target=store.writable(o.path),receiptFile=store.operationFile(o.operation_id);
   const fingerprint=digest(JSON.stringify(['edit_file',store.root,o.path,o.old_text,o.new_text,o.expected_sha256]));

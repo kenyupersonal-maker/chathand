@@ -114,10 +114,12 @@ export class ImageBatchManager{
   await prev;try{return await fn();}finally{release();if(this.locks.get(id)===current)this.locks.delete(id);}
  }
  normalizePath(input){
+  this.store.requireWorkspace?.();
   if(input==='~'||input.startsWith('~/'))input=path.join(os.homedir(),input.slice(2));
   return path.isAbsolute(input)?path.normalize(input):path.resolve(this.store.root,input);
  }
  ensureDirectory(input){
+  this.store.requireWorkspace?.({write:true});
   const target=this.normalizePath(input);
   const make=p=>{
    if(fs.existsSync(p)){const real=this.store.resolve(p,{directory:true});this.store.checkProtected?.(real,{write:true});return real;}

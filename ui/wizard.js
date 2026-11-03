@@ -88,7 +88,7 @@
  // 返回 null：不进 H10，按原来的旧向导/设置助手判断。
  window.h10Entry=state=>{
   const s=state||{},settings=s.settings||{},b=s.site_b||{},step=settings.setup_step;
-  if(settings.setup_complete===true)return null;
+  if(settings.setup_complete===true||settings.settings_recovery_notice===true||s.startup_notices?.length>0)return null;
   if(b.routes?.openai?.configured===true||s.credentials?.tunnel===true||settings.tunnel||['tunnel','relay'].includes(settings.connection_preference))return null;
   if(Number.isInteger(step)&&step>=1&&step<=5)return null;
   // Site 已配对、还没配完：直接到「在 ChatGPT 里连上」。
@@ -104,6 +104,8 @@
  };
  window.wizardRefresh=state=>{
   syncKeyWatch(state);
+  // Show the startup recovery explanation before offering connection setup.
+  if(state.settings?.settings_recovery_notice===true||state.startup_notices?.length>0)autoOpened=true;
   if(!autoOpened){
    // 1052（Claude）：进不进第三版引导（H10）看 window.h10Entry，不看 selected——C1 以后新装默认选 openai，Site 配好才切过去。
    // 已经在用 OpenAI 通道、旧向导做到一半的，照旧走下面原来的判断。

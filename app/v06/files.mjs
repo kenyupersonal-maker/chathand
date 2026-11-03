@@ -9,7 +9,7 @@ const encodings=new Set(['utf-8','utf-16le','utf-16be','gbk','gb18030','windows-
 const stamp=st=>`${st.dev}:${st.ino}:${st.size}:${st.mtimeMs}:${st.ctimeMs}`;
 const imageTypes={'.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.webp':'image/webp','.gif':'image/gif'};
 export function inspectFile(store,input){
-  store.checkActive();const file=store.resolve(input),st=fs.statSync(file);
+  store.checkActive();store.requireWorkspace?.();const file=store.resolve(input),st=fs.statSync(file);
   const result={path:input,name:path.basename(file),type:st.isDirectory()?'directory':'file',bytes:st.size,modified_at:st.mtime.toISOString(),fingerprint:stamp(st)};
   const snapshot=store.pathInfo(input);
   Object.assign(result,{sha256:snapshot.sha256,hash_kind:snapshot.hash_kind,path_entries:snapshot.entries});
@@ -40,7 +40,7 @@ export class FileReader {
   constructor(store){this.store=store;this.children=new Set();this.generation=0;}
   cancel(){this.generation++;for(const child of this.children)child.kill('SIGKILL');}
   async read(o){
-    const store=this.store,gen=this.generation;store.checkActive();
+    const store=this.store,gen=this.generation;store.checkActive();store.requireWorkspace?.();
     const {fd,path:file,stat}=store.openRead(o.path);const fingerprint=stamp(stat);
     try{
       if(o.fingerprint&&o.fingerprint!==fingerprint)fail('FILE_CHANGED','文件已变化，请重新开始读取。');
@@ -79,7 +79,7 @@ export class FileReader {
           for(const suffix of ['-wal','-shm','-journal'])sidecars.push(current(file+suffix));
           const captured=[{fd,path:file,stat},...sidecars];
           const validate=()=>{
-            store.checkActive();if(gen!==this.generation)fail('READ_CANCELLED','连接或权限已改变，读取结果已丢弃。');
+            store.checkActive();store.requireWorkspace?.();if(gen!==this.generation)fail('READ_CANCELLED','连接或权限已改变，读取结果已丢弃。');
             for(let i=0;i<captured.length;i++){
               const live=current(file+['','-wal','-shm','-journal'][i]);
               try{const old=captured[i];if(Boolean(old)!==Boolean(live)||old&&(old.path!==live.path||old.stat.dev!==live.stat.dev||old.stat.ino!==live.stat.ino))fail('FILE_CHANGED','数据库文件在打开过程中变化，请重试。');}
@@ -99,7 +99,7 @@ export class FileReader {
         if(!fs.existsSync(helper))fail('PDF_RUNTIME_MISSING','PDF 原生读取器尚未编译，请运行本包构建步骤。');
         data=await runAdapter(helper,[String(offset),String(Math.min(limit,20))],fd,this.children);
       }else fail('FORMAT_UNSUPPORTED','支持 text、docx、xlsx、csv、plist、sqlite、pdf 与 image。');
-      store.checkActive();if(gen!==this.generation)fail('READ_CANCELLED','连接或权限已改变，读取结果已丢弃。');
+      store.checkActive();store.requireWorkspace?.();if(gen!==this.generation)fail('READ_CANCELLED','连接或权限已改变，读取结果已丢弃。');
       if(stamp(fs.fstatSync(fd))!==fingerprint)fail('FILE_CHANGED','文件在读取过程中变化，请重试。');
       store.audit({event:'read_file',path:o.path,format,bytes:stat.size});
       return {path:o.path,fingerprint,total_bytes:stat.size,...data};

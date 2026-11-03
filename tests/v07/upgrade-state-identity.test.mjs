@@ -29,7 +29,11 @@ test('failed verification restores settings and original installation bytes with
  const f=fixture(t);f.hooks.migrate=async()=>{fs.writeFileSync(path.join(f.stateDir,'desktop.json'),'failed candidate settings');fs.writeFileSync(path.join(f.stateDir,'candidate-only'),'failure evidence');};
  const outcome=await upgradeTransaction(f);assert.equal(outcome.status,'ROLLED_BACK');assert.equal(outcome.error_code,'SETTING_NOT_RETAINED_BROWSER');assert.equal(f.resumes,1);unchangedIdentity(f);
  assert.equal(fs.readFileSync(path.join(f.stateDir,'desktop.json'),'utf8'),'old settings');assert.equal(fs.readFileSync(path.join(outcome.transaction,'failed-state/desktop.json'),'utf8'),'failed candidate settings');assert.equal(fs.readFileSync(path.join(outcome.transaction,'failed-state/candidate-only'),'utf8'),'failure evidence');assert.equal(fs.readFileSync(path.join(f.destination,'version'),'utf8'),'old');
- const copy=path.join(f.base,'unrelated-copy');fs.cpSync(f.stateDir,copy,{recursive:true});const copied=new InstallationPilot(copy);assert.equal(copied.data.installation_scope===copied.scope,false,'arbitrary copies still fail the unchanged scope guard');
+ // 1095 (Ken 11/3): a copy on the same Mac keeps the identity; only another Mac's hardware starts a new one.
+ const copy=path.join(f.base,'unrelated-copy');fs.cpSync(f.stateDir,copy,{recursive:true});const original=new InstallationPilot(f.stateDir,{readDevice:()=>null}).data.installation_uuid;
+ assert.equal(new InstallationPilot(copy,{readDevice:()=>null}).data.installation_uuid,original,'same Mac keeps the identity');
+ const other=path.join(f.base,'other-mac-copy');fs.cpSync(f.stateDir,other,{recursive:true});new InstallationPilot(f.stateDir,{readDevice:()=>'11111111-2222-4333-8444-555555555555'});fs.cpSync(path.join(f.stateDir,'installation-1049.json'),path.join(other,'installation-1049.json'));
+ assert.notEqual(new InstallationPilot(other,{readDevice:()=>'66666666-7777-4888-9999-aaaaaaaaaaaa'}).data.installation_uuid,original,'another Mac starts a new identity');
 });
 
 test('interrupted recovery preserves the same inode, private identity and earlier failure evidence',async t=>{

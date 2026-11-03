@@ -65,7 +65,7 @@ function candidates(value,arrays,texts,key='',location='$',parent=null,parentKey
  else if(typeof value==='string'&&value.length>0&&parent)texts.push({parent,key:parentKey,value,path:location});
  else if(value&&typeof value==='object')for(const [k,v] of Object.entries(value))candidates(v,arrays,texts,k,location+'.'+k,value,k);
 }
-export function compactToolReturn(result,{store,tool,args={}}={}){
+export function compactToolReturn(result,{store,tool,args={},archive=true}={}){
  if(!store||!result||typeof result!=='object'||Array.isArray(result)||args.full===true)return result;
  if(tool==='read_file'&&typeof args.path==='string'&&args.path.includes(FOLDER+'/')&&args.max_bytes<=3000)return result;
  let original;try{original=JSON.stringify(result);}catch{return result;}
@@ -96,7 +96,7 @@ export function compactToolReturn(result,{store,tool,args={}}={}){
  // text archive stays directly segment-readable for a single large text field.
  const simple=fields.length===1&&!Object.keys(omitted_items).length;
  const fullText=simple?fields[0].text:original;
- let file=null;if(Buffer.byteLength(fullText,'utf8')<=MAX_FILE_BYTES)try{file=safelyWrite(store,fullText,simple?'.txt':'.json');}catch{}
+ let file=null;if(archive&&Buffer.byteLength(fullText,'utf8')<=MAX_FILE_BYTES)try{file=safelyWrite(store,fullText,simple?'.txt':'.json');}catch{}
  const pagination=Object.fromEntries(['next_offset','next_cursor','cursor','offset','limit'].filter(k=>projected[k]!==undefined).map(k=>[k,projected[k]]));
  const summary={compacted:true,saved:!!file,tool,original_chars:original.length,original_bytes:Buffer.byteLength(original,'utf8'),omitted_items,...(file?{file_path:file,read_segments:{tool:'read_file',format:'text',max_bytes:3000,start_offset:0}}:{pagination}),note:file?'本机文件保留完整内容，按read_segments分段读取；控制字段以本次响应为准。':Object.keys(pagination).length?'本次省略部分未保存；按原工具分页参数继续读取。':'这部分没给出，缩小范围再查一次。'};
  return {...projected,output_summary:summary};

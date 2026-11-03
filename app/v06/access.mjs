@@ -6,7 +6,8 @@ import os from 'node:os';
 import {fileURLToPath} from 'node:url';
 import {ProjectStore} from '../store.mjs';
 import {TaskPolicy} from '../policy.mjs';
-import {fail, digest} from '../../engine/src/core.mjs';
+import {fail, digest,currentFileTask} from '../../engine/src/core.mjs';
+import {inspectWorkspace,workspaceFailure,workspaceReadOnly} from '../v1/workspace-recovery.mjs';
 export const APP_ROOT=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../..');
 export const within=(target,base)=>{return target===base||target.startsWith(base.endsWith(path.sep)?base:base+path.sep);};
 const canonical=p=>{try{return fs.realpathSync(p);}catch{return path.resolve(p);}};
@@ -23,13 +24,63 @@ function rejectPathLinks(candidate,{missing=false}={}){
  }
 }
 export class ScopedStore extends ProjectStore {
-  constructor(root,stateDir){super(root,stateDir);this.accessMode='auto';this.runtimeRoot=APP_ROOT;}
+  constructor(root,stateDir,{allowUnavailableRoot=false,recoveryRequired=false,deferWorkspaceCheck=false}={}){
+    super(root,stateDir,{deferRoot:true});this.accessMode='auto';this.runtimeRoot=APP_ROOT;
+    if(deferWorkspaceCheck){
+      this.root=typeof root==='string'?root:null;this.workspacePath=root;this.workspaceAliases=new Set([this.root]);
+      this.workspace={path:root,available:recoveryRequired?false:null,writable:null,status:recoveryRequired?'recovery_required':'unchecked',code:recoveryRequired?'WORKSPACE_CONFIRM_REQUIRED':null};
+    }else this.setRoot(root,{allowUnavailableRoot,recoveryRequired});
+  }
+  setRoot(root,{allowUnavailableRoot=false,recoveryRequired=false,recoverWorkspace=false}={}){
+    if(this.workspace?.available===false&&!recoverWorkspace)throw workspaceFailure(this.workspace);
+    const result=inspectWorkspace(root,this.stateDir);
+    if(!allowUnavailableRoot){
+      // Validate with the original ProjectStore rules before changing this
+      // store, retaining legacy error codes and the previous active root.
+      super.setRoot.call({stateDir:this.stateDir},root);
+      if(!result.available)throw workspaceFailure(result);
+    }
+    this.root=result.available?result.real_path:(typeof root==='string'?root:null);
+    this.workspaceAliases=new Set([root,this.root]);
+    this.workspacePath=root;this.workspaceIdentity=result.identity;this.writesEnabled=false;this.allowSensitive=false;
+    this.workspace={...result,...(result.available&&recoveryRequired?{available:false,status:'recovery_required',code:'WORKSPACE_CONFIRM_REQUIRED'}:{})};
+    return this.workspaceStatus();
+  }
+  workspaceStatus(){
+    const {identity,real_path,...status}=this.workspace;return {...status};
+  }
+  matchesRoot(root){return root===this.root||this.workspaceAliases?.has(root)===true;}
+  checkWorkspace({recheck=false}={}){
+    const old=this.workspace,latched=old.available===false;
+    if(latched&&!recheck)return this.workspaceStatus();
+    if(old.status==='unchecked')this.onWorkspaceInitialize?.();
+    const next=inspectWorkspace(this.workspacePath,this.stateDir);
+    return this.applyWorkspaceInspection(next,{recheck,watch:true});
+  }
+  applyWorkspaceInspection(next,{recheck=false,watch=false}={}){
+    const old=this.workspace,latched=old.available===false;
+    if(latched&&!recheck)return this.workspaceStatus();
+    if(old.status==='unchecked'&&next.available){
+      this.workspaceAliases.add(next.real_path);this.root=next.real_path;this.workspaceIdentity=next.identity;this.workspace=next;
+      this.onWorkspaceVerified?.({watch});
+    }else if(latched){this.workspace=next.available?{...next,available:false,status:'recovery_required',code:'WORKSPACE_CONFIRM_REQUIRED',can_reconnect:true}:next;
+    }else if(!next.available||next.real_path!==this.root||next.identity.dev!==this.workspaceIdentity?.dev||next.identity.ino!==this.workspaceIdentity?.ino){
+      if(old.status==='unchecked'){this.workspace={...old,available:true};}
+      this.invalidateWorkspace(next.available?{...next,available:false,status:'recovery_required',code:'WORKSPACE_CHANGED',can_reconnect:true}:next);
+    }else this.workspace=next;
+    return this.workspaceStatus();
+  }
+  invalidateWorkspace(status={...this.workspace,available:false,status:'recovery_required',code:'WORKSPACE_CHANGED'}){
+    if(!this.workspace.available)return;this.workspace=status;this.onWorkspaceUnavailable?.(status);
+  }
+  requireWorkspace({write=false}={}){const status=this.checkWorkspace();if(this.workspaceTransitioning||!status.available)throw workspaceFailure(status);if(write&&!status.writable)throw workspaceReadOnly();this.onWorkspaceUse?.(currentFileTask(this));}
   get protectedPaths(){return [...new Set([this.stateDir,...['v05','data','upgrades'].map(n=>canonical(path.join(os.homedir(),'Library/Application Support/ChatHand',n)))])];}
   checkProtected(target,{write=false}={}){
     for(const base of this.protectedPaths){if(within(target,base)||(write&&within(base,target)))fail('BRIDGE_STATE_PROTECTED','客户端连接资料与运行状态由本机应用管理。');}
     if(write&&(within(target,this.runtimeRoot)||within(this.runtimeRoot,target)))fail('RUNTIME_PROTECTED','运行中的程序不可自行改写；请在独立开发副本中修改后安装。');
   }
   resolve(input,{missing=false,directory=false}={}){
+    this.requireWorkspace();
     if(typeof input!=='string'||!input||input.length>4096||input.includes('\0'))fail('PATH_INVALID','文件路径无效。');
     if(input==='~'||input.startsWith('~/'))input=path.join(os.homedir(),input.slice(2));
     const candidate=path.resolve(this.root,input);
@@ -86,7 +137,7 @@ export class ScopedStore extends ProjectStore {
       return {buf,content,sha256:digest(buf),mode:stat.mode&0o777};
     }finally{fs.closeSync(fd);}
   }
-  writable(input,missing=false){const p=this.resolve(input,{missing});this.checkProtected(p,{write:true});return p;}
+  writable(input,missing=false){this.requireWorkspace({write:true});const p=this.resolve(input,{missing});this.checkProtected(p,{write:true});return p;}
   write(rel,content,...args){this.writable(rel,true);return typeof content==='string'&&Buffer.byteLength(content)>256*1024?writeLarge(this,rel,content,...args):super.write(rel,content,...args);}
   mkdir(rel,...args){this.writable(rel,true);return super.mkdir(rel,...args);}
   // Applied receipts outlive their source. Recheck today's scope/self boundary
@@ -103,11 +154,12 @@ export class ScopedStore extends ProjectStore {
     if(target!==lexical)fail('LINK_BLOCKED','路径操作不跟随符号链接。');
   }
   operation(kind,id,payload,fn,prepare){
+    this.requireWorkspace({write:true});
     if(['move_path','trash_path'].includes(kind)&&fs.existsSync(this.operationFile(id)))
       for(const input of kind==='move_path'?payload.slice(0,2):payload.slice(0,1))this.checkReplayPath(input);
     return super.operation(kind,id,payload,fn,prepare);
   }
-  info(){return {...super.info(),version:VERSION,scope:(this.accessMode==='full'?'当前账户可访问的文件；客户端连接资料受保护':'这个文件夹；命令受系统沙箱约束'),access_scope:this.accessMode,max_file_bytes:null,max_legacy_edit_bytes:8*1024*1024,streaming_read:true,not_os_sandbox:false};}
+  info(){const workspace=this.workspaceStatus();return {...super.info(),workspace,writes_enabled:workspace.available===true&&workspace.writable===true&&this.writesEnabled,version:VERSION,scope:(this.accessMode==='full'?'当前账户可访问的文件；客户端连接资料受保护':'这个文件夹；命令受系统沙箱约束'),access_scope:this.accessMode,max_file_bytes:null,max_legacy_edit_bytes:8*1024*1024,streaming_read:true,not_os_sandbox:false};}
 }
 export class AccessPolicy extends TaskPolicy {
   constructor(state,store,queue){

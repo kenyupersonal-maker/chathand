@@ -59,6 +59,14 @@ function decryptResult(key,installation,op,box){
   ERROR('B_RESULT_UNAVAILABLE');
  }
 }
+/** 1095: moves a Site record that belongs to another installation identity aside, untouched. */
+export function setAsideSiteStore(stateDir){
+ const root=fs.realpathSync(stateDir),base=path.join(root,'site-b-1052.sqlite');
+ const tag=new Date().toISOString().replace(/[-:]/g,'').replace(/\..*$/,'')+'-'+crypto.randomUUID().slice(0,8);
+ const target=path.join(root,`site-b-1052.other-installation-${tag}.sqlite`);
+ for(const suffix of ['','-journal','-wal','-shm'])if(fs.existsSync(base+suffix))fs.renameSync(base+suffix,target+suffix);
+ return path.basename(target);
+}
 export class BSiteLocalStore{
  #replacementWriterClaimed=false;
  #hostProofToken=Symbol('B_HOST_PROOF_PRIVATE_WRITER');

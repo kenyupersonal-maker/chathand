@@ -66,6 +66,16 @@ final class ChromeWebView: WKWebView {
     private var zones: [NSRect] = []
     private var holes: [NSRect] = []
 
+    // The page underlay and WK's native backing layer have separate colors.
+    // Let the synchronized window background show through newly exposed areas.
+    override var isOpaque:Bool {false}
+
+    override func updateLayer() {
+        super.updateLayer()
+        layer?.isOpaque=false
+        layer?.backgroundColor=NSColor.clear.cgColor
+    }
+
     func setDragAreas(_ data: [String: Any]) {
         func rects(_ key: String) -> [NSRect] {
             guard let list = data[key] as? [[Any]] else { return [] }

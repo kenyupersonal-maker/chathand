@@ -64,10 +64,12 @@ test('1049 production: private installation binding requires authenticated UI an
  await f.activate();
  const restart=new InstallationPilot(f.stateDir);
  assert.equal(restart.eligible(),true,'same installation private state survives new process');
+ // 1095 (Ken 11/3): only another Mac's hardware makes a copy a different installation.
+ new InstallationPilot(f.stateDir,{readDevice:()=>'11111111-2222-4333-8444-555555555555'});
  const foreign=fs.mkdtempSync(path.join(f.root,'foreign-state-'));
  fs.copyFileSync(path.join(f.stateDir,'installation-1049.json'),path.join(foreign,'installation-1049.json'));
  fs.chmodSync(path.join(foreign,'installation-1049.json'),0o600);
- assert.equal(new InstallationPilot(foreign).eligible(),false,'copied identity cannot enable another installation');
+ assert.equal(new InstallationPilot(foreign,{readDevice:()=>'66666666-7777-4888-9999-aaaaaaaaaaaa'}).eligible(),false,'copied identity cannot enable another Mac');
  const exposed=JSON.stringify(await f.app.snapshot());
  assert.equal(exposed.includes(restart.data.installation_uuid),false);
  assert.equal(exposed.includes(restart.data.installation_scope),false);

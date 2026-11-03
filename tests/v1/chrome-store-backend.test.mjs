@@ -39,7 +39,7 @@ test('fixed v1 capabilities ignore version equality, optional language/self_relo
 test('installation observation is new-ID scoped and independent of live connection',()=>{
  const old={extension_id:'a'.repeat(32),last_seen:5};assert.equal(chromeStoreStatus(ready,{observation:old}).installed,null);
  const observed={extension_id:id,last_seen:5};assert.equal(chromeStoreStatus(ready,{observation:observed,now:20000}).installation_state,'observed');assert.equal(chromeStoreStatus(ready,{observation:observed}).connected,false);
- const live=chromeStoreStatus(ready,{observation:observed,session:'s',lastSeen:100,now:101});assert.equal(live.connected,true);assert.equal(live.installation_state,'observed');assert.equal(chromeStoreStatus(pending,{observation:observed,session:'s',lastSeen:100,now:101}).installed,null);
+ const live=chromeStoreStatus(ready,{observation:observed,session:'s',lastSeen:100,helper:{...helper,session:'s',seen_at:100},now:101});assert.equal(live.connected,true);assert.equal(live.installation_state,'observed');assert.equal(chromeStoreStatus(pending,{observation:observed,session:'s',lastSeen:100,helper:{...helper,session:'s',seen_at:100},now:101}).installed,null);
 });
 test('bare constructors and publish/host preparation are pending with no Chrome file effects',async()=>{
  const {ext}=fixture(pending);assert.equal(ext.status().installation_state,'unknown');assert.throws(()=>ext.heartbeat(crypto.randomUUID()),{code:'CHROME_STORE_CONFIGURATION_PENDING'});assert.throws(()=>ext.request('snapshot',{},'caller','task'),{code:'CHROME_STORE_CONFIGURATION_PENDING'});
