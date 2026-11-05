@@ -22,7 +22,7 @@ export function fillEmptyEnglish(tables,incoming){
 export function generatedUILocaleFiles(repo,tables,{catalogsOnly=false}={}){
  validateCatalogs(tables);
  const select=prefixes=>Object.fromEntries(['zh','en'].map(lang=>[lang,Object.fromEntries(Object.entries(tables[lang]).filter(([key])=>prefixes.some(prefix=>key.startsWith(prefix))))]));
- const ui=select(['ui.','dmg.']);
+ const ui=select(['ui.','dmg.','permissions.risk.','permissions.level.','permissions.never.','permissions.highRiskNote.','permissions.capability.','permissions.block.','permissions.scope.','card.blocked.scope.']);
  const files={
   'ui/local-text-catalogs.js':'// Generated from locales/zh.json and en.json. Do not edit.\nglobalThis.__CHATHAND_TEXT_CATALOGS__='+serialize(ui)+';\n',
   'ui/local-text-catalogs.mjs':'// Generated from locales/zh.json and en.json. Do not edit.\nexport default '+serialize(ui)+';\n'
