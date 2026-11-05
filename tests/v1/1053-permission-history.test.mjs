@@ -39,7 +39,7 @@ test('D7 persisted synthetic grant history groups by date, links only its saved 
  const snapshot={permissions:{history:history.view({allowed:[{gate:'capability',id:'browser'}],origins:{'capability:browser':{since:origin}},tier:'light'}),history_status:history.status()}};
  assert.equal(snapshot.permissions.history[1].active,true);assert.equal(snapshot.permissions.history[0].active,false);
  const source=fs.readFileSync(new URL('../../ui/app.js',import.meta.url),'utf8'),start=source.indexOf('function pgAlwaysAllowed()'),end=source.indexOf('\n/* 1052',start),box={S:snapshot,E:x=>String(x??''),ibtn:(_i,label,action,id)=>`<button data-action="${action}" data-id="${id}">${label}</button>`};
- vm.createContext(box);installUiTextContext(box);vm.runInContext(source.slice(start,end),box);
+ vm.createContext(box);installUiTextContext(box);vm.runInContext(source.slice(source.indexOf('function localKnown('),source.indexOf('function permissionCause('))+source.slice(start,end),box);
  box.S={permissions:{history:[]}};assert.match(vm.runInContext('pgAlwaysAllowed()',box),/尚未在对话或窗口中授予权限/);box.S=snapshot;
  const html=vm.runInContext('pgAlwaysAllowed()',box);assert.match(html,/Bound fixture/);assert.match(html,/data-action="openChatURL"/);assert.match(html,/data-action="permissionHistorySettings"/);assert.match(html,/已撤回/);assert.doesNotMatch(html,/revokeAlwaysAllowed|>撤回<|data-action="switch"/);assert.equal((html.match(/<section/g)||[]).length,2);
 });
@@ -53,7 +53,7 @@ test('D7 malformed history stays unavailable; a successful revoke survives histo
  const result=await a.handle('/api/permissions/revoke',{gate:'capability',id:'browser'});assert.equal(result.ok,true);assert.equal(a.state.data.browser_enabled,false);assert.equal(permissionHistoryFor(a.state).status().persisted,false);
  let reads=0;const read=fs.readFileSync;fs.readFileSync=function(name,...args){if(name===file)reads++;return read.call(this,name,...args);};try{snap=await a.snapshot();await a.snapshot();}finally{fs.readFileSync=read;}
  assert.equal(reads,0);assert.equal(snap.permissions.history_status.error_code,'PERMISSION_HISTORY_SAVE_FAILED');assert.equal(snap.permissions.history.length,0);
- const source=fs.readFileSync(new URL('../../ui/app.js',import.meta.url),'utf8'),start=source.indexOf('function pgAlwaysAllowed()'),end=source.indexOf('\n/* 1052',start),box={S:snap,E:x=>String(x??''),ibtn:()=>''};vm.createContext(box);installUiTextContext(box);vm.runInContext(source.slice(start,end),box);
+ const source=fs.readFileSync(new URL('../../ui/app.js',import.meta.url),'utf8'),start=source.indexOf('function pgAlwaysAllowed()'),end=source.indexOf('\n/* 1052',start),box={S:snap,E:x=>String(x??''),ibtn:()=>''};vm.createContext(box);installUiTextContext(box);vm.runInContext(source.slice(source.indexOf('function localKnown('),source.indexOf('function permissionCause('))+source.slice(start,end),box);
  const html=vm.runInContext('pgAlwaysAllowed()',box),unavailable=vm.runInContext('TH("ui.window.pgAlwaysAllowed.text")',box),empty=vm.runInContext('TH("ui.window.pgAlwaysAllowed.text2")',box);
  assert.ok(html.includes(unavailable));assert.ok(!html.includes(empty));
 });
