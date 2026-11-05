@@ -41,7 +41,7 @@ try{
      assert.equal(await page.evaluate(()=>window.h10Entry(S)?.route),'openai','a fresh install starts on the OpenAI Tunnel route');
      assert.equal(await page.locator('#h10Host [data-choice="assisted"]').count(),1);
      assert.equal(await page.locator('#h10Host [data-choice="manual"]').count(),1);
-     assert.equal(await page.locator('#h10Host .h10-route-tag').count(),0);
+     assert.deepEqual(await page.locator('#h10Host .h10-route-tag').allTextContents(),await titles(['ui.h10.host.openaiRoute','ui.h10.host.openaiRoute']),'first run shows the current connection method too');
      assert.equal(await page.locator('#h10Host [data-action="change-route"]').count(),1);
      assert.equal(await page.locator('#h10Host [data-action="choose-assisted"]').isEnabled(),true);
      assert.equal(await page.locator('#h10Host [data-action="choose-manual"]').isEnabled(),true);

@@ -204,6 +204,9 @@ a{color:var(--ink);text-decoration:none;cursor:pointer}
 .truncate{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .warn-text{color:var(--o-ink)}
 .kvr .v small.warn-text{margin-left:8px}  /* 1070（Claude）：「构建 1052」后面紧跟「不是当前版本」，中间留一点空 */
+.kv-link{display:inline-flex;align-items:center;gap:0;max-width:100%;padding:0;border:0;background:none;color:inherit;font:inherit;cursor:pointer;text-underline-offset:3px}  /* 浏览器控制「构建 1092 ↗」：点开插件详情页，悬停加下划线（Ken 11/4） */
+.kv-link .i{flex:none;width:20px;height:20px;margin:0 -5px 0 -1px;stroke-width:1.4;color:inherit}  /* 箭头画在 24 格的中间 10 格，放大后用负边距收回留白：箭头跟字一样高、一样黑，贴着字（Ken 11/4） */
+.kv-link:hover,.kv-link:focus-visible{text-decoration:underline}
 .kvr .v small.note-text{margin-left:8px;color:var(--ink-2)}  /* 1081（Claude）：「构建 1078」后面的「有新版本」，不影响用，灰字 */
 .muted{color:var(--ink-3)}
 .empty{margin:0;font-size:14px;color:var(--ink-3)}
@@ -588,6 +591,12 @@ html.glass .rr:hover{background:color-mix(in srgb,var(--glass) calc(var(--glass-
    四个角都圆：右边两个角挨着窗口边，跟窗口的圆角同心，是窗口圆角减去这条缝（--drawer-radius）；左边两个角跟窗口的角一样大（--drawer-radius-left），都在 :root 里。
    阴影四周都有（--drawer-shadow，皮肤可以自己定）。抽屉是浮起来的，不跟网点对齐（见文件末尾「对齐网点」）。 */
 dialog.drawer{position:fixed;inset:var(--drawer-gap) var(--drawer-gap) var(--drawer-gap) auto;width:440px;max-width:calc(100vw - 96px - var(--drawer-gap));height:auto;max-height:none;margin:0;padding:0;border:0;border-radius:var(--drawer-radius-left) var(--drawer-radius) var(--drawer-radius) var(--drawer-radius-left);background:var(--drawer-bg);color:var(--ink);box-shadow:0 0 0 var(--hair) var(--drawer-edge),var(--drawer-shadow);overflow:hidden}
+/* 抽屉宽度（11/4 Ken）：打开时把右边整条设置栏盖住——设置栏卡片，加上卡片右边那条空白。最窄就是原来的 440px。
+   设置栏跟着窗口变宽，抽屉也跟着变宽：宽 = 卡片右边的空白（减去抽屉自己离窗口的缝）+ 卡片宽 + 左边多出的 --dr-over。
+   超大屏版心居中、两边多出来的留白不算进宽度：抽屉照常贴窗口右边，宽度停在设置栏最宽时的值，不再变宽（11/4 Ken）。
+   这几个值照着 .dash 的左右留白和 .drail 的宽度算（抽屉不在 .dash 里面，拿不到它的变量）；对齐网点时按网点的算法再算一遍。 */
+dialog.drawer{--dr-over:24px;--dr-pad:32px;--dr-rail:clamp(356px,18.75vw + 164px,452px);width:max(440px,var(--dr-pad) - var(--drawer-gap) + var(--dr-rail) + var(--dr-over))}
+html.snap-grid dialog.drawer{--dr-rem:mod(100vw - 2 * var(--gu-pad),var(--gu));--dr-pad:calc(var(--gu-pad) + var(--dr-rem) - var(--gu-x));--dr-rail:round(down,clamp(round(356px,var(--gu)),18.75vw + 168px,456px),var(--gu))}
 dialog.drawer[open]{display:flex;flex-direction:column;animation:drSlide .5s cubic-bezier(.16,1,.3,1),drFade .22s ease-out}
 dialog.drawer.closing{z-index:60;animation:drSlideOut .26s cubic-bezier(.5,0,.75,0) forwards,drFadeOut .26s ease-in forwards;pointer-events:none;box-shadow:0 0 0 200vmax var(--backdrop),0 0 0 var(--hair) var(--drawer-edge),var(--drawer-shadow)}
 dialog.drawer::backdrop{background:var(--backdrop);animation:bdIn .35s ease}
@@ -660,7 +669,9 @@ html:has(dialog.drawer[open]) .permission-hint{visibility:hidden}
 .ybar{display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border-radius:12px;background:var(--y-bg);border:var(--hair) solid var(--y-line);color:var(--y-ink);font-size:13px;line-height:1.6}
 .ybar .i{margin-top:2px}
 .dp-note{margin:0;font-size:13px;line-height:1.6;color:var(--ink-2)}
-.dp-note .tbtn{font-size:13px}
+/* 1104（Ken 11/04）：句子里能点的那几个字（「改用 ChatGPT Site」）看得出能点：深一点、带下划线，悬停时下划线变深。 */
+.dp-note .tbtn{font-size:13px;font-weight:400;color:var(--ink);text-decoration:underline;text-decoration-color:var(--ink-3);text-underline-offset:3px}
+.dp-note .tbtn:hover,.dp-note .tbtn:focus-visible{text-decoration-color:currentColor}
 .dp-foot{margin:0;font-size:13px;line-height:1.6;color:var(--ink-3)}
 .dp-acts{display:flex;flex-wrap:wrap;gap:8px}
 .risk{display:flex;flex-direction:column}
@@ -699,6 +710,9 @@ html:has(dialog.drawer[open]) .permission-hint{visibility:hidden}
 .kvr.kv-go:focus-visible::before{box-shadow:-10px 0 0 var(--fill),10px 0 0 var(--fill),-10px 0 0 2px var(--ink),10px 0 0 2px var(--ink)}
 .kv-chev{color:var(--ink-3)}
 @media (prefers-reduced-motion:reduce){.kvr.kv-go::before{transition:none}}
+/* 桌面控制 →「快速停止」那一行的按键，画成键帽（Ken 11/4）。esc 用小写字，跟 Mac 键盘上印的一样。 */
+.keys{display:inline-flex;gap:4px;vertical-align:middle}
+.keys kbd{min-width:22px;height:22px;padding:0 6px;display:inline-grid;place-items:center;border:var(--hair) solid var(--line-2);border-bottom-width:2px;border-radius:6px;background:var(--card);font-family:inherit;font-size:12px;font-weight:500;line-height:1;color:var(--ink-2)}
 .opt{display:flex;align-items:flex-start;gap:12px;width:100%;padding:14px 16px;border:var(--hair) solid var(--line);border-radius:12px;background:var(--card);text-align:left;cursor:pointer}
 .opt:hover{background:var(--fill)}
 .opt.on{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
@@ -707,6 +721,24 @@ html:has(dialog.drawer[open]) .permission-hint{visibility:hidden}
 .opt-ck .i{width:11px;height:11px;stroke-width:2.6}
 .opt-t b{display:block;font-size:15px;font-weight:600}
 .opt-t small{display:block;margin-top:3px;font-size:13px;line-height:1.55;color:var(--ink-3)}
+/* 设置 → 文件范围（Ken 11/4）：两张卡片是一组二选一，挨近一点。「一个文件夹」选中时，说明文字下面单独一行放文件夹小胶囊（跟首页顶上那个同一个样子），左边跟文字对齐，
+   点开是「更换文件夹」「在访达中显示」。.opt-box 是外框，选中描边画在外框上；里面的 .opt 只当可点的标题区。 */
+.scope-opts{display:grid;gap:8px}
+/* Claude（Ken 11/4 14:24）：原来是半像素边框加 1px 内阴影叠出来的，Retina 上一圈粗细不均。改成只用一层内阴影画边。 */
+.opt-box{position:relative;border:0;border-radius:12px;background:var(--card);box-shadow:inset 0 0 0 var(--hair) var(--line)}
+.opt-box.on{box-shadow:inset 0 0 0 1.5px var(--ink)}
+.opt-box>.opt{border:0;background:none;box-shadow:none}
+.opt-box.on>.opt{cursor:default}
+.opt-box.on>.opt:hover{background:none}
+.opt-folder .scope-btn{max-width:100%}
+/* Claude（Ken 11/4）：两张卡片用同一个文件夹胶囊。说明下面一条分割线，下面一行左边标题（「默认存放」/「访问范围」）、右边胶囊，菜单从右边展开。
+   出问题时分割线下面换成报错块，左边跟说明文字对齐。 */
+.opt-box .opt-folder{display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:0;margin:0 16px 0 46px;padding:10px 0 12px;border-top:var(--hair) solid var(--line)}
+.opt-folder-k{flex:none;font-size:13px;color:var(--ink-3)}
+.opt-box .opt-folder .scope{min-width:0}
+.opt-box .opt-folder .menu{left:auto;right:0;min-width:200px;transform-origin:top right}
+.opt-extra{margin:0 16px 16px 46px}  /* 报错块自己有底色，不再加分割线（Ken 11/4 14:24） */
+.opt-extra .workspace-recovery{margin:0}
 /* 0009（Claude）：设置 → 通用 → 多语言 那一页的三项 */
 .language-opts{display:grid;gap:8px}
 .language-opts .opt{align-items:center}
@@ -985,6 +1017,7 @@ dialog#modal .del{color:var(--o-ink)}
 .tier-seg button[aria-pressed="true"]{color:var(--ink)}
 .pr{gap:10px}
 .pr-state{font-size:11px;color:var(--o-ink);white-space:nowrap}
+.pr-v .pr-warn{font-weight:inherit;color:var(--o-ink)}  /* 首页「文件范围」那一行：工作文件夹出问题时直接写出来（Ken 11/4） */
 .pr .pr-chev{margin-left:0}
 .setup-pending{display:block;width:100%;border:0;border-top:var(--hair) solid var(--line);padding:12px 0 0;background:none;color:var(--ink-2);text-align:left;font-size:12px;cursor:pointer}
 /* 权限卡下面的引导气泡：黑色（深色模式灰色）小气泡，挂在权限卡下沿，箭头在左边、对着卡片里的图标那一列；盖在下面的卡片上，不占位置 */
@@ -1029,6 +1062,18 @@ dialog#modal .del{color:var(--o-ink)}
 .ask-icon{width:44px;height:44px;display:grid;place-items:center;border-radius:12px;background:var(--fill-2);color:var(--ink);margin-bottom:18px}
 .ask-icon .i{width:24px;height:24px}
 .ask-warning{padding:12px 14px;border:var(--hair) solid var(--o-line);border-radius:10px;background:var(--o-soft);color:var(--o-ink);font-size:14px;line-height:1.6;margin-top:14px}
+/* Claude（Ken 11/4 14:53）：路径行紧跟标题；例外说明用浅一级的字贴着主句；橙色块跟上面拉开，第一行是结果、第二行是做法。 */
+#modal.ask-modal .ask-path{display:flex;align-items:center;gap:8px;min-width:0;min-height:40px;box-sizing:border-box;margin:10px 0 16px;padding:8px 12px;border-radius:8px;background:var(--fill-2);color:var(--ink-2);font-size:13px}
+#modal.ask-modal .ask-path>span:not(.ask-path-acts){flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#modal.ask-modal .ask-path-acts{display:flex;align-items:center;gap:10px;flex:none}
+#modal.ask-modal .ask-path-acts .tbtn{font-weight:400}
+#modal.ask-modal .ask-path-open{display:grid;place-items:center;width:24px;height:24px;padding:0;border:0;border-radius:6px;background:none;color:var(--ink-2);cursor:pointer}
+#modal.ask-modal .ask-path-open:hover{background:var(--card);color:var(--ink)}
+#modal.ask-modal p:has(+p.ask-hint){margin-bottom:2px}
+#modal.ask-modal p.ask-hint{margin-top:0}
+.ask-warning b{display:block;font-weight:600}
+.ask-warning small{display:block;font-size:13px;opacity:.85}
+#modal.ask-modal .ask-warning{margin-top:20px}
 #modal.ask-modal .actions.ask{display:flex;flex-wrap:nowrap;gap:10px;margin-top:24px}
 #modal.ask-modal .actions.ask .btn{flex:1;min-width:0;min-height:40px}
 /* 0012（Claude）：弹框按钮下面一行小字（「让 ChatGPT 帮我加」会打开 Work、话已填好）。 */
@@ -1332,6 +1377,7 @@ html.snap-grid .tasks{gap:round(12px,var(--gu))}
 .permission-preset p{margin:0 0 8px;color:var(--ink-2);font-size:13px;line-height:1.65}
 .permission-preset>.btn,.preset-current{margin-top:auto}
 .preset-current{display:flex;align-items:center;gap:6px;min-height:30px;color:var(--ink-2);font-size:13px}
+/* 「当前」前面用跟文件范围选中时一样的黑色实心圆勾（Ken 11/4） */
 .sg.always-allowed{gap:0;margin:0 -10px;padding:0 10px}
 .sg.always-allowed h4{margin:0 0 4px;font-size:13px;color:var(--ink-3);font-weight:500}
 .always-allowed-row.si{min-height:56px;padding:14px 0}

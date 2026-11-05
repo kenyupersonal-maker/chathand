@@ -3,10 +3,25 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import {spawnSync} from 'node:child_process';
+import {fileURLToPath} from 'node:url';
 import {installSelectedApp,selectedPackageAction} from '../../skills/chathand-setup/scripts/install-and-start.mjs';
 
 const id1='11111111-1111-4111-8111-111111111111',id2='22222222-2222-4222-8222-222222222222';
 const failed=code=>Object.assign(Error(code),{code});
+
+test('installer entry reports invalid arguments through a temporary-directory alias',t=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'chathand-installer-entry-'));
+  t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+  const scriptDir=fs.realpathSync(path.dirname(fileURLToPath(new URL('../../skills/chathand-setup/scripts/install-and-start.mjs',import.meta.url))));
+  const alias=path.join(dir,'installer');fs.symlinkSync(scriptDir,alias,'dir');
+  const env={...process.env};delete env.NODE_OPTIONS;delete env.NODE_PATH;
+  for(const entry of [path.join(scriptDir,'install-and-start.mjs'),path.join(alias,'install-and-start.mjs')]){
+    const result=spawnSync(process.execPath,[entry,'--invalid'],{encoding:'utf8',env,timeout:10000});
+    assert.equal(result.status,1);
+    assert.equal(JSON.parse(result.stderr).code,process.platform==='darwin'?'INSTALL_ARGUMENT_INVALID':'MAC_REQUIRED');
+  }
+});
 
 // Only this temporary tree is touched. OS effects are replaced; no installed
 // App, real runtime, credentials, native launcher or account is accessed.

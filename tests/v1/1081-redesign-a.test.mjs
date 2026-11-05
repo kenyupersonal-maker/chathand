@@ -154,7 +154,7 @@ test('the Site page picks up the pairing code by itself while ChatHand is watchi
  assert.match(watching,new RegExp(`<p class="h10-next" role="status">${lit(zh['ui.h10.views.siteReadyAuto'])}</p>`));
  assert.doesNotMatch(watching,/data-action="to-receive"/,'no “Next” while ChatHand is watching');
  const idle=renderH10({...base,siteWatching:false});
- assert.match(idle,new RegExp(`<button type="button" class="h10-link" data-action="to-receive">${lit(zh['ui.h10.manual.receiveEntry'])}</button></nav>`),'not watching yet: current manual Site offers the receive-code link');assert.equal((idle.match(/data-action="to-receive"/g)||[]).length,1,'one manual receive-code entry while idle');
+ assert.match(idle,new RegExp(`<p class="h10-site-receive-inline"><button type="button" class="h10-link" data-action="to-receive">${lit(zh['ui.h10.manual.receiveEntry'])}</button></p>`),'not watching yet: the receive-code link sits beside the current step (1104)');assert.equal((idle.match(/data-action="to-receive"/g)||[]).length,1,'one manual receive-code entry while idle');
  const got=renderH10({...base,siteWatching:true,receiveStatus:'received',receiveStatusCopy:'正在配对'});
  assert.match(got,/<div class="h10-next"><p class="h10-receive-state" data-state="received" role="status"><span class="h10-spin" aria-hidden="true"><\/span>正在配对<\/p><\/div>/);
  const bad=renderH10({...base,siteWatching:true,receiveStatus:'error',receiveStatusCopy:'没配成'});

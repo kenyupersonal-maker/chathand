@@ -29,6 +29,13 @@ test('cancel kills only the owned live handle once, and failed spawn consumes no
  const failed=new FakeChild();failed.pid=undefined;const other=new WorkspaceInspector({factory:()=>failed});const failure=other.inspect('/synthetic/workspace','/synthetic/state');failed.emit('error',Error('Synthetic spawn failure'));assert.equal((await failure).code,'WORKSPACE_PROBE_FAILED');assert.equal(other.children.size,0);other.close();assert.deepEqual(failed.kills,[]);
 });
 
+test('a completed success that is still exiting is never reused by a later operation',async()=>{
+ const children=[new FakeChild(654321),new FakeChild(654322)];let spawned=0;const inspector=new WorkspaceInspector({factory:()=>children[spawned++]});
+ const first=inspector.inspect('/synthetic/workspace','/synthetic/state');children[0].emit('message',{available:true,real_path:'/synthetic/workspace',identity:{ino:1}});assert.equal((await first).identity.ino,1);
+ const next=inspector.inspect('/synthetic/workspace','/synthetic/state');assert.equal(spawned,2);children[1].emit('message',{available:true,real_path:'/synthetic/workspace',identity:{ino:2}});assert.equal((await next).identity.ino,2);
+ for(const child of children){child.exitCode=0;child.emit('exit',0,null);}inspector.close();assert.equal(inspector.children.size,0);
+});
+
 test('production runtime copy includes the isolated probe and runs it from the copied layout',async t=>{
  const {root,work,state}=fixture(t),source=fileURLToPath(new URL('../..',import.meta.url)),runtime=path.join(root,'runtime');
  // This uses the same production tree copier and directory layout as build-v09,

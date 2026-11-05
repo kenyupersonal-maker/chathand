@@ -231,7 +231,8 @@ export class CommandQueue {
     if(j.root!==this.store.root||(j.workspace_epoch||0)!==(this.store.workspaceEpoch||0))fail('ROOT_CHANGED','项目已更换。');
     if([...this.jobs.values()].filter(x=>x.child).length>=this.maxRunning)fail('JOB_BUSY','同时运行的任务已达上限；先停止或等现有任务完成。');
     const current=this.store.resolve(j.cwd,{directory:true}),st=fs.statSync(current);
-    if(current!==j.absoluteCwd||`${st.dev}:${st.ino}`!==j.dirIdentity)fail('ROOT_CHANGED','工作目录已被替换。');
+    const acceptedWorkspace=current===this.store.root&&this.store.workspaceIdentity?.ino===st.ino;
+    if(current!==j.absoluteCwd||(acceptedWorkspace?String(st.ino)!==j.dirIdentity.split(':')[1]:`${st.dev}:${st.ino}`!==j.dirIdentity))fail('ROOT_CHANGED','工作目录已被替换。');
     if(identity(j.program)!==j.programIdentity)fail('PROGRAM_CHANGED','可执行程序已改变，请拒绝此项并重新提议。');
     const scope=this.fullScopes.get(id);
     if(scope&&!this.fullOutputs.has(id)){

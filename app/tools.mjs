@@ -1,4 +1,5 @@
 import {usesWorkspace} from './v1/workspace-recovery.mjs';
+import {workspaceNoticeContext,withWorkspaceNotice,noteWorkspaceRecreated,noteWorkspaceCommandsStopped} from './v1/workspace-notice.mjs';
 import {READ_TASK_INTERNAL} from './v1/read-task-tracker.mjs';
 import {OnboardingTelemetry,onboardingFailure} from './onboarding-telemetry.mjs';
 import {t as displayText} from './i18n.mjs';
@@ -53,6 +54,7 @@ import {Blocks,CAPABILITIES,capabilityOf,capabilityOn,capabilityAllowed,capabili
 const RETIRED_CARD_TOOLS=new Set(['card_probe','card_probe_report']);
 // Private evidence is server-local, never a model/widget-supplied JSON property.
 const VERIFIED_PRIVATE_CARD=Symbol('verified_private_card');
+const WORKSPACE_SCOPE=Symbol('workspace_scope');
 // 1052 D1: rpc() computes the route decision once, from the server context only.
 const ROUTE_REFUSAL=Symbol('route_refusal');
 const OBSERVER_REVISION=Symbol('observer_revision');
@@ -233,13 +235,18 @@ for(const [name,description] of Object.entries({
  run_capability:RUN_CAPABILITY_TOOL.description.replace('Unknown names or invalid parameters do not execute.','Missing or unknown capability returns the current local extra_capabilities list (name, description, inputSchema, readOnly) without execution. parameters defaults to {} for known capabilities; invalid parameters do not execute.')
 }))TOOLS.find(t=>t.name===name).description=description;
 export function mergeNotes(...values){const notes=values.filter(Boolean).flatMap(n=>{const {also,...first}=n;return [first,...(Array.isArray(also)?also:[])];});return notes.length?{...notes[0],...(notes.length>1?{also:notes.slice(1)}:{})}:null;}
+const workspaceRecoveryNote=({recreated=false,commandsStopped=false}={})=>{
+ if(!recreated&&!commandsStopped)return null;
+ const key=recreated?(commandsStopped?'workspace.notice.recreatedCommandsStopped':'workspace.notice.recreated'):'workspace.notice.commandsStopped';
+ return {kind:recreated?'workspace_recreated':'workspace_commands_stopped',zh:displayText(key,{},'zh'),en:displayText(key,{},'en')};
+};
 for(const d of TOOLS)if(isPrivateTool(d))d._meta={...d._meta,ui:{...(d._meta.ui||{}),visibility:['app']}};
 export class Tools {
  constructor(state,store,queue,policy){Object.assign(this,{state,store,queue,policy});this.blocks=new Blocks({audit:e=>store.audit?.(e),emit:(kind,data)=>policy.emit?.(kind,data)});this.confirmations=new Confirmations({offerSettingsCards:false,audit:e=>store.audit?.(e),emit:(kind,data)=>{policy.emit?.(kind,data);if(['confirmation_answered','confirmation_input_rejected'].includes(kind))this.resume?.after(null,'确认结果',{task_id:data.task_id,path:data.message},{},false);},now:Date.now});bindConfirmations(state,this.confirmations);policy.confirmations=this.confirmations;this.imageBatch=new ImageBatchManager(store,policy);this.self=selfInfo({stateDir:store.stateDir,appRoot:APP_ROOT,extraPids:()=>this.selfPids?.()||[],extraCmdlines:()=>this.selfCmdlines?.()||[]});queue.onSandboxDenied=job=>{const t=policy.tasks?.get(policy.jobOwners?.get(job.id));job.blocked=scopeReceipt({command:[job.program,...job.args].join(' '),reason:job.needsFullAccess});this.confirmations.create({blocked:job.blocked,task_id:t?.id,session_hash:t?.session_hash,conversation_title:t?.conversation_title||t?.title,hash:commandHash({program:job.program,args:job.args,cwd:job.absoluteCwd})});this.blocks.record({kind:'scope',id:'sandbox',name:'整台电脑',command:[job.program,...job.args].join(' '),reason:'被「只在这个文件夹里」的系统沙箱挡住：'+job.needsFullAccess,blocked:job.blocked,task_id:t?.id??null,conversation_id:t?.conversation_id??null});};this.features=new Features(state,store,queue,policy);this.automation=new Automation(state,store,policy);this.lastCalls={};this.lastCheck=null;this.setupTest=new SetupTest();this.setupProgress=createSetupProgress();this.trace=store.stateDir?new CallTrace(store.stateDir,TOOLS):null;this.events=store.stateDir?new DiagnosticEvents(store.stateDir,{salt:this.trace?.salt,tools:TOOLS.map(t=>t.name)}):null;policy.diagnostics=this.events;this.resume=new ResumeKeeper({events:this.events,stateDir:store.stateDir||null,emit:(kind,data)=>policy.emit?.(kind,data)});this.taskContinuity=new TaskContinuity(policy,this.resume,this.features.changes);this.commandNotes=new CommandCompletionNotes({readJob:(id,caller,hash)=>{
   policy.check();const owner=policy.jobOwners.get(id),t=owner?policy.get(owner,caller):null;
   if(!t||t.session_hash!==hash)return null;const j=queue.jobs?.get(id);if(!j)return null;
   return {job_id:id,task_id:owner,status:j.status,exit_code:j.exit_code,signal:j.signal,started_at:j.started_at,finished_at:j.finished_at,process_alive:!!j.child||j.process_alive===true,cleanup_pending:!!j.cleanupPending||j.cleanup_pending===true};
- }});this.confirmations.contextForTask=(id,{allowEpochTransition=false}={})=>{const t=policy.get(id);if(!policy.enabled||store.paused||t.status!=='active'||t.root!==store.root||t.project_id!==state.data.active||t.epoch!==policy.epoch&&!(allowEpochTransition&&policy.transitioning&&t.epoch+1===policy.epoch))fail('CONFIRMATION_STATE','任务或权限已变更，此确认已失效。');return {caller:t.caller,session_hash:t.session_hash,epoch:policy.epoch,revision:policy.permissionRevision||0};};this.h8Cards=new H8Cards({policy,confirmations:this.confirmations,checkpointForTask:id=>this.resume?.tasks.get(id)?.checkpoint_seq||0,controlContext:id=>this.cardControlContext?.get(id)||null});this.artifacts=new ArtifactImportManager({store,policy,changes:this.features.changes,runtimeRoot:APP_ROOT});this.imageBatch.artifacts=this.artifacts;this.resume.waitState=id=>this.taskWaitState(id);this.resume.jobState=id=>{const j=queue.jobs.get(id);return j?{mode:j.mode,status:j.status,started_at:j.started_at,finished_at:j.finished_at,timeout_ms:j.timeout_ms,exit_code:j.exit_code,process_alive:!!j.child||j.process_alive===true,cleanup_pending:!!j.cleanupPending||j.cleanup_pending===true}:null;};policy.artifacts=this.artifacts;policy.hasUncertainWork=id=>this.automation.ops.busy(id)||this.automation.ops.uncertainTasks?.has(id)||this.h8Cards.unknownTasks.has(id);this.initializeValueStats();this.initializeExtraCapabilities();this.autoTasks=store.stateDir?new AutoTaskExecution({stateDir:store.stateDir,policy,capabilities:()=>this.extraCapabilities.list()}):null;}
+ }});this.confirmations.contextForTask=(id,{allowEpochTransition=false}={})=>{const t=policy.get(id);if(!policy.enabled||store.paused||t.status!=='active'||t.root!==store.root||t.project_id!==state.data.active||t.epoch!==policy.epoch&&!(allowEpochTransition&&policy.transitioning&&t.epoch+1===policy.epoch))fail('CONFIRMATION_STATE','任务或权限已变更，此确认已失效。');return {caller:t.caller,session_hash:t.session_hash,epoch:policy.epoch,revision:policy.permissionRevision||0};};this.h8Cards=new H8Cards({policy,confirmations:this.confirmations,checkpointForTask:id=>this.resume?.tasks.get(id)?.checkpoint_seq||0,controlContext:id=>this.cardControlContext?.get(id)||null,isWorkspaceControl:id=>this.workspaceChoices?.isControl(id)===true,finishWorkspaceControl:(...args)=>this.workspaceChoices?.finish(...args)});this.artifacts=new ArtifactImportManager({store,policy,changes:this.features.changes,runtimeRoot:APP_ROOT});this.imageBatch.artifacts=this.artifacts;this.resume.waitState=id=>this.taskWaitState(id);this.resume.jobState=id=>{const j=queue.jobs.get(id);return j?{mode:j.mode,status:j.status,started_at:j.started_at,finished_at:j.finished_at,timeout_ms:j.timeout_ms,exit_code:j.exit_code,process_alive:!!j.child||j.process_alive===true,cleanup_pending:!!j.cleanupPending||j.cleanup_pending===true}:null;};policy.artifacts=this.artifacts;policy.hasUncertainWork=id=>this.automation.ops.busy(id)||this.automation.ops.uncertainTasks?.has(id)||this.h8Cards.unknownTasks.has(id);this.initializeValueStats();this.initializeExtraCapabilities();this.autoTasks=store.stateDir?new AutoTaskExecution({stateDir:store.stateDir,policy,capabilities:()=>this.extraCapabilities.list()}):null;}
  registerCardAction(name,handler){this.h8Cards.register(name,handler);}
  initializeExtraCapabilities(){
   this.extraCapabilities=new CapabilityRegistry({existingNames:TOOLS.map(t=>t.name),guard:(entry,parameters,{caller,context})=>{
@@ -297,13 +304,55 @@ export class Tools {
   return v;
  }
  async invoke(name,args={},caller='chatgpt',context={}){
-  if(usesWorkspace(name,args))await this.ensureWorkspace?.();
-  const task=this.policy.tasks.get(args?.task_id);
-  return task?withFileTask(this.store,task,()=>this.invokeBound(name,args,caller,context)):this.invokeBound(name,args,caller,context);
+  let operationWorkspaceScope=null,operationPreflightComplete=false;
+  const run=async()=>{
+   try{
+    if(this.workspaceChoices?.isControl(args?.task_id)){
+     const identity={connection_principal:context.connectionPrincipal??null,transport_source:context.transportSource||'direct_rpc'};
+     const hash=sessionHashOf(context.setupPrincipal,context.session),domain=context.cardDomain||context.transport||'legacy';
+     const active=['task_checkpoint','task_status','show_task','task_stop'].includes(name)&&this.workspaceChoices.allow(args.task_id,caller,hash,domain,identity);
+     const receipt=['task_status','show_task'].includes(name)&&this.workspaceChoices.allowReceipt(args.task_id,caller,hash,domain,identity);
+     if(!active&&!receipt)fail('WORKSPACE_CHOICE_EXPIRED',displayText('card.blocked.workspace.choiceExpired'));
+    }
+    if(usesWorkspace(name,args)&&this.ensureWorkspace){
+     if(currentSiteExecution()){await beforeSiteExecution();assertSiteExecution();}context.signal?.throwIfAborted();
+     const refused=Tools.prototype.routeRefusal.call(this,context.transportSource||context.transport,name);if(refused)return refused;
+     this.policy.check();
+     const inherited=context[WORKSPACE_SCOPE],scope=inherited||{project:this.state.data.active,path:this.state.project().path,workspaceEpoch:this.store.workspaceEpoch||0,epoch:this.policy.epoch,revision:this.policy.permissionRevision||0};
+     operationWorkspaceScope=scope;
+     Tools.prototype.checkWorkspaceScope.call(this,scope);
+     // Automatic-task/read-task recursion is still the same operation. Reuse
+     // its preflight; final synchronous identity guards still run.
+     if(!inherited){const recovered=await this.ensureWorkspace();if(recovered?.recreated)noteWorkspaceRecreated();if(recovered?.commandsStopped)noteWorkspaceCommandsStopped();}
+     Tools.prototype.checkWorkspaceScope.call(this,scope);operationPreflightComplete=true;context={...context,[WORKSPACE_SCOPE]:scope};
+    }
+    const task=this.policy.tasks.get(args?.task_id);
+    return await (task?withFileTask(this.store,task,()=>this.invokeBound(name,args,caller,context)):this.invokeBound(name,args,caller,context));
+   }catch(e){
+    // A folder can disappear after the async preflight, including in a
+    // nested capability. Wait once for that specific stop; never replay work.
+    if(e.workspaceAutoStopPending&&!e.workspaceAutoStopHandled&&operationPreflightComplete&&operationWorkspaceScope&&this.ensureWorkspace&&!context.signal?.aborted){
+     Object.defineProperty(e,'workspaceAutoStopHandled',{value:true});
+     try{
+      Tools.prototype.checkWorkspaceScope.call(this,operationWorkspaceScope);
+      const recovered=await this.ensureWorkspace();
+      Tools.prototype.checkWorkspaceScope.call(this,operationWorkspaceScope);
+      if(recovered?.recreated)noteWorkspaceRecreated();if(recovered?.commandsStopped)noteWorkspaceCommandsStopped();
+      if(recovered?.recreated||recovered?.commandsStopped)e.message=displayText('workspace.notice.checkOperation',{},'zh')+' / '+displayText('workspace.notice.checkOperation',{},'en');
+     }catch{/* Keep the original failure; a later check can retry recovery. */}
+    }
+    if(!e.blockRecorded)Tools.prototype.recordBlocked.call(this,e,name,artifactObserverArgs(args,name),context);throw e;
+   }
+  };
+  if(workspaceNoticeContext())return run();
+  const notice={recreated:false,commandsStopped:false};
+  return withWorkspaceNotice(notice,async()=>{try{const result=await run(),workspaceNote=workspaceRecoveryNote(notice);return workspaceNote&&result&&typeof result==='object'&&!Array.isArray(result)?{...result,chathand_note:mergeNotes(result.chathand_note,workspaceNote)}:result;}catch(e){if(notice.recreated)e.workspaceRecreated=true;if(notice.commandsStopped)e.workspaceCommandsStopped=true;throw e;}});
  }
+ checkWorkspaceScope(scope){if(scope&&(scope.project!==this.state.data.active||scope.path!==this.state.project().path||scope.workspaceEpoch!==(this.store.workspaceEpoch||0)||scope.epoch!==this.policy.epoch||scope.revision!==(this.policy.permissionRevision||0)))fail('ROOT_CHANGED','工作区或权限已改变，原操作不能继续。 / The workspace or permissions changed. Start the operation again.');}
  async invokeBound(name,args={},caller='chatgpt',context={}){
   try{
   if(currentSiteExecution()){await beforeSiteExecution();assertSiteExecution();}context.signal?.throwIfAborted();
+  Tools.prototype.checkWorkspaceScope.call(this,context[WORKSPACE_SCOPE]);
   const cardDomain=context.cardDomain||context.transport||'legacy',relayMode=context.relayMode||(context.transport==='site_b'||context.transport==='2026-07-28'?'mcp_app':'legacy');
   const definition=toolDefinition(name),validationArgs=api31ValidationArgs(name,args);if(!definition)fail('TOOL_UNKNOWN','不支持该工具。');if(name==='card_answer'){if(!args||typeof args!=='object'||Array.isArray(args)||Object.keys(args).some(k=>!['nonce','choice'].includes(k))||typeof args.nonce!=='string'||!/^[a-f0-9]{64}$/.test(args.nonce)||typeof args.choice!=='string'||!args.choice||args.choice.length>10)fail('CONFIRM_NONCE_INVALID','此卡片已失效，请查看原任务状态或 ChatHand 窗口。');}else if((name.startsWith('image_batch_')||ARTIFACT_TOOLS.some(t=>t.name===name)))validateImageBatchToolArgs(definition,validationArgs);else if(['task_checkpoint'].includes(name)||name.startsWith('browser_'))validateBrowserTool(definition,validationArgs);else if(name.startsWith('computer_')||name==='desktop_action'&&args.action==='open_path')validateComputerToolArgs(definition,validationArgs);else if(name==='matter_write')validateMatterWrite(args);else if(name==='matter_query')validateMatterQuery(args);else if(name==='begin_task'&&args.matter_ids!==undefined){if(!Array.isArray(args.matter_ids)||args.matter_ids.length>10||new Set(args.matter_ids).size!==args.matter_ids.length||args.matter_ids.some(id=>typeof id!=='string'||!/^CH-[1-9]\d*$/.test(id)))fail('MATTER_INVALID','开工事项列表无效');const {matter_ids,...rest}=args;validate(definition,rest);}else if(name==='finish_task'&&args.matter_updates!==undefined){if(!Array.isArray(args.matter_updates)||args.matter_updates.length>10)fail('MATTER_INVALID','收尾事项列表无效');for(const e of args.matter_updates)validateMatterEntry(e,{finish:true});const {matter_updates,...rest}=args;validate(definition,rest);}else if(name==='run_capability'){validate(definition,validationArgs);if(args.capability!==undefined&&!/^[a-z][a-z0-9_]{0,63}$/.test(args.capability))fail('ARG_INVALID','capability 格式无效。');if(args.parameters!==undefined&&(!args.parameters||typeof args.parameters!=='object'||Array.isArray(args.parameters)||![Object.prototype,null].includes(Object.getPrototypeOf(args.parameters))))fail('ARG_INVALID','parameters 必须是对象。');}else validate(definition,validationArgs);const {state,store,queue,policy:p}=this;
   // Every external A MCP transport has been owner-authenticated by server/relay.
@@ -427,7 +476,10 @@ export class Tools {
     if(args.action==='cancel')return relay.cancel({task_id:args.task_id,card_token:args.card_token},ctx);
     fail('RELAY_ARGUMENT_INVALID','无效的卡片动作。');
    }
-   if(name==='card_answer'){if(this.h8Cards.proveConsumedCard(args.nonce,caller,session_hash,cardDomain))fail('RELAY_CARD_SUPERSEDED','这张卡片已经处理，请使用当前的卡片。');if(args.choice==='status'){
+   if(name==='card_answer'){
+    const pending=this.h8Cards.tokens.get(crypto.createHash('sha256').update(args.nonce).digest('hex'));
+    if(pending&&this.workspaceChoices?.isControl(pending.task_id)&&(context.invocationClass!=='private_card'||!this.workspaceChoices.allow(pending.task_id,caller,session_hash,cardDomain,{connection_principal:context.connectionPrincipal??null,transport_source:context.transportSource||'direct_rpc'})))fail('CONFIRM_NONCE_INVALID',displayText('card.blocked.workspace.choiceExpired'));
+    if(this.h8Cards.proveConsumedCard(args.nonce,caller,session_hash,cardDomain))fail('RELAY_CARD_SUPERSEDED','这张卡片已经处理，请使用当前的卡片。');if(args.choice==='status'){
     if(this.h8Cards.provePermissionStatus(args.nonce,caller,session_hash,cardDomain))return this.h8Cards.permissionStatus(args.nonce,caller,session_hash,cardDomain);
     const image=this.h8Cards.imageObservation(args.nonce,caller,session_hash,cardDomain);
     if(image){const batch=this.imageBatch.get(image.batch_id);if(batch.binding?.task_id!==image.task_id||batch.binding.caller!==caller||batch.binding.session_hash!==session_hash)fail('CONFIRM_NONCE_INVALID','此卡片已失效，请查看原任务状态或 ChatHand 窗口。');this.artifacts.guard(batch.binding);return this.imageBatch.view(batch);}
@@ -435,7 +487,7 @@ export class Tools {
     if(id){const task=p.view(p.get(id,caller)),meta=this.interruptionMetadata(id,caller,context);return {task:this.privateTaskView(p.get(id,caller)),...(meta?{_card_meta:meta}:{})};}
     return this.h8Cards.status(args.nonce,caller,session_hash,cardDomain);
    }if(['stop','continue'].includes(args.choice))return this.taskCardControl(args,caller,{...context,cardDomain,relayMode});
-   const card=this.h8Cards.consume(args.nonce,args.choice,caller,session_hash,cardDomain);if(card.request.startsWith('option:'))return this.h8Cards.answerOption(card,this.resume);if(typeof this.commitConfirmation!=='function')fail('CONFIRMATION_UNAVAILABLE','这个环境无法提交确认，请使用 ChatHand 窗口。');return this.commitConfirmation({id:card.request.slice(11),scope:args.choice,via:'chat',cardContext:card});}
+   const card=this.h8Cards.consume(args.nonce,args.choice,caller,session_hash,cardDomain);if(card.request.startsWith('option:'))return this.h8Cards.answerOption(card,this.resume,context);if(typeof this.commitConfirmation!=='function')fail('CONFIRMATION_UNAVAILABLE','这个环境无法提交确认，请使用 ChatHand 窗口。');return this.commitConfirmation({id:card.request.slice(11),scope:args.choice,via:'chat',cardContext:card});}
   {const cap=capabilityOf(name,args);if(cap&&!capabilityAllowed(state,cap,{task_id:args.task_id}))throw capabilityError(cap,{command:name});}
   if(BROWSER_EXPERIENCE_TOOLS.some(tool=>tool.name===name))return await Tools.prototype.controlResult.call(this,invokeBrowserExperience(this.automation,name,args,caller),name,args,context);
   if(name==='computer_observe')return await Tools.prototype.controlResult.call(this,this.automation.ops.read(args.task_id,caller,()=>this.automation.computer.observe(args,caller)),name,args,context);
@@ -493,9 +545,12 @@ export class Tools {
    return {...base,...accepted,related_matters:related.map(({id,revision,title,state})=>({id,revision,title,state}))};
   }
   if(name==='task_status'){let t=p.get(args.task_id,caller);const until=Date.now()+(args.wait_ms||0),waiting=this.confirmations?.pending({task_id:args.task_id});if(waiting&&args.wait_ms)this.confirmations.waiter(args.task_id,true);try{while(Date.now()<until&&(t.status==='pending_approval'||waiting&&this.confirmations?.snapshot().some(c=>c.id===waiting.id&&['waiting','applying'].includes(c.state)))){await new Promise(r=>setTimeout(r,60));t=p.get(args.task_id,caller);}const v=p.view(t),progress=this.resume.view(v),confirmations=this.confirmations?.forTask(args.task_id)||[];const activity=args.include_activity===true?{activity_notes:readTaskActivity({policy:p,stateDir:store.stateDir,taskId:args.task_id,caller,sessionHash:session_hash,offset:args.activity_offset??0,limit:args.activity_limit??10})}:{};return {...(args.from_card===true?{}:{...v,...progress}),wait_state:taskWaitState({task:v,jobs:queue.list(),confirmations,checkpoint:progress,artifactBusy:!!this.artifacts?.busy(args.task_id),inputs:[...(queue.inputs?.values()||[])]}),...(args.from_card===true?this.privateTaskView(t):activity),...this.h8Cards.optionState(args.task_id),...(args.from_card===true?{}:{confirmations}),...(args.from_card===true?(()=>{const meta=this.interruptionMetadata(args.task_id,caller,context,{snapshot:context.stallWitness,observerRevision:context.observerRevision,ignoreInflight:true});return meta?{_card_meta:meta}:{};})():{})};}finally{if(waiting&&args.wait_ms)this.confirmations.waiter(args.task_id,false);}}
-  if(name==='task_checkpoint'){p.require(args.task_id,caller);if(args.withdraw_confirm){if(!/^cf_[a-f0-9]{16}$/.test(args.withdraw_confirm))fail('ARG_INVALID','withdraw_confirm 需要有效的确认编号。');this.confirmations?.withdraw(args.withdraw_confirm,args.task_id);}this.h8Cards.invalidateCheckpoint(args.task_id);const saved=this.resume.checkpoint(args.task_id,args);
-   const rendered=this.h8Cards.checkpoint(saved,caller,session_hash,cardDomain);
-   if(!this.relayKeeper||!session_hash)return rendered;
+  if(name==='task_checkpoint'){p.require(args.task_id,caller);if(this.workspaceChoices?.isControl(args.task_id))args=this.workspaceChoices.checkpoint(args.task_id,caller,session_hash,cardDomain,{connection_principal:context.connectionPrincipal??null,transport_source:context.transportSource||'direct_rpc'});if(args.withdraw_confirm){if(!/^cf_[a-f0-9]{16}$/.test(args.withdraw_confirm))fail('ARG_INVALID','withdraw_confirm 需要有效的确认编号。');this.confirmations?.withdraw(args.withdraw_confirm,args.task_id);}this.h8Cards.invalidateCheckpoint(args.task_id);const saved=this.resume.checkpoint(args.task_id,args);
+   const card=this.h8Cards.checkpoint(saved,caller,session_hash,cardDomain);
+   const rendered=this.workspaceChoices?.isControl(args.task_id)?{...card,workspace_choice:true,title:this.policy.get(args.task_id,caller).title}:card;
+   // Recovery choices are a one-use decision, not a resumable task. Giving
+   // them a relay capability makes the widget collapse before a choice.
+   if(!this.relayKeeper||!session_hash||this.workspaceChoices?.isControl(args.task_id))return rendered;
    const ctx={caller,session_hash,transport:relayMode};
    const armed=this.relayKeeper.checkpoint({task_id:args.task_id,checkpoint_seq:saved.checkpoint_seq,continuing:!args.waiting_user&&typeof args.next==='string'&&args.next.trim().startsWith('接着做'),waiting_user:args.waiting_user===true},ctx);
    this.events?.record('relay.checkpoint',{task:args.task_id,seq:saved.checkpoint_seq,continuing:!args.waiting_user&&typeof args.next==='string'&&args.next.trim().startsWith('接着做'),waiting_user:args.waiting_user===true,card:!!armed?._relay_meta?.card_token});
@@ -595,6 +650,7 @@ export class Tools {
   if(!ordinary.includes(name)&&!(context.invocationClass==='private_card'&&['card_answer','relay_card_control'].includes(name)))return result;
   const task_id=result?.task?.task_id||result?.task_id||result?.relay?.task_id||context.privateOptionTaskId||(['relay_card_control','task_status','show_task','finish_task','task_checkpoint'].includes(name)?args.task_id:null);
   if(!task_id)return result;
+  if(this.workspaceChoices?.isControl(task_id))return result;
   try{
    const t=this.policy.getBound(task_id,caller,sessionHashOf(context.setupPrincipal,context.session),context.connectionPrincipal||null);
    const view=this.policy.view(t),progress=this.resume.view(view,{record:false});
@@ -633,7 +689,7 @@ export class Tools {
   }catch{return result;}
  }
  recordBlocked(e,name,args={},context={}){
-  const blocked=e?.details?.blocked||blockedForError(e,{tool:name});if(!blocked)return;
+  const blocked=e?.details?.blocked||blockedForError(e,{tool:name,mode:this.state.data.mode});if(!blocked)return;
   e.details={...e.details,blocked};
   const hash=sessionHashOf(context.setupPrincipal,context.session),t=this.policy?.tasks?.get(args.task_id)||[...(this.policy?.tasks?.values()||[])].find(t=>hash&&t.session_hash===hash&&t.status==='active');
   if(blocked.kind==='can_enable'&&!blocked.confirm&&!blocked.answer)this.confirmations?.create({blocked,task_id:t?.id||args.task_id,session_hash:hash||t?.session_hash,conversation_title:t?.conversation_title||t?.title,hash:name==='propose_command'?commandHash({program:args.program,args:args.args,cwd:args.cwd}):name});
@@ -725,6 +781,7 @@ export class Tools {
    if(args.choice==='status'&&this.h8Cards?.provePermissionStatus(args.nonce,caller,hash,transport)===true)return true;
    const token=this.h8Cards?.tokens.get(crypto.createHash('sha256').update(args.nonce||'').digest('hex'));
    if(!this.cardTaskContext(token&&this.policy.tasks.get(token.task_id),caller,cardContext))return false;
+   if(token&&this.workspaceChoices?.isControl(token.task_id)&&!this.workspaceChoices.allow(token.task_id,caller,hash,transport,{connection_principal:cardContext.connectionPrincipal??null,transport_source:cardContext.transportSource}))return false;
    return (args.choice==='status'&&this.h8Cards?.provePermissionStatus(args.nonce,caller,hash,transport)===true)||this.h8Cards?.provePrivateNonce(args.nonce,caller,hash,transport)===true;
   }
   if(name!=='relay_card_control'||cardContext.relayMode!=='mcp_app'||!this.cardTaskContext(this.policy.tasks.get(args.task_id),caller,cardContext))return false;
@@ -874,7 +931,19 @@ export class Tools {
    }catch(e){
     const recovery=errorRecovery(e.code);
     if(observerAuthorized&&!completionNote&&!fromCard&&!presentsFile)try{completionNote=this.commandNotes?.collect(completionHash,caller,name,artifactObserverArgs(body.params?.arguments??{},name),null,{failed:true})||null;}catch{}
-    const finalNote=mergeNotes(note,confirmationNote,refreshNote,completionNote);const err={...cleanError(e),...(e.auto_task?{...e.auto_task}:{}),recovery,...(finalNote?{chathand_note:finalNote}:{})};
+    const finalNote=mergeNotes(note,confirmationNote,refreshNote,completionNote,workspaceRecoveryNote({recreated:e.workspaceRecreated===true,commandsStopped:e.workspaceCommandsStopped===true}));const err={...cleanError(e),...(e.auto_task?{...e.auto_task}:{}),recovery,...(finalNote?{chathand_note:finalNote}:{})};
+    if(!fromCard&&err.code==='WORKSPACE_UNAVAILABLE'&&err.details?.blocked?.item?.id==='workspace_missing')try{
+     const locale=body.params?._meta?.['openai/locale'],txt=key=>displayText(key,{},locale);
+     const recipe=this.workspaceChoices?.issue({caller,session_hash:sessionHashOf(ctx.setupPrincipal,ctx.session),connection_principal:ctx.connectionPrincipal??null,card_domain:ctx.cardDomain,transport_source:ctx.transportSource,locale});
+     if(recipe){
+      const blocked=err.details.blocked;
+      err.details.blocked={...blocked,item:{...blocked.item,name:txt('card.blocked.workspace.name')},cause:txt('card.blocked.workspace.cause'),answer_in_chat:true,
+       effect:{can_do:txt('card.blocked.workspace.effect'),risk:txt('card.blocked.workspace.risk')},where:{...blocked.where,path:txt('card.blocked.workspace.where')},alternative:txt('card.blocked.workspace.later'),
+       options:blocked.options.map(option=>option.id==='recreate'?{...option,label:txt('card.blocked.workspace.recreate'),description:txt('card.blocked.workspace.cardRecreateCost')}:{...option,label:txt('card.blocked.workspace.later'),description:txt('card.blocked.workspace.laterDescription')}),
+       say_to_user:[txt('card.blocked.workspace.cause'),txt('card.blocked.workspace.choicesInChat')],
+       next:txt('card.blocked.workspace.showCard'),choice_card:recipe};
+     }
+    }catch{/* The existing local settings link remains available. */}
     try{this.store.audit({event:'tool_error',tool:name,code:err.code});}catch{}
     response=ok({content:[{type:'text',text:JSON.stringify(err)}],structuredContent:err,isError:true});
    }

@@ -445,8 +445,8 @@ function model(proof=routeVerified(current())){
   assistedStarted:screen==='f7'&&waitTracked&&launched&&!waitingStart&&!handoffFailed,
   assistedSentenceCopied:assistedCopied,siteIssue:route==='site'?siteIssue(b):null,siteBlocked:route==='site'&&!!block,
   connectAssetKey:route==='site'?'siteConnect':'openaiConnect',
-  // 0012：欢迎页两张卡的标题后面标出现在走哪种；默认的那条没换过就不标（1083 起默认是 OpenAI 通道）。1069：配过一次以后再进来总是标上。
-  routeTag:routeChosen||route!=='openai'||!firstRun?routeName(route):'',
+  // 0012：欢迎页两张卡的标题后面标出现在走哪种。1104（Ken 11/04）：首次配置也标，入口就看得出当前连接方式。
+  routeTag:routeName(route),
   brandSubtitle:firstRun?'':uiText("ui.h10.views.connectionSetup"),
   permissionAssetKey:route==='site'?'sitePermissions':'openaiPermissions',
   desktopApp:null,

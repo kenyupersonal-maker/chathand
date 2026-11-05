@@ -240,7 +240,13 @@ function defaultTarget(home){
   throw failure('INSTALL_DESTINATION_UNAVAILABLE');
 }
 
-if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)){
+function isMainEntry(){
+  if(!process.argv[1])return false;
+  const entry=path.resolve(process.argv[1]),script=fileURLToPath(import.meta.url);
+  try{return fs.realpathSync(entry)===fs.realpathSync(script);}catch{return entry===script;}
+}
+
+if(isMainEntry()){
   try{
     if(process.platform!=='darwin')throw failure('MAC_REQUIRED');
     const options=argumentsFor(process.argv.slice(2)),home=os.homedir();

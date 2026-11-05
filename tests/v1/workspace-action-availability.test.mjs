@@ -37,11 +37,11 @@ test('invalid path and a missing parent offer folder selection without an imposs
 test('an original folder that returns can be explicitly used without recreating it',async t=>{
  const f=await workspaceFixture(t,{missing:true}),{page,scope,errors}=await openScope(t,f);
  let notice=page.locator('#drawerBody [data-k="workspace-recovery"]');
- assert.equal(await notice.locator('[data-action="workspaceRecreate"]').textContent(),'在原位置重新建');
+ assert.equal(await notice.locator('[data-action="workspaceRecreate"]').textContent(),'重建此文件夹');
  fs.renameSync(f.preserved,f.work);
  await page.evaluate(()=>closeDrawer());await page.waitForFunction(()=>!document.querySelector('#drawer').open);
  await scope();notice=page.locator('#drawerBody [data-k="workspace-recovery"]');
- assert.equal(await notice.locator('[data-action="workspaceRecreate"]').textContent(),'继续使用此文件夹');
+ assert.equal(await notice.locator('[data-action="workspaceRecreate"]').textContent(),'继续使用');
  await notice.locator('[data-action="workspaceRecreate"]').click();
  await page.waitForFunction(()=>S.project.workspace.available===true);
  assert.equal(f.app.store.read('original.txt').content,'ORIGINAL_PROJECT');assert.deepEqual(errors,[]);

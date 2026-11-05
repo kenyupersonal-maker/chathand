@@ -235,17 +235,17 @@ test('1081 B: store setup items require a live connection; legacy retains instal
 test('1081 B recovery UI: Browser Use separates ChatGPT, extension installation, connection and update states', () => {
   const ctx = vm.createContext({S: {}, T: k => k, TH: (k, p) => k + (p ? JSON.stringify(p) : ''), E: String, btn: (text, action) => `[${text}|${action}]`, tbtn: (text, action) => `{${text}|${action}}`,
     capOn: () => true, browserOn: () => false, helperNeedsHand: () => false, extRepairUnsupported: false, browserRetrying: false, browserRetryError: false, browserUpdateError: false, browserUpdating: false,
-    dpHead: () => '', dpRes: m => `<res:${m.res}|${m.act ? m.act[1] : (m.acts || []).map(a => a[1]).join(',')}${m.note ? '|' + m.note : ''}${m.notes ? '|' + m.notes.join(',') : ''}>`, kvRow: (k, v) => `<${k}=${v}>`, browserBackends: () => [['extension', 'Extension']],
-    icon: () => '', timed: () => '', ago: () => '', helperFolderGuide: () => '', folderScopeNote: () => ''});
+    dpHead: () => '', dpRes: m => `<res:${m.res}|${m.act ? m.act[1] : (m.acts || []).map(a => a[1]).join(',')}${m.note ? '|' + m.note : ''}${m.notes ? '|' + m.notes.join(',') : ''}>`, kvRow: (k, v, act = '') => `<${k}=${v}${act}>`, browserBackends: () => [['extension', 'Extension']],
+    icon: () => '', timed: () => '', ago: () => '', helperFolderGuide: () => '', folderScopeNote: () => '', CHROME_STORE_MIN_MAJOR: 128});
   const pg = app.slice(app.indexOf('function pgBrowser()'), app.indexOf('\nfunction ', app.indexOf('function pgBrowser()') + 1));
   vm.runInContext('var browserRepairNotice=false,reconnectConfirm=false;\n' + app.split('\n').find(l => l.startsWith('function browserState()')) + '\n' + app.slice(app.indexOf('function capBrowser()'), app.indexOf('function capDesktop()')) + '\n' + pg, ctx);
-  const page = extension => { ctx.S = {settings: {browser_backend: 'extension', browser_enabled: true}, automation: {browser: {extension: {distribution: 'chrome_web_store', configuration_state: 'ready', connected: false, connection_state: 'disconnected', installed: true, installation_previously_observed: true, last_seen: 1, compatibility: {state: 'compatible'}, helper: {build: 1092}, ...extension}, personal: {connected: false, chrome: {version: '140.0.7339.80'}}}}}; return vm.runInContext('pgBrowser()', ctx); };
+  const page = (extension, chrome = {version: '140.0.7339.80'}) => { ctx.S = {settings: {browser_backend: 'extension', browser_enabled: true}, automation: {browser: {extension: {distribution: 'chrome_web_store', configuration_state: 'ready', connected: false, connection_state: 'disconnected', installed: true, installation_previously_observed: true, last_seen: 1, compatibility: {state: 'compatible'}, helper: {build: 1092}, ...extension}, personal: {connected: false, chrome}}}}; return vm.runInContext('pgBrowser()', ctx); };
 
   const closed = page({});
   assert.match(closed, /<res:ui\.chrome\.store\.disconnected\|browserRetry>/, 'Chrome being closed shows a neutral disconnected state');
   assert.doesNotMatch(closed, /capBrowser\.connectedBuild|<ui\.window\.pgBrowser\.text4=/, 'a disconnected extension version is not presented as current');
   assert.match(closed, /\{ui\.chrome\.store\.install\|extensionSetup\}/, 'install remains available');
-  // Ken 11/2：底下只常留「安装插件」；「打开扩展管理」「重新连接」只在上面的框里，不重复。
+  // Ken 11/2：「打开扩展管理」「重新连接」只在上面的框里，不重复。Ken 11/4：「安装插件」只在没确认装好时留在底下。
   assert.doesNotMatch(closed, /\{ui\.chrome\.store\.(manage|reconnect)\|/, 'other actions live only in the status box');
 
   const missing = page({installed: null, installation_previously_observed: false, last_seen: null, helper: null});
@@ -257,7 +257,8 @@ test('1081 B recovery UI: Browser Use separates ChatGPT, extension installation,
   const enabled = page({presence: {state: 'enabled'}});
   assert.match(enabled, /<res:ui\.window\.capBrowser\.res\.text5\|\|ui\.chrome\.store\.installedChrome>/, 'installed and on, Chrome just closed: ready, nothing to click');
   assert.match(enabled, /<ui\.window\.pgBrowser\.text2=ui\.chrome\.store\.rowInstalled>/);
-  assert.match(enabled, /\{ui\.chrome\.store\.install\|extensionSetup\}/);
+  // Ken 11/4：已经装好的插件不再在底下放「安装插件」。
+  assert.doesNotMatch(enabled, /\{ui\.chrome\.store\.install\|extensionSetup\}/, 'an installed extension does not offer install again');
   const off = page({presence: {state: 'disabled'}});
   assert.match(off, /<res:ui\.chrome\.store\.disabled\|chromeExtensionDetails\|ui\.chrome\.store\.disabledNote>/);
   assert.match(off, /<ui\.window\.pgBrowser\.text2=ui\.chrome\.store\.tagDisabled>/);
@@ -269,12 +270,19 @@ test('1081 B recovery UI: Browser Use separates ChatGPT, extension installation,
   const connected = page({connected: true, connection_state: 'connected'});
   assert.match(connected, /<res:ui\.window\.capBrowser\.res\.text5\|/, 'only a connected extension gets ready state');
   assert.match(connected, /<ui\.window\.pgBrowser\.text4=.*"build":"1092"/);
-  assert.match(connected, /\{ui\.chrome\.store\.checkUpdate\|browserUpdate\}/);
+  // Ken 11/4：「检查更新」在「插件版本」那一行右边，底下不再放；连着的时候也不放「安装插件」。
+  assert.match(connected, /<ui\.window\.pgBrowser\.text4=[^\n]*?\{ui\.window\.updateBtn\.text\|browserUpdate\}>/);
+  // Ken 11/4：「构建 1092」可点，打开 Chrome 里插件的详情页；Chrome 版本够新时不显示那一行。
+  assert.match(connected, /<ui\.window\.pgBrowser\.text4=<button class="kv-link"[^>]*data-action="chromeExtensionDetails">[^\n]*?"build":"1092"/);
+  assert.doesNotMatch(connected, /<ui\.window\.pgBrowser\.text8=/, 'no Chrome version row');
+  const oldChrome = page({connected: true, connection_state: 'connected'}, {version: '120.0.6099.71', major: 120});
+  assert.doesNotMatch(oldChrome, /<ui\.window\.pgBrowser\.text8=/, 'no Chrome version row: the version is checked when installing');
+  assert.doesNotMatch(connected, /extensionSetup/, 'a connected extension does not offer install');
 
   const incompatible = page({connected: true, connection_state: 'connected', compatibility: {state: 'incompatible'}});
   assert.match(incompatible, /<res:ui\.chrome\.store\.resOld\|browserUpdate\|ui\.chrome\.store\.oldText>/);
   assert.doesNotMatch(incompatible, /从 Chrome 中移除|remove from Chrome/i);
-  assert.match(incompatible, /\{ui\.chrome\.store\.install\|extensionSetup\}/);
+  assert.doesNotMatch(incompatible, /\{ui\.chrome\.store\.install\|extensionSetup\}/, 'connected but old: update from the box, no install below (Ken 11/4)');
   assert.doesNotMatch(incompatible, /\{ui\.chrome\.store\.(manage|reconnect|checkUpdate)\|/, 'only the box offers the update');
 
   ctx.browserUpdateError = true;

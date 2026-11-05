@@ -1,5 +1,5 @@
 {
-  "_readme": "Tutorial content for the manual setup steps. Coordinates are CSS px in each screenshot's own space (screenshot natural pixel size / 2; see shots-data.json w/h). focus = [x,y,w,h] region shown inline (null = whole image). rings = [x,y,w,h] boxes to outline; each ring gets a number badge equal to its sub-step number. Images are real ChatGPT (zh UI) and OpenAI Platform (English-only UI) screenshots captured 2026-09-28; personal info already masked. The same images are used for zh and en.",
+  "_readme": "Tutorial content for the manual setup steps. Coordinates are CSS px in each screenshot's own space (screenshot natural pixel size / 2; see shots-data.json w/h). focus = [x,y,w,h] region shown inline (null = whole image). rings = [x,y,w,h] boxes to outline; each ring gets a number badge equal to its sub-step number. Images are real ChatGPT (zh UI) and OpenAI Platform (English-only UI) screenshots captured 2026-09-28; personal info already masked. The same images are used for zh and en, so values typed into them (tunnel and key names, test prompt) use the English suggestions.",
   "rail": [
     {
       "id": "s-connect",
@@ -431,9 +431,9 @@
             ],
             [
               28,
-              358,
-              114,
-              32
+              314,
+              568,
+              44
             ]
           ],
           "textKey": "ui.wizard.tutorial.add.chooseTunnel"
@@ -552,7 +552,7 @@
               246,
               12,
               544,
-              80
+              158
             ]
           ],
           "textKey": "ui.wizard.tutorial.test.sendNonce"
@@ -565,8 +565,8 @@
           "rings": [
             [
               10,
-              150,
-              448,
+              228,
+              281,
               38
             ]
           ],
