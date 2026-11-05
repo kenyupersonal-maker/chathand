@@ -24,7 +24,7 @@ export function installationSalt(stateDir){
  }catch{return crypto.randomBytes(32);} // Unsafe persistence never blocks a tool or opens another file.
 }
 const schema={
- 'onboarding.step':[], 'chrome.install':[], 'mcp.resource':[], 'site.watch':['phase','reason','code'],
+ 'onboarding.step':[], 'chrome.install':[], 'mcp.resource':[], 'workspace.check':[], 'site.watch':['phase','reason','code'],
  'conn.startup':['stage','outcome','code','ms','n','source'],
  'conn.cloud':['from','to','reason','ms','status','code','source'],'conn.restart':['reason','ms','n','source'],
  'conn.state':['from','to','reason','source','n','code'],'conn.unhealthy':['n','ms'],'conn.grace':['route','outcome','ms'],
@@ -45,6 +45,11 @@ const startupFields={
  code:new Set('OK CANCELLED UNKNOWN SPAWN_ERROR ENOENT EACCES DOCTOR_FAILED DOCTOR_TIMEOUT CONNECTION_UNAVAILABLE CONNECTION_AUTH_FAILED CREDENTIAL_BUSY CREDENTIAL_STORE_UNSAFE CREDENTIAL_STORE_CORRUPT CREDENTIAL_STORE_VERSION CREDENTIAL_CHANGED CREDENTIAL_CONFLICT CREDENTIAL_WRITE_VERIFY_FAILED CREDENTIAL_SAVE_FAILED SAVED_CONNECTION_MISSING KEY_INVALID KEY_EXPIRED AUTH_REQUIRED TUNNEL_ID_INVALID TUNNEL_UNCONFIGURED TUNNEL_RUNNING'.split(' '))
 };
 export function connectionStartupCode(code){return startupFields.code.has(code)?code:'UNKNOWN';}
+export function workspaceCheckFields(fields){
+ if(!['ui','use'].includes(fields.source)||!['ok','failed','retry'].includes(fields.outcome)||typeof fields.code!=='string'||!/^(OK|ROOT_INVALID|ROOT_STATE_OVERLAP|WORKSPACE_[A-Z_]+|E[A-Z]+)$/.test(fields.code))return null;
+ if(fields.confirm_reason!==null&&!['replaced','missing','access_denied','inaccessible','invalid','legacy_identity_unknown'].includes(fields.confirm_reason))return null;
+ return {source:fields.source,outcome:fields.outcome,code:fields.code,confirm_reason:fields.confirm_reason,...(Number.isSafeInteger(fields.n)&&fields.n>0&&fields.n<=3?{n:fields.n}:{})};
+}
 export function validCardErrors(value){
  if(!value||typeof value!=='object'||Array.isArray(value)||!Number.isSafeInteger(value.n)||value.n<1||!Array.isArray(value.codes)||value.codes.length>5||value.codes.some(c=>typeof c!=='string'||!(/^[A-Z][A-Z0-9_]{0,39}$/).test(c)))return null;
  return {n:value.n,codes:[...new Set(value.codes)]};
@@ -105,6 +110,7 @@ export class DiagnosticEvents{
    if(kind==='onboarding.step'){const safe=onboardingFields(fields);if(!safe)return false;Object.assign(entry,safe);}
    if(kind==='chrome.install'){const safe=chromeInstallFields(fields);if(!safe)return false;Object.assign(entry,safe);}
    if(kind==='mcp.resource'){const safe=resourceDiagnosticFields(fields);if(!safe)return false;Object.assign(entry,safe);}
+   if(kind==='workspace.check'){const safe=workspaceCheckFields(fields);if(!safe)return false;Object.assign(entry,safe);}
    for(const key of schema[kind]){const v=fields[key];if(v===undefined||v===null)continue;
     if(kind==='conn.startup'&&startupFields[key]){if(startupFields[key].has(v))entry[key]=v;}
     else if(key==='task'||key==='job'){if(typeof v==='string')entry[key]=this.hash(v);}

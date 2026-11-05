@@ -33,7 +33,7 @@ export function hashConflict(store,rel,current,expected){
 export function withFileTask(store,task,run){return fileTasks.run({store,task},run);}
 export function currentFileTask(store){const context=fileTasks.getStore();return context?.store===store?context.task:null;}
 // Only these codes may carry structured guidance for the AI (what was blocked, where the user can enable it).
-const DETAIL_CODES = new Set(['HIGH_RISK_DISABLED', 'CAPABILITY_OFF', 'NEEDS_FULL_ACCESS', 'ADMIN_FORM_UNSUPPORTED', 'ADMIN_SETUP_REQUIRED', 'NEVER_ALLOWED', 'PROGRAM_BLOCKED', 'PERSONAL_DOWNLOAD_LOCATION', 'SCOPE_REQUIRED', 'CONFIRMATION_PENDING']);
+const DETAIL_CODES = new Set(['HIGH_RISK_DISABLED', 'CAPABILITY_OFF', 'NEEDS_FULL_ACCESS', 'ADMIN_FORM_UNSUPPORTED', 'ADMIN_SETUP_REQUIRED', 'NEVER_ALLOWED', 'PROGRAM_BLOCKED', 'PERSONAL_DOWNLOAD_LOCATION', 'SCOPE_REQUIRED', 'CONFIRMATION_PENDING', 'WORKSPACE_UNAVAILABLE']);
 export function redactErrorText(value) {
   return String(value).replace(/\bsk-[A-Za-z0-9_-]{8,}/g, '[REDACTED]')
     .replace(/\bBearer\s+[A-Za-z0-9._~+\/-]{8,}/gi, 'Bearer [REDACTED]')

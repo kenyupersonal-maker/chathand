@@ -336,6 +336,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
     /// start and injected into the local main frame; never put in a URL/file/environment.
     let interfaceKey: String = { var bytes = [UInt8](repeating: 0, count: 32); arc4random_buf(&bytes, bytes.count); return bytes.map { String(format: "%02x", $0) }.joined() }()
     var interfaceKeyShared = false
+    /// 1104：切换确认框里「更换」刚在系统窗口选的文件夹。只记系统窗口返回的，界面传来的路径一概不开。
+    private var lastChosenFolder: URL?
     private let permissionUndoProof = PermissionUndoProof()
     private var permissionUndoToast: PermissionUndoToast?
     var shuttingDown = false
@@ -2375,6 +2377,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
             // File identity and live workspace scope are checked before every open.
             openArtifact(action, taskID: data["task_id"] as? String ?? "", path: data["path"] as? String ?? "", completion: done)
         case "revealWorkspace":
+            // 1104：确认框里换了文件夹还没切过去时，打开刚选的那个，不打开旧的工作文件夹。
+            if data["chosen"] as? Bool == true, let u = lastChosenFolder {
+                NSWorkspace.shared.open(u); done(["ok":true]); return
+            }
             api("/api/state"){obj in
                 guard let project=obj["project"] as? [String:Any],let p=project["path"] as? String else{done(["error":"WORKSPACE_MISSING"]);return}
                 NSWorkspace.shared.open(URL(fileURLWithPath:p,isDirectory:true));done(["ok":true])
@@ -2399,7 +2405,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
             }
             done(["path":u.path,"payload_type":"dmg","user_selected":true,
                   "signature_verified":false,"installed":false])
-        case "chooseFolder": let p=NSOpenPanel();p.canChooseDirectories=true;p.canChooseFiles=false;p.allowsMultipleSelection=false;done(p.runModal() == .OK ? ["path":p.url!.path]:["cancelled":true])
+        case "chooseFolder": let p=NSOpenPanel();p.canChooseDirectories=true;p.canChooseFiles=false;p.allowsMultipleSelection=false;if p.runModal() == .OK, let u=p.url {lastChosenFolder=u;done(["path":u.path])} else {done(["cancelled":true])}
         case "captureTab":capture(data["browser"] as? String ?? "chrome",completion:done)
         case "focusURL":focusURL(data["url"] as? String ?? "",browser:data["browser"] as? String ?? "chrome",completion:done)
         case "openPrivacySettings":

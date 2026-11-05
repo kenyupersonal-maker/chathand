@@ -21,8 +21,14 @@ export const SCOPE_EFFECT={can_do:t("permissions.scope.what"),risk:t("card.block
 export function scopeReceipt({tool=t("card.blocked.scope.defaultTool"),command='',reason=t("card.blocked.scope.defaultReason")}={}){
  return blockedReceipt({kind:'can_enable',gate:'scope',id:'full',name:t("permissions.scope.name"),cause:`${command||tool}：${reason}`,effect:SCOPE_EFFECT,path:t("permissions.scope.where"),link:'chathand://settings/scope',alternative:t("card.blocked.scope.alternative")});
 }
+export function missingWorkspaceReceipt(){
+ const link='chathand://settings/scope';
+ const receipt=blockedReceipt({kind:'needs_user',gate:'capability',id:'workspace_missing',name:t('card.blocked.workspace.name'),cause:t('card.blocked.workspace.cause'),can_do:t('card.blocked.workspace.effect'),risk:t('card.blocked.workspace.risk'),path:t('card.blocked.workspace.where'),link,alternative:t('card.blocked.workspace.later')});
+ return {...receipt,options:[{id:'recreate',label:t('card.blocked.workspace.recreate'),description:t('card.blocked.workspace.recreateDescription'),link},{id:'later',label:t('card.blocked.workspace.later'),description:t('card.blocked.workspace.laterDescription')}],say_to_user:[t('card.blocked.workspace.cause'),t('card.blocked.workspace.choices')],next:t('card.blocked.workspace.next')};
+}
 // 原生/助手错误只能提供证据，不能提供放行决定。统一在来源和 Tools 最外层补解释。
-export function blockedForError(e,{tool='',command='',reason=''}={}){
+export function blockedForError(e,{tool='',command='',reason='',mode=''}={}){
+ if(e?.code==='WORKSPACE_UNAVAILABLE'&&e.details?.workspace_reason==='missing'&&mode==='auto')return missingWorkspaceReceipt();
  if(['SCOPE_REQUIRED','NEEDS_FULL_ACCESS'].includes(e?.code))return scopeReceipt({tool:tool||e.code,command,reason:e.message});
  if(['ACCESSIBILITY_REQUIRED','SCREEN_RECORDING_REQUIRED'].includes(e?.code)){
   const screen=e.code==='SCREEN_RECORDING_REQUIRED',name=screen?t("card.blocked.system.screen"):t("card.blocked.system.accessibility");

@@ -62,7 +62,7 @@ test('installation prompt stays in the install docs and the DMG keeps the review
   ],'exactly the three fallback items');
   assert.ok(!entry.includes('<p class="after">没自动转到'),'the old one-line note is replaced by the list');
   assert.ok(!entry.includes('<ol class="steps">'),'the two old steps are incorporated into the one-line introduction');
-  assert.ok(entry.includes('<title>正在打开 ChatGPT 桌面版</title>')&&entry.includes('id="gptmark"'));
+  assert.ok(entry.includes('<title>正在打开 Codex 桌面版</title>')&&entry.includes('id="gptmark"'));
   assert.ok(entry.indexOf('id="go"')<entry.indexOf('<summary>遇到问题？'),'the fallback follows the main action');
   assert.ok(entry.includes('setTimeout(openCodex,300)'));
   assert.ok(entry.includes("const link='codex://new?prompt='+encodeURIComponent(prompt)+'&mode=codex';"),'the deep link requests Codex mode and carries the prompt');

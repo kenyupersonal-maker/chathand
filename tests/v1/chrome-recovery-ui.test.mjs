@@ -155,7 +155,7 @@ test('each store state offers the action its sentence names', () => {
   // 被关了：去 Chrome 打开。
   const disabled = at({...seen, presence: {state: 'disabled'}});
   assert.equal(disabled.res, 'ui.chrome.store.disabled');
-  assert.equal(disabled.tag, 'ui.chrome.store.tagDisabled');
+  assert.equal(disabled.tag, 'ui.chrome.store.tagDisabledHome');
   assert.deepEqual(actions(disabled), ['chromeExtensionDetails']);
   // 不在：以前见过是被删了（重新安装），没见过是还没装（安装插件）。
   const removed = at({...seen, presence: {state: 'missing'}});
@@ -227,7 +227,9 @@ test('the status box and the links below never repeat an action', () => {
     ctx.S = {settings: {browser_enabled: true}, automation: {browser: {extension: {...base, ...extension}}}};
     const html = vm.runInContext('pgBrowser()', ctx), actions = [...html.matchAll(/[\[{](\w+)[\]}]/g)].map(m => m[1]);
     assert.equal(new Set(actions).size, actions.length, JSON.stringify([extension, flags, actions]));
-    assert.ok(actions.includes('extensionSetup'), 'install is always somewhere on the page');
+    // Ken 11/4：插件连着，或 Chrome 记录里插件还在（开着或被关了），就不再给「安装插件」；别的情况页面上总有一处能装。
+    const installed = extension.connected === true || ['enabled', 'disabled'].includes(extension.presence?.state);
+    assert.equal(actions.includes('extensionSetup'), !installed, JSON.stringify([extension, flags, actions, 'install']));
   }
 });
 

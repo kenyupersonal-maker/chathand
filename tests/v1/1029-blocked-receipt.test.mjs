@@ -56,7 +56,7 @@ test('bounded control receipt removes unknown fields and secret text; never cann
 });
 test('Tools outer catch fills and records a FileStore scope rejection once',async()=>{
  const blocks=new Blocks(),error=Object.assign(Error('文件不在工作区'),{code:'SCOPE_REQUIRED'});
- const fake={state:{data:{}},store:{read(){throw error;}},queue:{},policy:{check(){},tasks:new Map([['task',{id:'task'}]])},lastCalls:{},blocks,imageBatch:{has:()=>false},features:{has:()=>false},automation:{has:()=>false}};
+ const fake={state:{data:{}},store:{read(){throw error;}},queue:{},policy:{check(){},tasks:new Map([['task',{id:'task'}]])},lastCalls:{},blocks,imageBatch:{has:()=>false},features:{has:()=>false},automation:{has:()=>false},invokeBound:Tools.prototype.invokeBound};
  await assert.rejects(Tools.prototype.invoke.call(fake,'read_text',{path:'fixture'},'fixture'),e=>e.code==='SCOPE_REQUIRED');
  shape(cleanError(error).details.blocked,'can_enable','scope');assert.equal(blocks.list().length,1);assert.equal(blocks.list()[0].blocked.gate,'scope');
  Tools.prototype.recordBlocked.call(fake,error,'read_text');assert.equal(blocks.list()[0].times,1);

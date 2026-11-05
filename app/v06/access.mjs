@@ -8,6 +8,8 @@ import {ProjectStore} from '../store.mjs';
 import {TaskPolicy} from '../policy.mjs';
 import {fail, digest,currentFileTask} from '../../engine/src/core.mjs';
 import {inspectWorkspace,workspaceFailure,workspaceReadOnly} from '../v1/workspace-recovery.mjs';
+import {temporaryWorkspaceFailure} from '../v1/workspace-inspector.mjs';
+import {noteWorkspaceRecreated,noteWorkspaceCommandsStopped} from '../v1/workspace-notice.mjs';
 export const APP_ROOT=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../..');
 export const within=(target,base)=>{return target===base||target.startsWith(base.endsWith(path.sep)?base:base+path.sep);};
 const canonical=p=>{try{return fs.realpathSync(p);}catch{return path.resolve(p);}};
@@ -25,15 +27,18 @@ function rejectPathLinks(candidate,{missing=false}={}){
 }
 export class ScopedStore extends ProjectStore {
   constructor(root,stateDir,{allowUnavailableRoot=false,recoveryRequired=false,deferWorkspaceCheck=false}={}){
-    super(root,stateDir,{deferRoot:true});this.accessMode='auto';this.runtimeRoot=APP_ROOT;
+    super(root,stateDir,{deferRoot:true});this.accessMode='auto';this.runtimeRoot=APP_ROOT;this.workspaceRecoveryRequired=recoveryRequired;this.workspaceConfirmReason=recoveryRequired?'legacy_identity_unknown':null;
     if(deferWorkspaceCheck){
       this.root=typeof root==='string'?root:null;this.workspacePath=root;this.workspaceAliases=new Set([this.root]);
-      this.workspace={path:root,available:recoveryRequired?false:null,writable:null,status:recoveryRequired?'recovery_required':'unchecked',code:recoveryRequired?'WORKSPACE_CONFIRM_REQUIRED':null};
+      this.workspace={path:root,available:recoveryRequired?false:null,writable:null,status:recoveryRequired?'recovery_required':'unchecked',code:recoveryRequired?'WORKSPACE_CONFIRM_REQUIRED':null,confirm_reason:this.workspaceConfirmReason};
     }else this.setRoot(root,{allowUnavailableRoot,recoveryRequired});
   }
-  setRoot(root,{allowUnavailableRoot=false,recoveryRequired=false,recoverWorkspace=false}={}){
+  setRoot(root,{allowUnavailableRoot=false,recoveryRequired=false,recoverWorkspace=false,expectedWorkspace=null}={}){
     if(this.workspace?.available===false&&!recoverWorkspace)throw workspaceFailure(this.workspace);
     const result=inspectWorkspace(root,this.stateDir);
+    if(expectedWorkspace&&(!result.available||result.real_path!==expectedWorkspace.real_path||result.identity.ino!==expectedWorkspace.identity.ino)){
+      const changed={...result,available:false,status:'recovery_required',code:'WORKSPACE_CHANGED',confirm_reason:'replaced',can_reconnect:result.available};this.invalidateWorkspace(changed);throw workspaceFailure(changed);
+    }
     if(!allowUnavailableRoot){
       // Validate with the original ProjectStore rules before changing this
       // store, retaining legacy error codes and the previous active root.
@@ -42,36 +47,72 @@ export class ScopedStore extends ProjectStore {
     }
     this.root=result.available?result.real_path:(typeof root==='string'?root:null);
     this.workspaceAliases=new Set([root,this.root]);
-    this.workspacePath=root;this.workspaceIdentity=result.identity;this.writesEnabled=false;this.allowSensitive=false;
-    this.workspace={...result,...(result.available&&recoveryRequired?{available:false,status:'recovery_required',code:'WORKSPACE_CONFIRM_REQUIRED'}:{})};
+    this.workspacePath=root;this.workspaceIdentity=result.identity;this.workspaceAcceptedPath=result.real_path;this.writesEnabled=false;this.allowSensitive=false;this.workspaceRecoveryRequired=recoveryRequired;this.workspaceConfirmReason=recoveryRequired?'legacy_identity_unknown':null;
+    this.workspace={...result,confirm_reason:this.workspaceConfirmReason,...(result.available&&recoveryRequired?{available:false,status:'recovery_required',code:'WORKSPACE_CONFIRM_REQUIRED'}:{})};
     return this.workspaceStatus();
   }
   workspaceStatus(){
-    const {identity,real_path,...status}=this.workspace;return {...status};
+    const {identity,real_path,...status}=this.workspace;return {confirm_reason:null,...status};
   }
   matchesRoot(root){return root===this.root||this.workspaceAliases?.has(root)===true;}
   checkWorkspace({recheck=false}={}){
-    const old=this.workspace,latched=old.available===false;
-    if(latched&&!recheck)return this.workspaceStatus();
+    const old=this.workspace;
+    // A missing folder can be returned to its original place. Check its
+    // saved identity on the next use; a different folder still needs approval.
+    if(this.workspaceRecoveryRequired&&this.workspaceConfirmReason==='missing')recheck=true;
+    if(this.workspaceRecoveryRequired&&!recheck&&!this.onWorkspaceCanAutoRecover?.())return this.workspaceStatus();
     if(old.status==='unchecked')this.onWorkspaceInitialize?.();
     const next=inspectWorkspace(this.workspacePath,this.stateDir);
-    return this.applyWorkspaceInspection(next,{recheck,watch:true});
+    return this.applyWorkspaceInspection(next,{recheck});
   }
-  applyWorkspaceInspection(next,{recheck=false,watch=false}={}){
-    const old=this.workspace,latched=old.available===false;
-    if(latched&&!recheck)return this.workspaceStatus();
-    if(old.status==='unchecked'&&next.available){
-      this.workspaceAliases.add(next.real_path);this.root=next.real_path;this.workspaceIdentity=next.identity;this.workspace=next;
-      this.onWorkspaceVerified?.({watch});
-    }else if(latched){this.workspace=next.available?{...next,available:false,status:'recovery_required',code:'WORKSPACE_CONFIRM_REQUIRED',can_reconnect:true}:next;
-    }else if(!next.available||next.real_path!==this.root||next.identity.dev!==this.workspaceIdentity?.dev||next.identity.ino!==this.workspaceIdentity?.ino){
-      if(old.status==='unchecked'){this.workspace={...old,available:true};}
-      this.invalidateWorkspace(next.available?{...next,available:false,status:'recovery_required',code:'WORKSPACE_CHANGED',can_reconnect:true}:next);
-    }else this.workspace=next;
+  applyWorkspaceInspection(next,{recheck=false,recordNotice=true,observation=null,bypassAutoRecoveryPending=false}={}){
+    if(this.workspaceRecoveryRequired&&!recheck&&!this.onWorkspaceCanAutoRecover?.())return this.workspaceStatus();
+    let autoAccepted=false;
+    const observeRecovery=recovered=>{
+      if(recovered.recreated){if(observation)observation.recreated=true;if(recordNotice)noteWorkspaceRecreated();}
+      if(recovered.commandsStopped){if(observation)observation.commandsStopped=true;if(recordNotice)noteWorkspaceCommandsStopped();}
+    };
+    // A command may need time to exit after cancellation. Do not let another
+    // caller enter the old or new folder while that cleanup is in progress.
+    const pending=!bypassAutoRecoveryPending&&this.onWorkspaceAutoRecoveryPending?.();
+    if(pending){this.workspace={...pending.workspace,confirm_reason:null};return this.workspaceStatus();}
+    if(temporaryWorkspaceFailure(next)){
+      // A failed probe says nothing about the folder's identity. Preserve its
+      // accepted identity and task generation, and retry on the next use.
+      this.workspace={...next,confirm_reason:null};return this.workspaceStatus();
+    }
+    if(!next.available&&next.status==='missing'){
+      const recovered=this.onWorkspaceAutoRecover?.('missing',next);
+      if(recovered?.defer){this.workspace={...recovered.workspace,confirm_reason:null};return this.workspaceStatus();}
+      if(recovered){next=recovered.workspace;autoAccepted=true;observeRecovery(recovered);}
+    }
+    if(!next.available){
+      const reason=next.status==='missing'?'missing':next.status==='invalid'?'invalid':['EACCES','EPERM'].includes(next.code)?'access_denied':'inaccessible';
+      this.invalidateWorkspace({...next,confirm_reason:reason});return this.workspaceStatus();
+    }
+    const known=!!this.workspaceAcceptedPath&&this.workspaceIdentity?.ino!==undefined;
+    if(known&&(next.real_path!==this.workspaceAcceptedPath||next.identity.ino!==this.workspaceIdentity.ino)){
+      const recovered=this.onWorkspaceAutoRecover?.('replaced',next);
+      if(recovered?.defer){this.workspace={...recovered.workspace,confirm_reason:null};return this.workspaceStatus();}
+      if(recovered){next=recovered.workspace;autoAccepted=true;observeRecovery(recovered);}
+      else{this.invalidateWorkspace({...next,available:false,status:'recovery_required',code:'WORKSPACE_CHANGED',confirm_reason:'replaced',can_reconnect:true});return this.workspaceStatus();}
+      if(!next.available){
+        const reason=next.status==='missing'?'missing':next.status==='invalid'?'invalid':['EACCES','EPERM'].includes(next.code)?'access_denied':'inaccessible';
+        this.invalidateWorkspace({...next,confirm_reason:reason});return this.workspaceStatus();
+      }
+    }
+    if(!known&&this.workspaceRecoveryRequired&&!autoAccepted){
+      this.workspace={...next,available:false,status:'recovery_required',code:'WORKSPACE_CONFIRM_REQUIRED',confirm_reason:'legacy_identity_unknown',can_reconnect:true};
+    }else{
+      // Device numbers can change on remount. The accepted canonical path and
+      // inode remain the folder identity; file-level identity checks are separate.
+      this.workspaceAliases.add(next.real_path);this.root=next.real_path;this.workspaceAcceptedPath=next.real_path;this.workspaceIdentity=next.identity;this.workspace={...next,confirm_reason:null};this.workspaceRecoveryRequired=false;this.workspaceConfirmReason=null;
+      this.onWorkspaceVerified?.();
+    }
     return this.workspaceStatus();
   }
-  invalidateWorkspace(status={...this.workspace,available:false,status:'recovery_required',code:'WORKSPACE_CHANGED'}){
-    if(!this.workspace.available)return;this.workspace=status;this.onWorkspaceUnavailable?.(status);
+  invalidateWorkspace(status={...this.workspace,available:false,status:'recovery_required',code:'WORKSPACE_CHANGED',confirm_reason:'replaced'}){
+    this.workspace=status;this.workspaceRecoveryRequired=true;this.workspaceConfirmReason=status.confirm_reason||'legacy_identity_unknown';this.onWorkspaceUnavailable?.(status);
   }
   requireWorkspace({write=false}={}){const status=this.checkWorkspace();if(this.workspaceTransitioning||!status.available)throw workspaceFailure(status);if(write&&!status.writable)throw workspaceReadOnly();this.onWorkspaceUse?.(currentFileTask(this));}
   get protectedPaths(){return [...new Set([this.stateDir,...['v05','data','upgrades'].map(n=>canonical(path.join(os.homedir(),'Library/Application Support/ChatHand',n)))])];}

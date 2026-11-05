@@ -235,7 +235,7 @@ function alertLine(read,button){
  if(button)$('alertBtn').append(button);
 }
 function groupChanges(list){const m=new Map();for(const c of list){const p=String(c.destination||c.path||'');if(!p)continue;const g=m.get(p)||{path:p,tool:c.tool,n:0};g.n++;g.tool=c.tool;m.delete(p);m.set(p,g);}return [...m.values()].reverse();}
-function normalize(input){if(input?.task)return input;if(input?.card==='checkpoint'&&input?.task_id)return {task:{...input,status:'active',title:null,last_checkpoint:input.checkpoint,blocker:input.checkpoint?.blocked||null},changes:input.changes,scope:input.scope};return input?.task_id?{task:input,changes:input.changes,scope:input.scope}:null;}
+function normalize(input){if(input?.task)return input;if(input?.card==='checkpoint'&&input?.task_id)return {task:{...input,status:'active',title:input.workspace_choice===true?input.title:null,last_checkpoint:input.checkpoint,blocker:input.checkpoint?.blocked||null},changes:input.changes,scope:input.scope};return input?.task_id?{task:input,changes:input.changes,scope:input.scope}:null;}
 // 卡的身份只在第一次拿到数据时确定：checkpoint / finish / show_task，之后轮询不会改身份。
 let fromFinish=false;
 const clip40=v=>[...String(v||'')].slice(0,40).join('');
@@ -493,7 +493,7 @@ function render(input){
  // 1052（Claude）：收起的卡不再展开（原来过 1 秒的重排会把它又展开）。
  if(collapsed)return;
  if(cardKind===null){cardReadyAt=Date.now()+1000;armTimer=setTimeout(()=>{if(current&&!cardSubmitted)render(current);},1001);cardKind=input?.card==='checkpoint'?'checkpoint':(input?.reply_format||input?.terminal===true)?'finish':'task';fromFinish=cardKind==='finish';if(cardKind==='checkpoint'){mySeq=Number(input.checkpoint_seq)||0;originCheckpoint=input.checkpoint||data.task?.last_checkpoint||null;const at=Number(originCheckpoint?.at);if(Number.isFinite(at)&&at>0&&at<=Date.now()+300000)cardBorn=Math.min(at,bornAt);}initialWasDone=['completed','failed','cancelled','expired','superseded','revoked'].includes(data.task?.status);}
- current={...(current||{}),...data,task:{...(current?.task||{}),...data.task}};const t=current.task;rendered=true;
+ current={...(current||{}),...data,task:{...(current?.task||{}),...data.task}};const t=current.task,workspaceChoice=t.workspace_choice===true;rendered=true;
  const ended=['completed','failed','cancelled','expired','superseded','revoked'].includes(t.status);
  // 1060 0004（Claude）：在这张卡上点过「继续」的（重新打开对话时 ChatGPT 还给这张卡留着），直接收成那一行。
  if(ended&&resumeSentFor&&resumeSentFor===t.task_id){renderResumed();return;}
@@ -505,7 +505,7 @@ function render(input){
  const stall=t.stall||null,stalled=t.status==='active'&&stall?.stalled===true;
  // 1052 第四版（Claude）：回复断了、但 AI 本来就在等一条命令：卡上写「在等命令跑完」，不标橙色；跑完再接（方案 A4-4）。
  const cmdWait=stalled&&!!relayToken&&t.relay?.wait?.state==='running';
- const st=$('state');paintText(st,()=>cmdWait?T("waitingCommand"):stalled?T("stalled"):t.status==='active'&&t.wait_state?.label?t.wait_state.label:t.end_reason==='superseded'&&t.status==='expired'?T("superseded"):(names[t.status]?T(names[t.status]):t.status));st.className='state'+(t.status==='completed'?' ok':(t.status==='failed'||stalled&&!cmdWait)?' warn':'');
+ const st=$('state');paintText(st,()=>workspaceChoice?T("awaitDecision"):cmdWait?T("waitingCommand"):stalled?T("stalled"):t.status==='active'&&t.wait_state?.label?t.wait_state.label:t.end_reason==='superseded'&&t.status==='expired'?T("superseded"):(names[t.status]?T(names[t.status]):t.status));st.className='state'+(t.status==='completed'?' ok':(t.status==='failed'||stalled&&!cmdWait)?' warn':'');
  paintText($('scope'),()=>current.scope==='full'?T("fullScope"):current.scope?T("workspaceScope"):'');
  const done=['completed','failed'].includes(t.status),live=t.status==='active',mid=Number(t.intermediate_errors)||0;
  // 收尾：两句由 ChatHand 程序给出——结果＝summary，你要做＝user_action（ChatHand 知道的状态优先，比如等你点安装）。
@@ -520,8 +520,8 @@ function render(input){
  paintText($('summary'),()=>done&&mid&&!brief?(t.status==='completed'&&!cleanup?T("errorsHandled",{count:mid}):T("errorsRecorded",{count:mid})):'');$('summary').hidden=!$('summary').textContent;
  paintText($('cleanup'),()=>done&&cleanup&&!brief?T("cleanupUnconfirmed"):'');$('cleanup').hidden=!$('cleanup').textContent;
  // 进行中：第几块、最近一步
- $('live').hidden=!live;
- if(live){const cp=t.last_checkpoint,total=cp?.total||null,k=cp?.block||0;
+ $('live').hidden=!live||workspaceChoice;
+ if(live&&!workspaceChoice){const cp=t.last_checkpoint,total=cp?.total||null,k=cp?.block||0;
   paintText($('block'),()=>total?T("blockProgress",{block:k,total}):k?T("blocksDone",{count:k}):T("justStarted"));
   $('barWrap').hidden=!total;$('barWrap').className='bar'+(stalled&&!cmdWait?' warn':'');$('bar').style.width=total?`${Math.round(100*k/total)}%`:'0';
   const last=(t.recent_steps||[]).at(-1),reason=t.wait_state?.detail;paintText($('now'),()=>stalled?T("lastStep",{step:stepText(last)||T('noStep')}):reason?(last?T('reasonLastStep',{reason,step:stepText(last)}):cp?.next?T('reasonNextStep',{reason,next:cp.next}):reason):last?stepText(last):(cp?.next?T("nextStep",{next:cp.next}):''));}
@@ -529,7 +529,8 @@ function render(input){
  // 1026：同一文件只列一行（「· N 次」），写文件名和上一级文件夹，悬停看全路径。
  const list=$('changes');list.replaceChildren();if(!live&&!brief)for(const g of groupChanges(current.changes||[]).slice(0,6)){const li=document.createElement('li');li.title=g.path;const name=g.path.split('/').filter(Boolean).pop()||g.path,dir=g.path.split('/').filter(Boolean).slice(-2,-1)[0];li.append(textNode(()=>g.n>1?T("fileChangedRepeated",{action:VERB[g.tool]?T(VERB[g.tool]):String(g.tool),name,count:g.n}):T("fileChanged",{action:VERB[g.tool]?T(VERB[g.tool]):String(g.tool),name})));if(dir){const sm=document.createElement('span');sm.className='dir';sm.textContent=` …/${dir}/`;li.append(sm);}list.append(li);}
  renderAlert(t,stalled,live);
- $('foot').hidden=!live;
+ if(workspaceChoice)$('alert').hidden=true;
+ $('foot').hidden=!live||workspaceChoice;
  if(rich)renderRich(t,taskCard,cmdWait);
  schedule(live,pollGap());if(cardKind==='checkpoint'&&!polledInitial){polledInitial=true;setTimeout(poll,0);}
 }
