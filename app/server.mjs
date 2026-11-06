@@ -2,6 +2,7 @@ import {readChromeDistribution,requireLegacyInstaller,requireStoreConfiguration,
 import {bindWorkspaceRecovery,workspaceFailure,workspaceReadOnly,usesWorkspace} from './v1/workspace-recovery.mjs';
 import {WorkspaceChoices,WORKSPACE_CHOICE_ACTIONS} from './v1/workspace-choice.mjs';
 import {acquireAppLock} from './v1/app-lock.mjs';
+import {processFacts} from './v1/process-facts.mjs';
 import {chromeStoreProfiles} from './v1/chrome-store-profiles.mjs';
 import {ChromeExtensionPresence} from './v1/chrome-extension-presence.mjs';
 import {NetworkChallengeNotice,networkSetupHandoff,prepareNetworkSetupHandoff} from './v1/network-challenge-notice.mjs';
@@ -158,8 +159,9 @@ export async function createDesktop({stateDir=defaultState(),defaultRoot,lock=tr
  const appPath=clientDeps.currentAppPath??(process.env.NODE_TEST_CONTEXT?null:currentApplicationPath());
  const rehearsalHome=rehearsalUpgradeHome({stateDir,appPath});
  const interfaceKey=typeof uiKey==='string'&&/^[a-f0-9]{32,128}$/.test(uiKey)?uiKey:null;const startedAt=Date.now();
- privateDir(stateDir);stateDir=fs.realpathSync(stateDir);const lockFile=path.join(stateDir,'app.lock');let lockOwned=false,lockRecovered=false;
- if(lock){const acquired=await acquireAppLock(stateDir);lockOwned=true;lockRecovered=acquired.recovered;}
+ privateDir(stateDir);stateDir=fs.realpathSync(stateDir);const lockFile=path.join(stateDir,'app.lock');let lockOwned=false,lockRecovered=false,ownerIdentity;
+ if(lock){const acquired=await acquireAppLock(stateDir);lockOwned=true;lockRecovered=acquired.recovered;ownerIdentity=acquired.identity;}
+ else {const identity=processFacts(process.pid);if(identity.absent||identity.unknown)throw Error('PROCESS_FACTS_UNAVAILABLE');ownerIdentity={start_seconds:identity.start_seconds,start_microseconds:identity.start_microseconds};}
  let state,store;try{state=new DesktopState(stateDir,{defaultRoot,deferWorkspace:true,recoverCorrupt:true});store=new ProjectStore(state.project().path,stateDir,{allowUnavailableRoot:true,deferWorkspaceCheck:true,recoveryRequired:state.project().workspace_recovery_required===true});}catch(e){if(lockOwned)fs.unlinkSync(lockFile);throw e;}
  const isolated=!!process.env.NODE_TEST_CONTEXT||!!clientDeps.tunnelFactory||!!clientDeps.updaterFactory||stateDir!==path.resolve(dataDirectory());
  if(clientDeps.tunnelFactory||clientDeps.updaterFactory||clientDeps.credentials)assertTemporaryUpdatePaths(stateDir,...(appPath?[appPath]:[]));
@@ -1455,7 +1457,7 @@ if(windowAuthorized&&state.data.browser_enabled===true&&!tools.upgradePending)re
  }catch(e){const publicError=managementHTTPError(req.url,e,cleanError);if(e?.code==='B_PAIRING_BINDING'&&['claim', 'protocol_version', 'site_id', 'site_origin', 'owner_subject', 'installation_id', 'device_public_key_id', 'public_key_id', 'client_nonce', 'server_nonce', 'template_version', 'manifest_sha256', 'pairing_intent', 'device_name', 'generation', 'binding_id', 'pairing_id', 'pairing_hash'].includes(e.mismatch)&&publicError.body?.error)publicError.body.error.mismatch=e.mismatch;send(res,publicError.status,publicError.body);}});
  api.requestTimeout=45000;api.headersTimeout=10000;apiPort=await listen(api);
  if(chromeDistribution.configuration_state==='ready')saveJSON(extensionFile,{origin:`http://127.0.0.1:${apiPort}`,token:extensionToken,extension_id:chromeDistribution.extension_id});
- saveJSON(runtimeFile,{pid:process.pid,product:'ken-bridge',runtime_api:RUNTIME_API,version:VERSION,started_at:Date.now(),ui_origin:`http://127.0.0.1:${apiPort}`,admin_token:admin,setup_helper_token:setupHelperToken,mcp_url:`http://127.0.0.1:${mcpPort}/mcp`,mcp_token:chatToken,local_mcp_token:localToken,root:store.root});
+ saveJSON(runtimeFile,{pid:process.pid,start_seconds:ownerIdentity.start_seconds,start_microseconds:ownerIdentity.start_microseconds,product:'ken-bridge',runtime_api:RUNTIME_API,version:VERSION,started_at:Date.now(),ui_origin:`http://127.0.0.1:${apiPort}`,admin_token:admin,setup_helper_token:setupHelperToken,mcp_url:`http://127.0.0.1:${mcpPort}/mcp`,mcp_token:chatToken,local_mcp_token:localToken,root:store.root});
  if(bLocalStore.selection().selected==='openai'&&bSiteWatch)abandonSitePairing('B_PAIRING_ABANDONED');
  // Recover/verify in parallel with transport startup. Only verified completion
  // may release execution; a hanging, failed or active upgrade stays closed.

@@ -76,10 +76,12 @@ enum InstanceLifecycle {
         if let failure {throw failure}
         return marked
     }
-    static func readOwner(state:URL) -> OwnerRecord? {
-        let fd=Darwin.open(state.appendingPathComponent("native-instance.lock").path,O_RDONLY|O_NOFOLLOW|O_CLOEXEC)
+    static func readOwner(state:URL, requireHeld:Bool = false) -> OwnerRecord? {
+        let flags=requireHeld ? O_RDWR : O_RDONLY
+        let fd=Darwin.open(state.appendingPathComponent("native-instance.lock").path,flags|O_NOFOLLOW|O_CLOEXEC|O_NONBLOCK)
         guard fd>=0 else{return nil};defer{Darwin.close(fd)}
         var st=stat();guard fstat(fd,&st)==0,st.st_mode & mode_t(S_IFMT)==mode_t(S_IFREG),st.st_uid==getuid(),st.st_nlink==1,st.st_mode & 0o077==0,st.st_size>0,st.st_size<1024 else{return nil}
+        if requireHeld { guard flock(fd,LOCK_EX|LOCK_NB) != 0,errno==EWOULDBLOCK else{return nil} }
         var bytes=[UInt8](repeating:0,count:1024);let count=Darwin.read(fd,&bytes,bytes.count)
         guard count==Int(st.st_size),let object=(try? JSONSerialization.jsonObject(with:Data(bytes.prefix(count)))) as? [String:Any] else{return nil}
         func integer(_ key:String)->UInt64? {
@@ -155,6 +157,24 @@ enum InstanceLifecycle {
         return (coordination,scope)
     }
     static func alive(_ pid: Int32) throws -> Bool {if kill(pid,0)==0{return true};if errno==ESRCH{return false};throw Failure(code:"INSTANCE_PID_UNKNOWN")}
+    static func processStart(_ pid: Int32) throws -> (seconds: UInt64, microseconds: UInt64)? {
+        guard pid > 1 else { throw Failure(code:"INSTANCE_PID_UNKNOWN") }
+        var info=proc_bsdinfo()
+        errno=0
+        // Include zombies so a missing executable path does not prove absence.
+        let count=proc_pidinfo(pid,PROC_PIDTBSDINFO,1,&info,Int32(MemoryLayout<proc_bsdinfo>.size))
+        let error=errno
+        if count==0 && error==ESRCH { return nil }
+        guard count==MemoryLayout<proc_bsdinfo>.size,info.pbi_pid==UInt32(pid),
+              info.pbi_start_tvsec>0,info.pbi_start_tvusec<1_000_000 else { throw Failure(code:"INSTANCE_PID_UNKNOWN") }
+        return (info.pbi_start_tvsec,info.pbi_start_tvusec)
+    }
+    static func bootTime() throws -> (seconds: Int64, microseconds: Int64) {
+        var time=timeval(),size=MemoryLayout<timeval>.size
+        guard sysctlbyname("kern.boottime",&time,&size,nil,0)==0,size==MemoryLayout<timeval>.size,
+              time.tv_sec>0,time.tv_usec>=0,time.tv_usec<1_000_000 else { throw Failure(code:"INSTANCE_BOOT_TIME_UNKNOWN") }
+        return (Int64(time.tv_sec),Int64(time.tv_usec))
+    }
     static func identity(_ pid: Int32) throws -> Identity? {
         guard try alive(pid) else{return nil}
         var path=[CChar](repeating:0,count:4*Int(MAXPATHLEN)),info=proc_bsdinfo()
@@ -210,6 +230,23 @@ enum InstanceLifecycle {
             results.append(Running(identity:observed,app:app,build:build))
         }
         return results
+    }
+    static func existingForClearRetry(state: URL, coordination: URL, source: URL, scope: Scope) throws -> Running? {
+        let running=try instances(source:source,scope:scope)
+        for directory in [state,coordination] {
+            if let owner=readOwner(state:directory,requireHeld:true),!owner.quitting,
+               let match=running.first(where:{$0.identity.pid==owner.pid && $0.identity.seconds==owner.seconds && $0.identity.micros==owner.micros}) {
+                guard try identity(owner.pid)==match.identity else { throw Failure(code:"INSTANCE_LOCK_BUSY") }
+                return match
+            }
+        }
+        // Releases before 1064 did not publish native lease records.
+        if running.count==1,let old=running.first,(0..<1064).contains(old.build) {
+            guard try identity(old.identity.pid)==old.identity else { throw Failure(code:"INSTANCE_LOCK_BUSY") }
+            return old
+        }
+        guard running.isEmpty else { throw Failure(code:"INSTANCE_LOCK_BUSY") }
+        return nil
     }
     static func acquire(state: URL) throws -> Lease? {
         let fm=FileManager.default;try fm.createDirectory(at:state,withIntermediateDirectories:true,attributes:[.posixPermissions:0o700])
@@ -297,22 +334,157 @@ enum InstanceLifecycle {
         diagnostic("instance","INSTANCE_CLAIMED",getpid());return lease
     }
 
-    static func runtime(state: URL) -> [String:Any]? {
-        let file=state.appendingPathComponent("runtime.json");var st=stat()
-        guard lstat(file.path,&st)==0,st.st_mode & mode_t(S_IFMT)==mode_t(S_IFREG),st.st_uid==getuid(),st.st_nlink==1,st.st_mode & 0o077==0,st.st_size<=65536,let data=try? Data(contentsOf:file) else{return nil}
-        return (try? JSONSerialization.jsonObject(with:data)) as? [String:Any]
+    private struct BackendRecord {
+        let value: [String:Any]
+        let metadata: stat
+    }
+    private static func safeBackendRecord(_ st: stat) -> Bool {
+        st.st_mode & mode_t(S_IFMT)==mode_t(S_IFREG) && st.st_uid==getuid() && st.st_nlink==1 &&
+        st.st_mode & 0o077==0 && st.st_size>=0 && st.st_size<=65536
+    }
+    private static func readBackendRecord(_ file: URL) throws -> BackendRecord? {
+        let fd=Darwin.open(file.path,O_RDONLY|O_NOFOLLOW|O_CLOEXEC|O_NONBLOCK)
+        if fd<0 && errno==ENOENT { return nil }
+        guard fd>=0 else { throw Failure(code:"ORPHAN_IDENTITY_UNKNOWN") }
+        let handle=FileHandle(fileDescriptor:fd,closeOnDealloc:true)
+        defer { try? handle.close() }
+        var st=stat()
+        guard fstat(fd,&st)==0,safeBackendRecord(st),
+              let bytes=try? handle.read(upToCount:65537),bytes.count==st.st_size,
+              let value=(try? JSONSerialization.jsonObject(with:bytes)) as? [String:Any] else { throw Failure(code:"ORPHAN_IDENTITY_UNKNOWN") }
+        return BackendRecord(value:value,metadata:st)
+    }
+    private static func recordInteger(_ value: Any?) -> UInt64? {
+        guard let number=value as? NSNumber,CFGetTypeID(number) != CFBooleanGetTypeID() else { return nil }
+        let string=number.stringValue
+        guard !string.isEmpty,string.utf8.allSatisfy({ (48...57).contains($0) }) else { return nil }
+        return UInt64(string)
+    }
+    private static func backendRecordPID(_ record: [String:Any]) throws -> Int32 {
+        guard let pid=recordInteger(record["pid"]),pid>1,pid<=UInt64(Int32.max) else { throw Failure(code:"ORPHAN_IDENTITY_UNKNOWN") }
+        return Int32(pid)
+    }
+    private static func backendRecordStart(_ record: [String:Any]) throws -> (UInt64, UInt64)? {
+        guard record["start_seconds"] != nil || record["start_microseconds"] != nil else { return nil }
+        guard let seconds=recordInteger(record["start_seconds"]),seconds>0,
+              let micros=recordInteger(record["start_microseconds"]),micros<1_000_000 else { throw Failure(code:"ORPHAN_IDENTITY_UNKNOWN") }
+        return (seconds,micros)
+    }
+    static func runtimeMatchesChild(_ record: [String:Any], pid: Int32, start: (seconds: UInt64, microseconds: UInt64)) -> Bool {
+        guard (try? backendRecordPID(record))==pid,let recorded=try? backendRecordStart(record) else { return false }
+        return recorded==(start.seconds,start.microseconds)
+    }
+    private static func predatesBoot(_ metadata: stat?) -> Bool? {
+        guard let metadata,let boot=try? bootTime() else { return nil }
+        return (Int64(metadata.st_mtimespec.tv_sec),Int64(metadata.st_mtimespec.tv_nsec)) < (boot.seconds,boot.microseconds*1000)
+    }
+    private static func isUnrelatedSystemProcess(_ pid: Int32, start: (UInt64, UInt64)) throws -> Bool {
+        var bytes=[CChar](repeating:0,count:4*Int(MAXPATHLEN))
+        let length=proc_pidpath(pid,&bytes,UInt32(bytes.count))
+        guard let current=try processStart(pid) else { return true }
+        guard start==(current.seconds,current.microseconds),length>0,let executable=String(validatingUTF8:bytes) else {
+            throw Failure(code:"ORPHAN_IDENTITY_UNKNOWN")
+        }
+        let name=URL(fileURLWithPath:executable).lastPathComponent.lowercased()
+        // A standalone Node can be outside the ChatHand bundle. Only
+        // executables in system locations prove a different program here.
+        return ["/bin/","/sbin/","/usr/bin/","/usr/sbin/","/System/"].contains(where:executable.hasPrefix) &&
+               !name.hasPrefix("node") && !name.hasPrefix("chathand") && name != "kenbridge"
+    }
+    private struct RecordVersion: Equatable {
+        let device: UInt64
+        let inode: UInt64
+        let mtimeNS: Int64
+
+        init(device: UInt64, inode: UInt64, mtimeNS: Int64) {
+            self.device=device
+            self.inode=inode
+            self.mtimeNS=mtimeNS
+        }
+        init(_ st: stat) throws {
+            let (seconds,secondsOverflow)=Int64(st.st_mtimespec.tv_sec).multipliedReportingOverflow(by:1_000_000_000)
+            let (nanoseconds,nanosecondsOverflow)=seconds.addingReportingOverflow(Int64(st.st_mtimespec.tv_nsec))
+            guard !secondsOverflow,!nanosecondsOverflow else { throw Failure(code:"ORPHAN_IDENTITY_UNKNOWN") }
+            self.init(device:UInt64(bitPattern:Int64(st.st_dev)),inode:st.st_ino,mtimeNS:nanoseconds)
+        }
+    }
+    private static func recordVersion(_ file: URL) throws -> RecordVersion? {
+        var st=stat()
+        if lstat(file.path,&st) != 0 {
+            if errno==ENOENT { return nil }
+            throw Failure(code:"ORPHAN_IDENTITY_UNKNOWN")
+        }
+        guard safeBackendRecord(st) else { throw Failure(code:"ORPHAN_IDENTITY_UNKNOWN") }
+        return try RecordVersion(st)
+    }
+    static func archiveRecord(state: URL, name: String, device: UInt64, inode: UInt64, mtimeNS: Int64) throws -> Bool {
+        var directory=stat()
+        guard ["runtime.json","app.lock"].contains(name),physical(state.path)==state.path,
+              lstat(state.path,&directory)==0,directory.st_mode & mode_t(S_IFMT)==mode_t(S_IFDIR),
+              directory.st_uid==getuid(),directory.st_mode & 0o077==0 else { throw Failure(code:"ORPHAN_IDENTITY_UNKNOWN") }
+        let file=state.appendingPathComponent(name),destination=state.appendingPathComponent("\(name).stale-\(device)-\(inode)-\(mtimeNS)")
+        guard try recordVersion(file)==RecordVersion(device:device,inode:inode,mtimeNS:mtimeNS) else { return false }
+        // A competing launch that moved the same record already owns this name.
+        if renamex_np(file.path,destination.path,UInt32(RENAME_EXCL))==0 { return true }
+        if errno==ENOENT || errno==EEXIST { return false }
+        throw Failure(code:"ORPHAN_IDENTITY_UNKNOWN")
+    }
+    static func clearStaleBackendRecords(state: URL, prior: Backend?) throws -> Bool {
+        if let identity=prior?.identity,let start=try processStart(identity.pid),
+           (start.seconds,start.microseconds)==(identity.seconds,identity.micros) { throw Failure(code:"STARTUP_ALREADY_RUNNING") }
+        let names=["runtime.json","app.lock"]
+        var versions=try names.map { name -> RecordVersion? in
+            guard let record=try readBackendRecord(state.appendingPathComponent(name)) else { return nil }
+            let version=try RecordVersion(record.metadata),beforeBoot=predatesBoot(record.metadata)==true
+            if beforeBoot,let expected=try? backendRecordStart(record.value) {
+                // A matching current backend can only have this mtime if
+                // something else altered the file's timestamp.
+                if let pid=try? backendRecordPID(record.value),let start=try processStart(pid),
+                   expected==(start.seconds,start.microseconds) { throw Failure(code:"STARTUP_ALREADY_RUNNING") }
+            }
+            if beforeBoot { return version }
+            let pid=try backendRecordPID(record.value)
+            guard let start=try processStart(pid) else { return version }
+            if let expected=try backendRecordStart(record.value),expected != (start.seconds,start.microseconds) { return version }
+            guard try isUnrelatedSystemProcess(pid,start:(start.seconds,start.microseconds)) else { throw Failure(code:"STARTUP_ALREADY_RUNNING") }
+            return version
+        }
+        var archived=false
+        for index in names.indices {
+            guard try names.map({try recordVersion(state.appendingPathComponent($0))})==versions else { throw Failure(code:"INSTANCE_LOCK_BUSY") }
+            guard let version=versions[index] else { continue }
+            guard try archiveRecord(state:state,name:names[index],device:version.device,inode:version.inode,mtimeNS:version.mtimeNS) else {
+                throw Failure(code:"INSTANCE_LOCK_BUSY")
+            }
+            versions[index]=nil
+            archived=true
+        }
+        return archived
     }
     struct Backend {
         let identity:Identity;let app:URL;let origin:String;let token:String;let requirement:SecRequirement
     }
     /// Freeze a validated PID before an older owner's shutdown can remove runtime.json.
     static func captureBackend(state: URL, source: URL, scope: Scope, record: [String:Any]? = nil, exitingOwnerObserved:Bool = false) throws -> Backend? {
-        guard let runtime=record ?? runtime(state:state) else{return nil}
-        guard let pid=runtime["pid"] as? Int,pid>1,pid<=Int(Int32.max) else{throw Failure(code:"ORPHAN_IDENTITY_UNKNOWN")}
+        let onDisk=record==nil ? try? readBackendRecord(state.appendingPathComponent("runtime.json")) : nil
+        guard let runtime=record ?? onDisk?.value else{return nil}
+        let beforeBoot=predatesBoot(onDisk?.metadata)
+        if beforeBoot==true { return nil }
+        let pid=try backendRecordPID(runtime)
         let observed:Identity
         let deadline=ProcessInfo.processInfo.systemUptime+(exitingOwnerObserved ? 3:0)
         while true {
-            do {guard let current=try identity(Int32(pid)) else{return nil};observed=current;break}
+            do {
+                guard let start=try processStart(pid) else { return nil }
+                let expected=try backendRecordStart(runtime)
+                if let expected,expected != (start.seconds,start.microseconds) { return nil }
+                if expected==nil && onDisk != nil && beforeBoot==nil { throw Failure(code:"ORPHAN_IDENTITY_UNKNOWN") }
+                guard let current=try identity(pid) else { return nil }
+                if let expected,expected != (current.seconds,current.micros) { return nil }
+                guard (start.seconds,start.microseconds)==(current.seconds,current.micros) else { throw Failure(code:"ORPHAN_IDENTITY_UNKNOWN") }
+                observed=current
+                break
+            }
             catch let error as Failure where error.code=="INSTANCE_PID_UNKNOWN" && exitingOwnerObserved && ProcessInfo.processInfo.systemUptime<deadline {RunLoop.current.run(until:Date().addingTimeInterval(0.025))}
         }
         let requirement=try signatureRequirement(source)
@@ -326,6 +498,7 @@ enum InstanceLifecycle {
     static func shutdownOrphan(state: URL, source: URL, scope: Scope, prior: Backend? = nil, diagnostic: Diagnostic) throws {
         guard let backend=try prior ?? captureBackend(state:state,source:source,scope:scope) else{return}
         let observed=backend.identity,app=backend.app,origin=backend.origin,token=backend.token
+        guard let start=try processStart(observed.pid),(start.seconds,start.microseconds)==(observed.seconds,observed.micros) else{return}
         guard let current=try identity(observed.pid) else{return}
         let requirement=try signatureRequirement(source)
         guard current==observed,scope.permits(observed.path),trusted(app,requirement:requirement),trustedPID(observed.pid,requirement:backend.requirement) else{throw Failure(code:"ORPHAN_IDENTITY_UNKNOWN")}
@@ -337,10 +510,12 @@ enum InstanceLifecycle {
             others=try instances(source:source,scope:scope)
         }
         guard others.isEmpty else{throw Failure(code:"ORPHAN_OWNER_STILL_RUNNING")}
+        guard let currentStart=try processStart(observed.pid),(currentStart.seconds,currentStart.microseconds)==(observed.seconds,observed.micros) else{return}
         diagnostic("instance","ORPHAN_SHUTDOWN",observed.pid)
         var missing=stat()
         let closedAfterOwner=prior != nil && lstat(state.appendingPathComponent("runtime.json").path,&missing) != 0 && errno==ENOENT && closedListener(origin)
         if closedAfterOwner{diagnostic("instance","ORPHAN_ALREADY_CLOSED",observed.pid)}
+        guard let currentStart=try processStart(observed.pid),(currentStart.seconds,currentStart.microseconds)==(observed.seconds,observed.micros) else{return}
         var shutdownAcknowledged=false
         let semaphore=DispatchSemaphore(value:0);var request=URLRequest(url:URL(string:origin+"/api/shutdown")!);request.httpMethod="POST";request.httpBody=Data("{}".utf8);request.setValue("Bearer "+token,forHTTPHeaderField:"Authorization");request.setValue("application/json",forHTTPHeaderField:"Content-Type");request.timeoutInterval=4
         URLSession.shared.dataTask(with:request){_,response,error in shutdownAcknowledged=error==nil && (response as? HTTPURLResponse)?.statusCode==200;semaphore.signal()}.resume();_=semaphore.wait(timeout:.now()+5)

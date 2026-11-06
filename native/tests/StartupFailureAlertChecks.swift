@@ -6,7 +6,8 @@ import AppKit
         let args=CommandLine.arguments
         let catalogs=URL(fileURLWithPath:args[1]),language=args[2],status=Int32(args[3])!,scheme=args[4]
         let text=(try JSONSerialization.jsonObject(with:Data(contentsOf:catalogs.appendingPathComponent(language+".json")))) as! [String:String]
-        let code=NativeDiagnostics.startupFailureCode(reason:.exit,status:status)!
+        let override=args.dropFirst(5).compactMap { $0.hasPrefix("code:") ? String($0.dropFirst(5)) : nil }.first
+        let code=override ?? NativeDiagnostics.startupFailureCode(reason:.exit,status:status)!
         NSApp.appearance=NSAppearance(named:scheme == "dark" ? .darkAqua:.aqua)
         let (alert,actions)=StartupFailureAlert.make(code:code,canRetry:true,text:{text[$0] ?? $0})
         precondition(alert.informativeText.contains("("+code+")"))
@@ -14,12 +15,13 @@ import AppKit
         precondition(alert.buttons.count == actions.count)
         for (button,action) in zip(alert.buttons,actions) {precondition(button.title==text["native.startupFailure.action."+action.rawValue])}
         let first=actions.first!
-        switch status {
+        if code == "ORPHAN_IDENTITY_UNKNOWN" { precondition(first == .retry) }
+        else { switch status {
         case 71: precondition(first == .download)
         case 72,74,75,76,82...90: precondition(first == .dataFolder)
         default: precondition(first == .retry)
-        }
-        if args.count>5 {
+        } }
+        if let imagePath=args.dropFirst(5).first(where: { !$0.hasPrefix("code:") }) {
             let window=alert.window
             window.appearance=NSApp.appearance
             // NSAlert installs its final controls when its modal session starts.
@@ -45,7 +47,7 @@ import AppKit
                 // real cells at their finished native layout positions.
                 for button in alert.buttons {button.cell?.draw(withFrame:button.convert(button.bounds,to:content),in:content)}
                 NSGraphicsContext.restoreGraphicsState()
-                do {try bitmap.representation(using:.png,properties:[:])!.write(to:URL(fileURLWithPath:args[5]))}
+                do {try bitmap.representation(using:.png,properties:[:])!.write(to:URL(fileURLWithPath:imagePath))}
                 catch {captureError=error}
                 NSApp.abortModal()
             }

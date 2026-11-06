@@ -20,7 +20,15 @@ test('real CLI failure statuses reach native reason text and usable NSAlert cont
   assert.equal(child.status,status,child.stderr);assert.deepEqual(JSON.parse(child.stderr),{code});
   for(const [locale,scheme]of [['zh','light'],['zh','dark'],['en','light']]){
    const args=[path.join(repo,'locales'),locale,String(child.status),scheme,...(output?[path.join(output,`native-${code}-${locale}-${scheme}.png`)]:[])];
-   const run=spawnSync(binary,args,{env,encoding:'utf8',timeout:10000});assert.equal(run.status,0,run.stderr);assert.match(run.stdout,new RegExp('PASS: '+code+' '+action+',log,quit'));
+   const run=spawnSync(binary,args,{env,encoding:'utf8',timeout:10000});assert.equal(run.status,0,run.stderr);assert.equal(run.stdout.trim(),'PASS: '+code+' '+action+',log,quit');
+  }
+ }
+ for(const [code,expected] of [['STARTUP_ALREADY_RUNNING','dataFolder,clearRetry,log,quit'],['INSTANCE_LOCK_BUSY','dataFolder,clearRetry,log,quit'],['INSTANCE_QUITTING_TIMEOUT','dataFolder,clearRetry,log,quit'],['ORPHAN_IDENTITY_UNKNOWN','retry,clearRetry,log,quit']]){
+  for(const [locale,scheme,label]of [['zh','light','清除旧记录并重试'],['zh','dark','清除旧记录并重试'],['en','light','Clear and Retry']]){
+   const args=[path.join(repo,'locales'),locale,'72',scheme,...(output?[path.join(output,`native-${code}-${locale}-${scheme}.png`)]:[]),`code:${code}`];
+   const run=spawnSync(binary,args,{env,encoding:'utf8',timeout:10000});assert.equal(run.status,0,run.stderr);assert.equal(run.stdout.trim(),'PASS: '+code+' '+expected);
+   const catalog=JSON.parse(fs.readFileSync(path.join(repo,'locales',`${locale}.json`),'utf8'));
+   assert.equal(catalog['native.startupFailure.action.clearRetry'],label);
   }
  }
 });

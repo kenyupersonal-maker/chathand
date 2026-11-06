@@ -49,9 +49,20 @@ final class Process {
 }
 enum InstanceLifecycle {
     struct Failure: Error {let code:String}
-    struct Identity: Equatable {let pid: Int32;let stamp: Int}
+    struct Identity: Equatable {
+        let pid: Int32;let stamp: Int
+        var seconds: UInt64 {1_000_000}
+        var micros: UInt64 {UInt64(stamp)}
+    }
     static var identities: [Int32:Identity] = [:]
     static func identity(_ pid: Int32) throws -> Identity? {identities[pid]}
+    static func processStart(_ pid: Int32) throws -> (seconds: UInt64, microseconds: UInt64)? {
+        identities[pid].map { ($0.seconds,$0.micros) }
+    }
+    static func runtimeMatchesChild(_ record: [String:Any], pid: Int32, start: (seconds: UInt64, microseconds: UInt64)) -> Bool {
+        record["pid"] as? Int==Int(pid) && record["start_seconds"] as? UInt64==start.seconds &&
+        record["start_microseconds"] as? UInt64==start.microseconds
+    }
 }
 enum Darwin {
     static var signals: [(Int32,Int32)] = []
@@ -91,6 +102,10 @@ final class App {
     func setComputerPolling(_ enabled: Bool) {}
     func closeOwnerPipe() {closedPipes += 1;if eofStops,let process{process.isRunning=false;InstanceLifecycle.identities[process.processIdentifier]=nil}}
     func readRuntime() -> [String:Any]? {runtime}
+    func childRuntime() -> [String:Any] {
+        let child=InstanceLifecycle.identities[process!.processIdentifier]!
+        return ["pid":Int(child.pid),"start_seconds":child.seconds,"start_microseconds":child.micros]
+    }
     func attach(_ descriptor: [String:Any]) {attachments += 1;serviceAvailable=true}
     func startService() throws {
         if launchThrows {throw NSError(domain:"fixture",code:1)}
@@ -116,13 +131,13 @@ final class App {
         a.exit(p,generation:generation);a.ownedBackendExited(p,generation:generation);oldTimer.deliverQueued()
         precondition(a.codes.filter{$0=="RECOVERY_SCHEDULED"}.count==1,"early exit and poll must schedule once")
         Scheduler.advance(0.5);precondition(a.starts==2 && a.process !== p)
-        a.runtime=["pid":Int(a.process!.processIdentifier)];Scheduler.advance(0.25)
+        a.runtime=a.childRuntime();Scheduler.advance(0.25)
         precondition(a.attachments==1 && a.backendRecoveryInProgress==false)
     }
     static func lateReady() throws {
         let a=fresh();try a.startService();let p=a.process!,generation=a.backendGeneration,oldTimer=a.timer!
         Scheduler.advance(20);precondition(a.attachments==0 && a.closedPipes==1 && a.starts==1)
-        a.runtime=["pid":Int(p.processIdentifier)];oldTimer.deliverQueued()
+        a.runtime=a.childRuntime();oldTimer.deliverQueued()
         precondition(a.attachments==0,"late ready must not attach a child already being stopped")
         Scheduler.advance(1.3);precondition(a.starts==1 && !p.isRunning,"replacement waits for confirmed child exit")
         a.ownedBackendExited(p,generation:generation);Scheduler.advance(0.5)
@@ -181,7 +196,7 @@ final class App {
             Scheduler.advance(30);precondition(a.starts==1 && a.attachments==0,"scheduled recovery respects new suppression")
             let b=fresh();try b.startService();Scheduler.advance(20)
             if race=="quit"{b.shuttingDown=true}else if race=="uninstall"{b.uninstallInProgress=true}else{b.installer=true}
-            b.runtime=["pid":Int(b.process!.processIdentifier)];Scheduler.advance(10)
+            b.runtime=b.childRuntime();Scheduler.advance(10)
             precondition(b.starts==1 && b.attachments==0 && Darwin.signals.isEmpty,"stop timer cannot signal or attach after suppression")
         }
     }
@@ -189,9 +204,13 @@ final class App {
         let a=fresh();try a.startService();a.runtime=["pid":99999];Scheduler.advance(1)
         precondition(a.attachments==0)
         a.runtime=["pid":Int(a.process!.processIdentifier)];Scheduler.advance(0.25)
+        precondition(a.attachments==0,"a legacy record with a reused PID cannot attach a new child")
+        a.runtime=a.childRuntime();a.runtime!["start_microseconds"]=UInt64(999);Scheduler.advance(0.25)
+        precondition(a.attachments==0,"a matching PID with a different exact start cannot attach")
+        a.runtime=a.childRuntime();Scheduler.advance(0.25)
         precondition(a.attachments==1)
         let late=fresh();try late.startService();Scheduler.advance(19.5)
-        late.runtime=["pid":Int(late.process!.processIdentifier)];Scheduler.advance(0.25)
+        late.runtime=late.childRuntime();Scheduler.advance(0.25)
         precondition(late.attachments==1 && late.starts==1 && Darwin.signals.isEmpty,"late but timely readiness still attaches")
         // Real attachment ends the startup episode but does not erase the
         // existing rolling protection against fast attached crash loops.
@@ -229,7 +248,7 @@ final class App {
             switch reason {
             case "normal":p.terminationStatus=0
             case "signal":p.terminationReason = .uncaughtSignal
-            case "attached":a.runtime=["pid":Int(p.processIdentifier)];Scheduler.advance(0.25)
+            case "attached":a.runtime=a.childRuntime();Scheduler.advance(0.25)
             case "timeout":a.stoppingStartupBackend=p
             case "installer":a.installer=true
             case "quit":a.shuttingDown=true
