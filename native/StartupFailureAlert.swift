@@ -1,6 +1,6 @@
 import AppKit
 
-enum StartupFailureAction: String { case retry, download, dataFolder, log, quit }
+enum StartupFailureAction: String { case retry, download, dataFolder, clearRetry, log, quit }
 
 /// The failure surface needs neither the local service nor the web interface.
 /// It displays only fixed reason codes, never arbitrary logs or exception text.
@@ -34,7 +34,9 @@ enum StartupFailureAlert {
         alert.messageText=text("native.start.failed")
         alert.informativeText=text("native.startupFailure."+category)+"\n("+code+")"
         let first: StartupFailureAction = ["nodeMissing","nodeVersion"].contains(category) ? .download : ["data","storage","access","running"].contains(category) || !canRetry ? .dataFolder : .retry
-        let actions=[first,StartupFailureAction.log,.quit]
+        var actions=[first]
+        if code == "ORPHAN_IDENTITY_UNKNOWN" || category == "running" { actions.append(.clearRetry) }
+        actions += [.log,.quit]
         for action in actions { alert.addButton(withTitle:text("native.startupFailure.action."+action.rawValue)) }
         return (alert,actions)
     }

@@ -6,6 +6,38 @@ function fixture(t){const root='/private/tmp/chathand-1060-rehearsal-instance-'+
  const app=(name,build)=>{const dir=root+'/'+name+'.app';fs.mkdirSync(dir+'/Contents/MacOS',{recursive:true});fs.copyFileSync(compiled,dir+'/Contents/MacOS/Fixture');fs.mkdirSync(dir+'/Contents/Resources/runtime/bin',{recursive:true});fs.copyFileSync(compiled,dir+'/Contents/Resources/runtime/bin/ChatHandNode');fs.writeFileSync(dir+'/Contents/Info.plist',`<?xml version="1.0"?><plist version="1.0"><dict><key>CFBundleExecutable</key><string>Fixture</string><key>CFBundleIdentifier</key><string>com.kenyu.chathand</string><key>CFBundlePackageType</key><string>APPL</string><key>CFBundleVersion</key><string>${build}</string></dict></plist>`);run('/usr/bin/codesign',['--force','--sign','-','--requirements','=designated => identifier "com.kenyu.chathand"',dir]);run('/usr/bin/codesign',['--verify','--deep','--strict',dir]);return dir;};
  const start=(a,mode='claim')=>{const c=spawn(a+'/Contents/MacOS/Fixture',[mode,root],{stdio:['ignore','pipe','pipe']});children.push(c);c.err='';c.stderr.on('data',d=>c.err+=d);return c;};return {root,app,start};}
 test('native flock arbitrates simultaneous same-build starts: exactly one owner survives',{skip:process.platform!=='darwin',timeout:90000},async t=>{const {root,app,start}=fixture(t),a=app('One',1064),b=app('Two',1064);const first=start(a),second=start(b);await until(()=>[first,second].filter(c=>fs.existsSync(root+'/'+c.pid+'.json')).length===1&&[first,second].some(c=>c.exitCode===20));const winner=[first,second].find(c=>fs.existsSync(root+'/'+c.pid+'.json')),loser=[first,second].find(c=>c!==winner);assert.equal(winner.exitCode,null,winner.err);assert.equal(loser.exitCode,20,loser.err);const third=start(b);await until(()=>third.exitCode!==null);assert.equal(third.exitCode,20,third.err);assert.equal(winner.exitCode,null);});
+test('clear retry finds and wakes the actual lease owner without moving its records',{skip:process.platform!=='darwin',timeout:90000},async t=>{
+ const {root,app,start}=fixture(t),owner=start(app('ExistingOwner',1064));
+ await until(()=>fs.existsSync(root+'/'+owner.pid+'.json'));
+ const state=root+'/state',runtime=state+'/runtime.json',lock=state+'/app.lock';
+ fs.writeFileSync(runtime,JSON.stringify({pid:owner.pid}),{mode:0o600});fs.writeFileSync(lock,JSON.stringify({pid:owner.pid}),{mode:0o600});
+ const beforeRuntime=fs.readFileSync(runtime),beforeLock=fs.readFileSync(lock);
+ const checker=app('WakeChecker',1064),swift=root+'/WakeChecker.swift',binary=checker+'/Contents/MacOS/Fixture';
+ fs.writeFileSync(swift,String.raw`
+import Cocoa
+@main struct WakeChecker {
+ static func main() throws {
+  let root=CommandLine.arguments[1], state=URL(fileURLWithPath:root+"/state"),app=Bundle.main.bundleURL
+  let scope=try InstanceLifecycle.Scope.validated(environment:["CHATHAND_REHEARSAL_ROOT":root,"CHATHAND_REHEARSAL_HOME":root+"/home","CHATHAND_STATE_DIR":state.path],state:state,app:app)
+  guard let owner=try InstanceLifecycle.existingForClearRetry(state:state,coordination:state,source:app,scope:scope) else {fatalError("owner missing")}
+  var woke=false
+  let name=Notification.Name("com.kenyu.chathand.show."+String(owner.identity.pid))
+  let observer=DistributedNotificationCenter.default().addObserver(forName:name,object:nil,queue:nil){_ in woke=true}
+  InstanceLifecycle.wake(owner,scope:scope,activate:false)
+  let end=Date().addingTimeInterval(3)
+  while !woke && Date()<end {RunLoop.current.run(until:Date().addingTimeInterval(0.05))}
+  DistributedNotificationCenter.default().removeObserver(observer)
+  guard woke else {fatalError("wake notification not delivered")}
+  print(owner.identity.pid)
+ }
+}
+`);
+ run('/usr/bin/xcrun',['swiftc','-swift-version','5','-parse-as-library','-framework','Cocoa','native/InstanceLifecycle.swift',swift,'-o',binary]);
+ run('/usr/bin/codesign',['--force','--sign','-','--requirements','=designated => identifier "com.kenyu.chathand"',checker]);
+ const result=spawnSync(binary,[root],{encoding:'utf8',timeout:10000});assert.equal(result.status,0,result.stderr);assert.equal(result.stdout.trim(),String(owner.pid));
+ assert.deepEqual(fs.readFileSync(runtime),beforeRuntime);assert.deepEqual(fs.readFileSync(lock),beforeLock);
+ assert.equal(owner.exitCode,null);assert.equal(fs.readdirSync(state).filter(n=>n.includes('.stale-')).length,0);
+});
 test('a legacy older native is gone before new native owns the service',{skip:process.platform!=='darwin',timeout:90000},async t=>{const {root,app,start}=fixture(t),old=start(app('Old',1063),'hold');await until(()=>fs.existsSync(root+'/'+old.pid+'.json'));const current=start(app('New',1064));await until(()=>fs.existsSync(root+'/'+current.pid+'.json'));assert.ok(old.exitCode!==null||old.signalCode!==null);assert.throws(()=>process.kill(old.pid,0),{code:'ESRCH'});assert.equal(current.exitCode,null,current.err);const rows=fs.readFileSync(root+'/state/diagnostics/native-events.jsonl','utf8').trim().split('\n').map(JSON.parse);assert.ok(rows.some(r=>r.code==='INSTANCE_OLD_GONE'&&r.pid===old.pid));});
 test('an on-disk replacement cannot prove the old running image is the new build',{skip:process.platform!=='darwin',timeout:90000},async t=>{const {root,app,start}=fixture(t),target=app('Replace',1063),old=start(target,'hold');await until(()=>fs.existsSync(root+'/'+old.pid+'.json'));const replacement=app('New',1064);fs.renameSync(target,root+'/Retired.app');fs.renameSync(replacement,target);const r=spawnSync(target+'/Contents/MacOS/Fixture',['build',root,String(old.pid)],{encoding:'utf8',timeout:10000});assert.equal(r.status,0,r.stderr);assert.equal(r.stdout.trim(),'-1');const current=start(target);await until(()=>fs.existsSync(root+'/'+current.pid+'.json'));assert.ok(old.exitCode!==null||old.signalCode!==null);assert.equal(current.exitCode,null,current.err);});
 

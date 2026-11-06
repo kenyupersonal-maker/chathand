@@ -3028,6 +3028,7 @@
   "native.startupFailure.action.retry": "Retry",
   "native.startupFailure.action.download": "Download ChatHand",
   "native.startupFailure.action.dataFolder": "Open Data Folder",
+  "native.startupFailure.action.clearRetry": "Clear and Retry",
   "native.startupFailure.action.log": "View Startup Log",
   "native.startupFailure.action.quit": "Quit ChatHand",
   "ui.window.startupNotice.download": "Download Latest Version",

@@ -1103,11 +1103,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
         guard actions.indices.contains(response) else{return}
         switch actions[response] {
         case .retry:
-            guard process?.isRunning != true else{return}
-            backendRecovery=BackendRecoveryPolicy()
-            if instanceLease != nil {
-                do {try startService()} catch {showStartupFailure((error as? InstanceLifecycle.Failure)?.code ?? StartupFailureAlert.errorCode(error))}
-            } else {startupLease=nil;beginStartup()}
+            retryStartup()
+        case .clearRetry:
+            clearAndRetryStartup()
         case .download: NSWorkspace.shared.open(URL(string:"https://github.com/kenyupersonal-maker/chathand/releases/latest")!)
         case .dataFolder: NSWorkspace.shared.open(stateURL)
         case .log:
@@ -1116,6 +1114,44 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
             else {NSWorkspace.shared.open(stateURL)}
         case .quit: NSApp.terminate(nil)
         }
+    }
+    private func retryStartup() {
+        guard !shuttingDown,process?.isRunning != true else{return}
+        backendRecovery=BackendRecoveryPolicy()
+        if instanceLease != nil {
+            do {try startService()} catch {showStartupFailure((error as? InstanceLifecycle.Failure)?.code ?? StartupFailureAlert.errorCode(error))}
+        } else {startupLease=nil;beginStartup()}
+    }
+    private func clearAndRetryStartup() {
+        guard !shuttingDown,process?.isRunning != true else{return}
+        let source=Bundle.main.bundleURL,state=stateURL,environment=ProcessInfo.processInfo.environment
+        do {
+            let (coordination,scope)=try InstanceLifecycle.startupCoordination(state:state,source:source,environment:environment)
+            if let existing=try InstanceLifecycle.existingForClearRetry(state:state,coordination:coordination,source:source,scope:scope) {
+                InstanceLifecycle.wake(existing,scope:scope)
+                InstanceLifecycle.record(state:coordination,phase:"instance",code:"INSTANCE_WAKE_EXISTING",build:BuildVersion.buildNumber,pid:existing.identity.pid)
+                shuttingDown=true;migrationQuitPending=false;finishQuit()
+                return
+            }
+            // Unlike claim, these temporary leases never ask an existing GUI to quit.
+            guard let gate=try startupLease ?? InstanceLifecycle.acquire(state:coordination) else { throw InstanceLifecycle.Failure(code:"INSTANCE_LOCK_BUSY") }
+            let archived=try withExtendedLifetime(gate) {
+                // Keep a missing data directory available for the normal migration path.
+                if InstanceLifecycle.physical(state.path)==state.path {
+                    guard let data=try instanceLease ?? InstanceLifecycle.acquire(state:state) else { throw InstanceLifecycle.Failure(code:"INSTANCE_LOCK_BUSY") }
+                    return try withExtendedLifetime(data) { try InstanceLifecycle.clearStaleBackendRecords(state:state,prior:priorBackend) }
+                }
+                return try InstanceLifecycle.clearStaleBackendRecords(state:state,prior:priorBackend)
+            }
+            if archived { nativeRecord("startup","STALE_RUNTIME_RECORD") }
+            priorBackend=nil
+        } catch {
+            let code=(error as? InstanceLifecycle.Failure)?.code ?? StartupFailureAlert.errorCode(error)
+            nativeRecord("startup",code)
+            showStartupFailure(code)
+            return
+        }
+        retryStartup()
     }
     func observeSitePrompt(_ text: String) {
         guard interfaceKeyShared, ownsService, !text.isEmpty, text.utf8.count <= 256 * 1024 else { return }
@@ -1302,6 +1338,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
         observeBackendStartup(p, generation:generation, identity:try? InstanceLifecycle.identity(p.processIdentifier))
     }
     private func observeBackendStartup(_ p: Process, generation: UUID, identity: InstanceLifecycle.Identity?) {
+        let start=identity.map { (seconds:$0.seconds,microseconds:$0.micros) } ?? (try? InstanceLifecycle.processStart(p.processIdentifier))
         let deadline = ProcessInfo.processInfo.systemUptime + 20
         timer=Timer.scheduledTimer(withTimeInterval:0.25,repeats:true){timer in
             guard self.backendGeneration == generation, self.process === p, self.ownsService,
@@ -1312,7 +1349,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
             } else if ProcessInfo.processInfo.systemUptime >= deadline {
                 timer.invalidate();self.nativeRecord("startup", "INITIAL_START_TIMEOUT");self.lastStartupFailureCode="INITIAL_START_TIMEOUT"
                 self.stopStartupBackend(p, generation:generation, identity:identity)
-            } else if let r=self.readRuntime(),let pid=r["pid"] as? Int,pid==Int(p.processIdentifier) {
+            } else if let start,let r=self.readRuntime(),InstanceLifecycle.runtimeMatchesChild(r,pid:p.processIdentifier,start:start) {
                 timer.invalidate();self.attachedBackend=p;self.backendRecovery.attached();self.backendRecoveryInProgress=false;self.attach(r)
             }
         }

@@ -3028,6 +3028,7 @@
   "native.startupFailure.action.retry": "重试",
   "native.startupFailure.action.download": "下载 ChatHand",
   "native.startupFailure.action.dataFolder": "打开资料文件夹",
+  "native.startupFailure.action.clearRetry": "清除旧记录并重试",
   "native.startupFailure.action.log": "查看启动日志",
   "native.startupFailure.action.quit": "退出 ChatHand",
   "ui.window.startupNotice.download": "下载最新版",

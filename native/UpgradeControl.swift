@@ -255,7 +255,33 @@ enum ExactAppProcess {
  static func output(_ value:[String:Any],_ code:Int32=0){let d=try! JSONSerialization.data(withJSONObject:value);print(String(data:d,encoding:.utf8)!);exit(code)}
  static func main(){
   let args=CommandLine.arguments;guard args.count>=3 else{output(["error":"ARGUMENTS_REQUIRED"],2);return}
-  let action=args[1];var url=URL(fileURLWithPath:RehearsalIsolation.physical(args[2]) ?? args[2])
+  let action=args[1]
+  // The backend uses the existing signed helper for the same kernel facts as
+  // native startup. These commands never contact or signal the observed PID.
+  if action=="process-facts" {
+   guard args.count==3,let pid=Int32(args[2]),pid>1 else{output(["error":"ARG_INVALID"],2);return}
+   do {
+    let start=try InstanceLifecycle.processStart(pid)
+    var result:[String:Any]=[:]
+    if let boot=try? InstanceLifecycle.bootTime(){result["boot_seconds"]=boot.seconds;result["boot_microseconds"]=boot.microseconds}
+    if let start {result["start_seconds"]=start.seconds;result["start_microseconds"]=start.microseconds}
+    else {result["absent"]=true}
+    output(result)
+   } catch {
+    var result:[String:Any]=["unknown":true]
+    if let boot=try? InstanceLifecycle.bootTime(){result["boot_seconds"]=boot.seconds;result["boot_microseconds"]=boot.microseconds}
+    output(result)
+   }
+   return
+  }
+  if action=="archive-stale-record" {
+   guard args.count==6,let device=UInt64(args[3]),let inode=UInt64(args[4]),let mtime=Int64(args[5]) else{output(["error":"ARG_INVALID"],2);return}
+   let file=URL(fileURLWithPath:args[2]);guard args[2].hasPrefix("/"),["runtime.json","app.lock"].contains(file.lastPathComponent) else{output(["error":"ARG_INVALID"],2);return}
+   do {let moved=try InstanceLifecycle.archiveRecord(state:file.deletingLastPathComponent(),name:file.lastPathComponent,device:device,inode:inode,mtimeNS:mtime);output(["ok":moved,"errno":moved ? 0:17])}
+   catch {output(["error":"STALE_RECORD_UNSAFE"],3)}
+   return
+  }
+  var url=URL(fileURLWithPath:RehearsalIsolation.physical(args[2]) ?? args[2])
   let rehearsal=ProcessInfo.processInfo.environment["CHATHAND_REHEARSAL_ROOT"]
   if action=="trash" {
    guard !ProcessInfo.processInfo.environment.keys.contains(where:{$0.hasPrefix("CHATHAND_REHEARSAL_")}) else{output(["error":"REHEARSAL_TRASH_NOT_ALLOWED"],2);return}
