@@ -8,6 +8,13 @@ Codex 周额度用完了？切到 ChatGPT 普通聊天，接着干。
 
 ChatHand 装在你的 Mac 上，通过 OpenAI 的安全通道把本机能力接给 ChatGPT：读写你指定文件夹里的文件、跑命令、操作浏览器和桌面。连接后可在支持该自定义应用的 ChatGPT 客户端中使用，具体取决于账号、设备和工作区权限。
 
+[下载 Mac 版](https://kenyupersonal-maker.github.io/chathand-site/) · [安装说明](docs/INSTALL.md) · [反馈问题](https://github.com/kenyupersonal-maker/chathand/issues)
+
+<p align="center"><img src="docs/images/how-it-works.zh.svg" width="760" alt="你在 ChatGPT 里聊天，ChatGPT 经 OpenAI 的连接调用你 Mac 上的 ChatHand，ChatHand 去读写文件、跑命令、操作 Chrome 和桌面。"></p>
+
+聊天一直是你自己在聊。ChatHand 只做 ChatGPT 叫它做的事，能动哪些地方由你定，它不会自己发消息。[会不会被封号？](#会不会被-openai-封号)
+
+> [!NOTE]
 > 当前为测试版。ChatHand 尚未通过 Apple 公证；首次打开时按安装盘的说明操作即可。
 
 ## 用之前要准备的
@@ -24,17 +31,22 @@ ChatHand 装在你的 Mac 上，通过 OpenAI 的安全通道把本机能力接�
 
 获取当前版本的 ChatHand macOS 安装盘，双击打开。然后二选一：
 
-- **交给 ChatGPT（推荐）**：双击安装盘里的「让 ChatGPT 来装」，浏览器问要不要打开 ChatGPT 时点「打开」。ChatGPT 填好下面这句话后按回车，它会自动转到「工作」，把安装、macOS 的首次放行、连上 ChatGPT 一路做完，ChatHand 里会显示进度。遇到系统或 ChatGPT 规定要你确认的地方（登录、授权），它会先说一句这一步在做什么。
+- **交给 ChatGPT（推荐）**：双击安装盘里的「让 ChatGPT 来装」，浏览器问要不要打开 ChatGPT 时点「打开」。ChatGPT 填好下面这句话后按回车，它会自动转到「工作」，把安装、macOS 的首次放行、连上 ChatGPT 一路做完，ChatHand 里会显示进度。遇到系统或 ChatGPT 规定要你确认的地方（登录、授权），它会先说一句这一步在做什么。Codex 额度已经用完的话，选下面的「自己装」。
 
-  ```text
-  进入 Work 模式，帮我安装 ChatHand 并连上 ChatGPT。安装包在「下载」文件夹里，步骤写在安装包里的 ChatHand.app/Contents/Resources/codex/INSTALL.md。
-  ```
+```text
+进入 Work 模式，帮我安装 ChatHand 并连上 ChatGPT。安装包在「下载」文件夹里，步骤写在安装包里的 ChatHand.app/Contents/Resources/codex/INSTALL.md。
+```
 
 - **自己装**：双击安装盘里的「第一次打开」，点「复制命令」，到「终端」粘贴、回车。这行命令会把 ChatHand 装进「应用程序」、去掉下载标记，再把它打开。终端用不了的话，同一页下面有在系统设置里放行的配图步骤；也可以先把 ChatHand 拖进「应用程序」。打开后跟着设置走，详细步骤见 [安装说明](docs/INSTALL.md)。
 
 安装盘已经推出、找不到「第一次打开」？去「下载」里重新双击 DMG。
 
 ## 手动设置
+
+选了「交给 ChatGPT」的话，下面四步它会替你做完，直接跳到[第一次使用](#第一次使用)就行。
+
+<details>
+<summary>自己配？点开看四步图文说明</summary>
 
 不交给 ChatGPT、自己配的话，打开 ChatHand，在首次设置里点「我自己配」下面的「开始」，会带你走下面四步。默认用 OpenAI 通道；想改用 ChatGPT Site，先点「切换连接方式」，再照页面上的提示做。每一页都配了截图，标出了要点的位置。截图取自 1087 的界面，账号信息、工具数量和测试码均为示例，实际状态以你的设备为准。
 
@@ -46,7 +58,7 @@ ChatHand 装在你的 Mac 上，通过 OpenAI 的安全通道把本机能力接�
 
 ![第一步：创建运行密钥](docs/images/manual-setup/2-create-key.png)
 
-**2. 添加到 ChatGPT。** 点「打开插件页」，点「添加」→「创建 MCP 应用」。名称照 ChatHand 页面上给的填；「连接」切到「隧道」，选刚建的通道；「身份验证」选「无需身份验证」，勾上「我已了解，并希望继续」，点「创建」，再点「连接」。最后在 ChatGPT 的 设置 → 插件 → ChatHand 里，把「权限」选成「允许使用所有工具」。
+**2. 添加到 ChatGPT。** 点「打开插件页」，点「添加」→「创建 MCP 应用」。名称照 ChatHand 页面上给的填；「连接」切到「隧道」，选刚建的通道；「身份验证」选「无需身份验证」，勾上「我已了解，并希望继续」，点「创建」，再点「连接」。权限怎么设，见下面的[第一次使用](#第一次使用)。
 
 ![第二步：添加到 ChatGPT](docs/images/manual-setup/3-add-to-chatgpt.png)
 
@@ -58,17 +70,33 @@ ChatHand 装在你的 Mac 上，通过 OpenAI 的安全通道把本机能力接�
 
 ![第四步：完成](docs/images/manual-setup/5-ready.png)
 
+</details>
+
 ## 第一次使用
 
 在 ChatGPT 里打开 设置 → 插件 → ChatHand，在「权限」里选「允许使用所有工具」。不改的话，写文件、跑命令会被拦下，或者每次都要你点允许。ChatHand 能做什么，仍由它自己的权限档位和高危开关决定。
 
 ## 安全
 
-- 运行密钥经加密保存在这台 Mac 的本地文件中，界面只显示末四位。不要把密钥贴进聊天或 Issue。
-- ChatGPT 能动多大范围，看你选的档：「完整」是整台电脑，「轻量」只在你选的一个文件夹里。管理员权限和几项高危操作单独开关，默认都关着。
-- 桌面控制要用 macOS 的「辅助功能」和「屏幕录制」，开不开由你在系统设置里定。
-- 随时可以让 AI 停下：按 ⌃⌥⎋，或者在菜单栏的 ChatHand 里点「暂停 AI」；有任务在跑时，ChatHand 里也有「停止」。
-- 系统弹窗、Chrome 的授权和各种登录，由 macOS、Chrome 和 OpenAI 自己把关，AI 不代点。
+- **密钥只存在本机。** 运行密钥经加密保存在这台 Mac 的本地文件中，界面只显示末四位。不要把密钥贴进聊天或 Issue。
+- **范围你来定。** ChatGPT 能动多大范围，看你选的档：「完整」是整台电脑，「轻量」只在你选的一个文件夹里。管理员权限和几项高危操作单独开关，默认都关着。
+- **系统权限你说了算。** 桌面控制要用 macOS 的「辅助功能」和「屏幕录制」，开不开由你在系统设置里定。
+- **随时能叫停。** 按 ⌃⌥⎋，或者在菜单栏的 ChatHand 里点「暂停 AI」；有任务在跑时，ChatHand 里也有「停止」。
+- **登录和授权不代点。** 系统弹窗、Chrome 的授权和各种登录，由 macOS、Chrome 和 OpenAI 自己把关，AI 不代点。
+
+## 会不会被 OpenAI 封号？
+
+先说结论：会被封的那些事，ChatHand 一件都不做。但我们不是 OpenAI，没法替它打包票，所以把 ChatHand 到底做了什么摊开来讲。
+
+被封的号，多半是拿脚本自动跟 ChatGPT 聊天、批量刷回答、想办法绕开额度，或者把账号转卖、拼给别人用。ChatHand 正好反过来：聊天是你自己在聊，ChatGPT 觉得要动你的电脑了，才来叫 ChatHand 干活。
+
+- **用的是 OpenAI 自己给的接法。** ChatHand 在 ChatGPT 里就是一个自定义 MCP 应用，经 OpenAI 的 [Secure MCP Tunnel](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels) 或 ChatGPT Site 连到你的 Mac。这是 OpenAI 文档里写着的正常用法，见[开发者模式和 MCP 应用](https://help.openai.com/en/articles/12584461)。
+- **消息都是你自己发的。** ChatHand 不会在 ChatGPT 里打字、发消息，也不会在后台偷偷聊。装的时候、测试连接的时候，它顶多帮你把那句话填进输入框，回车还得你自己按。
+- **不碰你的账号。** 它不要你的 ChatGPT 密码，也不替你登录。连接里走的只是 ChatGPT 和你这台 Mac 之间的工具调用，不是什么 API 中转，也不会把你的号给别人用。
+- **额度照常扣。** 都在你自己的对话里用，跟平时聊天一样算额度，没有绕开任何限制。
+- **在 ChatGPT 里它只点一个按钮。** 装了 Chrome 插件的话，ChatHand 升级后会打开 ChatGPT 设置里它自己那一页，点一下「刷新」，让 ChatGPT 认到新工具；删除、断开、改权限这些按钮一个都不点。另外它会看一眼哪个 ChatGPT 标签页正在回答，好知道任务是哪段对话发起的。除此之外，想让 AI 在 ChatGPT 里做任何事，都得你自己去打开高危开关「操作 ChatGPT 自己的网页和桌面版」。这个开关默认关着，旁边也写明了：让程序自动在 ChatGPT 里发消息不符合 OpenAI 的规定，用不上就别开。
+
+最后一句：用你自己的号，守 OpenAI 的[使用条款](https://openai.com/policies/terms-of-use/)和[使用政策](https://openai.com/policies/usage-policies/)，别拿 ChatHand（或别的工具）写脚本自动跑对话。ChatHand 是独立项目，跟 OpenAI 没有关系。
 
 ## 反馈
 
