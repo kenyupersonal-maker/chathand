@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 236" width="760" height="236" role="img" aria-labelledby="t d">
+  <title id="t">How ChatHand works</title>
+  <desc id="d">You chat in ChatGPT. When ChatGPT needs your Mac, it calls ChatHand as a tool through OpenAI's Secure MCP Tunnel or a ChatGPT Site. ChatHand works with files, the terminal, Chrome and the desktop, then sends the result back. ChatHand never writes or sends chat messages.</desc>
+  <style>
+    text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif; fill: #1f2328; }
+    .box { fill: #f6f8fa; stroke: #d0d7de; stroke-width: 1.5; }
+    .main { fill: #171a18; stroke: #171a18; }
+    .main-text { fill: #ffffff; }
+    .chip { fill: #ffffff; stroke: #d0d7de; stroke-width: 1.5; }
+    .line { stroke: #59636e; stroke-width: 1.5; fill: none; }
+    .head { fill: #59636e; }
+    .muted { fill: #59636e; }
+    .title { font-size: 16px; font-weight: 600; }
+    .sub { font-size: 13px; }
+    .tag { font-size: 12px; }
+    @media (prefers-color-scheme: dark) {
+      text { fill: #e6edf3; }
+      .box { fill: #161b22; stroke: #3d444d; }
+      .main { fill: #f2f3f5; stroke: #f2f3f5; }
+      .main-text { fill: #0b0c0e; }
+      .chip { fill: #0d1117; stroke: #3d444d; }
+      .line { stroke: #9198a1; }
+      .head { fill: #9198a1; }
+      .muted { fill: #9198a1; }
+    }
+  </style>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" class="head"/>
+    </marker>
+  </defs>
+
+  <!-- ChatGPT -->
+  <rect class="box" x="8" y="52" width="176" height="96" rx="14"/>
+  <text class="title" x="96" y="88" text-anchor="middle">ChatGPT</text>
+  <text class="sub muted" x="96" y="110" text-anchor="middle">You write every</text>
+  <text class="sub muted" x="96" y="128" text-anchor="middle">message</text>
+
+  <!-- Arrows ChatGPT <-> Tunnel -->
+  <path class="line" d="M190 88 H254" marker-end="url(#a)"/>
+  <path class="line" d="M254 114 H190" marker-end="url(#a)"/>
+  <text class="tag muted" x="222" y="80" text-anchor="middle">tool call</text>
+  <text class="tag muted" x="222" y="132" text-anchor="middle">result</text>
+
+  <!-- Tunnel -->
+  <rect class="box" x="260" y="52" width="176" height="96" rx="14"/>
+  <text class="title" x="348" y="88" text-anchor="middle">OpenAI connection</text>
+  <text class="sub muted" x="348" y="110" text-anchor="middle">Secure MCP Tunnel</text>
+  <text class="sub muted" x="348" y="128" text-anchor="middle">or ChatGPT Site</text>
+
+  <!-- Arrows Tunnel <-> ChatHand -->
+  <path class="line" d="M442 88 H486" marker-end="url(#a)"/>
+  <path class="line" d="M486 114 H442" marker-end="url(#a)"/>
+
+  <!-- ChatHand -->
+  <rect class="box main" x="492" y="52" width="148" height="96" rx="14"/>
+  <text class="title main-text" x="566" y="92" text-anchor="middle">ChatHand</text>
+  <text class="sub main-text" x="566" y="114" text-anchor="middle">on your Mac</text>
+
+  <!-- Capabilities -->
+  <path class="line" d="M640 100 H664"/>
+  <path class="line" d="M664 28 V172"/>
+  <path class="line" d="M664 28 H672"/><path class="line" d="M664 76 H672"/>
+  <path class="line" d="M664 124 H672"/><path class="line" d="M664 172 H672"/>
+  <rect class="chip" x="672" y="12" width="80" height="32" rx="16"/><text class="sub" x="712" y="33" text-anchor="middle">Files</text>
+  <rect class="chip" x="672" y="60" width="80" height="32" rx="16"/><text class="sub" x="712" y="81" text-anchor="middle">Terminal</text>
+  <rect class="chip" x="672" y="108" width="80" height="32" rx="16"/><text class="sub" x="712" y="129" text-anchor="middle">Chrome</text>
+  <rect class="chip" x="672" y="156" width="80" height="32" rx="16"/><text class="sub" x="712" y="177" text-anchor="middle">Desktop</text>
+
+  <!-- Footnote -->
+  <text class="sub muted" x="380" y="222" text-anchor="middle">ChatGPT calls ChatHand as a tool. ChatHand never writes or sends chat messages.</text>
+</svg>
