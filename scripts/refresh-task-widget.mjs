@@ -7,7 +7,6 @@ import {fileURLToPath} from 'node:url';
 
 const repository=fileURLToPath(new URL('../',import.meta.url));
 const widget='ui/task-widget.html';
-const contracts=['contracts/tools-v31.json','contracts/api31-freeze.json'];
 export const AFFECTED_TESTS=Object.freeze([
  'tests/v1/1029-checkpoint-card.test.mjs',
  'tests/v1/1041-h8-widget.test.mjs',
@@ -86,17 +85,19 @@ export function refreshTaskWidget({source,evidence,root=repository,tests=AFFECTE
  if(git(['status','--porcelain','--untracked-files=normal']))fail('CLEAN_WORKTREE_REQUIRED');
  const commit=git(['rev-parse','HEAD']);
  const pkg=JSON.parse(fs.readFileSync(path.join(root,'package.json')));
- if(pkg.kenBridge?.connector_api!==31)fail('API31_PACKAGE_REQUIRED');
- for(const rel of contracts)if(!fs.existsSync(path.join(root,rel)))fail('API31_ALREADY_FROZEN_REQUIRED');
+ const api=pkg.kenBridge?.connector_api;
+ if(![31,32].includes(api))fail('FROZEN_CONNECTOR_API_REQUIRED');
+ const contracts=[`contracts/tools-v${api}.json`,`contracts/api${api}-freeze.json`];
+ for(const rel of contracts)if(!fs.existsSync(path.join(root,rel)))fail(`API${api}_ALREADY_FROZEN_REQUIRED`);
  const snapshots=new Map([widget,...contracts].map(rel=>{const file=path.join(root,rel),stat=regular(file);return [rel,{bytes:fs.readFileSync(file),mode:stat.mode&0o777}];}));
  const definitions=JSON.parse(snapshots.get(contracts[0]).bytes),freeze=JSON.parse(snapshots.get(contracts[1]).bytes);
- if(freeze.connector_api!==31||freeze.schema_sha256!==sha(JSON.stringify(definitions)))fail('API31_ALREADY_FROZEN_REQUIRED');
+ if(freeze.connector_api!==api||freeze.schema_sha256!==sha(JSON.stringify(definitions)))fail(`API${api}_ALREADY_FROZEN_REQUIRED`);
  for(const descriptor of definitions){for(const uri of [descriptor._meta?.ui?.resourceUri,descriptor._meta?.['openai/outputTemplate']])if(typeof uri==='string'&&/^ui:\/\/chathand\/task/.test(uri)&&uri!=='ui://chathand/task.html')fail('STABLE_TASK_WIDGET_URI_REQUIRED');}
  fs.mkdirSync(evidence,{mode:0o700});
  const save=(name,value)=>fs.writeFileSync(path.join(evidence,name),value,{flag:'wx',mode:0o600});
  save('previous-task-widget.html',snapshots.get(widget).bytes);save('incoming-task-widget.html',incoming);
  for(const rel of contracts)save(path.basename(rel),snapshots.get(rel).bytes);
- const receipt={format:1,status:'running',source_commit:commit,source_version:pkg.version,source_build:pkg.kenBridge.build_number,source,old_widget_sha256:sha(snapshots.get(widget).bytes),new_widget_sha256:sha(incoming),connector_api:31,descriptor_schema_sha256:freeze.schema_sha256,descriptor_files:Object.fromEntries(contracts.map(rel=>[rel,sha(snapshots.get(rel).bytes)])),tests:[...tests],steps:[],created_at:new Date().toISOString(),required_final_candidate_acceptance:['Run signed-page rehearsal against the final signed candidate bytes.','Run the unchanged original 1059 successful-upgrade rehearsal against the same final candidate.'],final_candidate_acceptance:'NOT_RUN_SOURCE_ONLY'};
+ const receipt={format:1,status:'running',source_commit:commit,source_version:pkg.version,source_build:pkg.kenBridge.build_number,source,old_widget_sha256:sha(snapshots.get(widget).bytes),new_widget_sha256:sha(incoming),connector_api:api,descriptor_schema_sha256:freeze.schema_sha256,descriptor_files:Object.fromEntries(contracts.map(rel=>[rel,sha(snapshots.get(rel).bytes)])),tests:[...tests],steps:[],created_at:new Date().toISOString(),required_final_candidate_acceptance:['Run signed-page rehearsal against the final signed candidate bytes.','Run the unchanged original 1059 successful-upgrade rehearsal against the same final candidate.'],final_candidate_acceptance:'NOT_RUN_SOURCE_ONLY'};
  const pinned=()=>{for(const rel of contracts)if(!fs.readFileSync(path.join(root,rel)).equals(snapshots.get(rel).bytes))fail('FROZEN_DESCRIPTOR_CHANGED: '+rel);};
  let replaced=false;
  try{
@@ -106,7 +107,7 @@ export function refreshTaskWidget({source,evidence,root=repository,tests=AFFECTE
   if(git(['status','--porcelain','--untracked-files=normal']))fail('WORKTREE_CHANGED_DURING_PREFLIGHT');
   if(!fs.readFileSync(path.join(root,widget)).equals(snapshots.get(widget).bytes))fail('WIDGET_CHANGED_DURING_PREFLIGHT');
   atomicReplace(path.join(root,widget),incoming,snapshots.get(widget).mode);replaced=true;
-  run('freeze-api31',['scripts/generate-tool-contract.mjs','--freeze']);
+  run(`freeze-api${api}`,['scripts/generate-tool-contract.mjs','--freeze']);
   run('check-contract',['scripts/check-contract.mjs']);
   run('check-locales',['scripts/check-locales.mjs']);
   run('check-ui-locales',['scripts/ui-locale-resources.mjs','--check']);

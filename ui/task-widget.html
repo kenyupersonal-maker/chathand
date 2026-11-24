@@ -198,6 +198,7 @@ let hostFlowCapability=null,hostFlowAttempted=false,hostFlowState=null,observati
 let relayToken=null,relayPermit=null,relayInterruptToken=null,relayGeneration=0,relaySending=false,relayTimer=null,relayInterrupting=false;
 const usedInterruptTokens=new Set();
 let cardErrN=0;const cardErrCodes=new Set();
+let pollFailures=0,pollInFlight=false,pollOnWake=false;
 function noteCardError(e){cardErrN=Math.min(999,cardErrN+1);const c=String(e?.message||'');if(/^[A-Z][A-Z0-9_]{0,39}$/.test(c)&&cardErrCodes.size<5)cardErrCodes.add(c);}
 function privateMetadata(input){
  if(!input||typeof input!=='object'||Array.isArray(input))return {};
@@ -224,7 +225,7 @@ const NEAR_STALL_MS=120000;let quietBase=null;
 function quietNow(s){if(!s)return 0;const q=Number(s.quiet_ms)||0;if(!quietBase||quietBase.last!==s.last_at||quietBase.q!==q)quietBase={last:s.last_at,q,at:Date.now()};return quietBase.q+(Date.now()-quietBase.at);}
 function setTheme(t){if(t==='light'||t==='dark')document.documentElement.dataset.theme=t;}
 function send(method,params){return new Promise((resolve,reject)=>{const id=++n,t=setTimeout(()=>{pending.delete(id);reject(Error('timeout'));},8000);pending.set(id,{resolve,reject,t});window.parent.postMessage({jsonrpc:'2.0',id,method,params},'*');});}
-async function call(name,args){const r=window.openai?.callTool?await window.openai.callTool(name,args):await send('tools/call',{name,arguments:args});acceptMetadata(r);if(r?.isError)throw Error(r?.structuredContent?.code||'error');return r?.structuredContent??r;}
+async function call(name,args){const r=window.openai?.callTool?await window.openai.callTool(name,args):await send('tools/call',{name,arguments:args});acceptMetadata(r);if(r?.isError){const code=relayErrorCode(r)||r?.structuredContent?.code||'error';throw Object.assign(new Error(code),{code});}return r?.structuredContent??r;}
 const ago=ms=>ms<60000?T("secondsAgo",{count:Math.max(1,Math.round(ms/1000))}):ms<3600000?T("minutesAgo",{count:Math.round(ms/60000)}):T("hoursAgo",{count:Math.round(ms/3600000)});
 function stepText(s){if(!s)return '';const v=(VERB[s.tool]?T(VERB[s.tool]):s.tool);return T(s.target?'stepTarget':'step',{ago:ago(Date.now()-s.at),action:String(v),target:s.target});}
 function alertLine(read,button){
@@ -568,13 +569,28 @@ async function answerCard(choice){
  try{const r=await call('card_answer',{nonce,choice});paintText(resultEl,()=>r.result_line||T("handled"));paintText($('state'),()=>r.state==='unknown'?T("resultUnconfirmed"):T("handled"));if(r.ok&&['allowed','denied'].includes(r.state)){let line=()=>r.result_line||T('handled');if(r.ai_waiting===true)line=()=>T("resultWillContinue",{result:r.result_line||T('handled')});else if(r.ai_waiting===false){const prompt=choice==='deny'?T("denyPrompt"):T("answerPrompt");let notified=false;try{if(typeof window.openai?.sendFollowUpMessage==='function'){await window.openai.sendFollowUpMessage({prompt});notified=true;}}catch{}line=()=>notified?T("resultNotified",{result:r.result_line||T('handled')}):T("resultTellChatGPT",{result:r.result_line||T('handled')});}closePermission(line);}}
  catch{paintText(resultEl,()=>T("answerUnconfirmed"));paintText($('state'),()=>T("resultUnconfirmed"));}reportHeight();
 }
-const supersededError=e=>['RELAY_CARD_SUPERSEDED','RELAY_CARD_INVALID'].includes(e?.message);
+// Only a complete, explicitly structured error code can retire a card.
+const knownRelayCode=code=>code==='RELAY_CARD_SUPERSEDED'||code==='RELAY_CARD_INVALID'?code:null;
+function relayErrorCode(error){
+ if(typeof error==='string')return knownRelayCode(error);
+ if(!error||typeof error!=='object')return null;
+ const structured=knownRelayCode(error.structuredContent?.code);
+ if(structured)return structured;
+ const body=error.content?.[0]?.text;
+ if(typeof body==='string'){
+  try{const json=JSON.parse(body);const code=knownRelayCode(json&&typeof json==='object'&&!Array.isArray(json)?json.code:null);if(code)return code;}catch{}
+ }
+ return knownRelayCode(error.code)||knownRelayCode(error.message);
+}
+const supersededError=e=>!!relayErrorCode(e);
 // 1049: official host bridge only. This private control MUST NOT fall back to parent ui/message.
 async function relayCall(args){
  const bridge=window.openai?.callTool;
  if(typeof bridge!=='function')throw Error('RELAY_HOST_BRIDGE_UNAVAILABLE');
- const r=await bridge.call(window.openai,'relay_card_control',args);
- if(r?.isError)throw Error(r?.structuredContent?.code||'RELAY_CONTROL_ERROR');
+ let r;
+ try{r=await bridge.call(window.openai,'relay_card_control',args);}
+ catch(e){const code=relayErrorCode(e);if(code)throw Object.assign(new Error(code),{code});throw e;}
+ if(r?.isError){const code=relayErrorCode(r)||'RELAY_CONTROL_ERROR';throw Object.assign(new Error(code),{code});}
  acceptMetadata(r);
  return r?.structuredContent??r;
 }
@@ -590,12 +606,13 @@ async function relayPoll(){
   try{
    const result=await relayCall({action:'view',task_id:id,card_token:relayToken,...(sent?{card_errors:sent}:{})});
    if(sent){cardErrN=Math.max(0,cardErrN-sent.n);for(const c of sent.codes)cardErrCodes.delete(c);}
+   pollFailures=0;
    if(result?.task&&current?.task?.task_id===id)render({task:{...result.task,relay:result.relay},changes:current.changes,scope:current.scope});
   }catch(e){
    // 1052（Claude）：这张卡已被新卡取代（或不属于这段对话了）：收起来，不再查。原来会一直报错重查到 12 分钟。
    // 后端按 1052 方案 A2 第 8 处认出旧卡后回 RELAY_CARD_SUPERSEDED，而且不算 AI 在动；认不出的回 RELAY_CARD_INVALID。两种都收起。
    if(supersededError(e)){if(current?.task?.task_id===id&&!collapsed){renderCompact(originCheckpoint||current.task.last_checkpoint);return;}}
-   else noteCardError(e);
+   else{noteCardError(e);pollFailures=Math.min(5,pollFailures+1);}
    /* The private bridge is unavailable; manual ChatGPT input remains the fallback. */
   }
  }
@@ -630,7 +647,7 @@ async function relayDispatch(id,mode){
   if(!supersededError(e))noteCardError(e);
   alertLine(()=>T("relayUnconfirmed"));
  }
- finally{relaySending=false;void relayPoll();}
+ finally{relaySending=false;void poll();}
 }
 // 领到许可后都从这里发（接力卡手动/自动接、总卡「继续」）：begin_dispatch 消耗许可，send:true 才经 sendFollowUpMessage 发一次，再回报结果。
 async function relaySend(id,permit,generation,kind){
@@ -711,10 +728,31 @@ function renderAlert(t,stalled,live){
  alertLine(()=>risky&&idle&&quiet>=NEAR_STALL_MS?retryTip():'');
 }
 async function poll(){
- if(collapsed||!current?.task?.task_id||document.visibilityState==='hidden'||!pollBudgetLeft())return;
- if(relayToken){await relayPoll();return;}
- // New task cards use a read-only capability. Old cards retain bounded ordinary polling.
- try{const r=observationNonce?await call('card_answer',{nonce:observationNonce,choice:'status'}):await call('task_status',{task_id:current.task.task_id,from_card:true});if(r?.task)render({...r,changes:current.changes,scope:current.scope});else if(r?.task_id)render({task:r,changes:current.changes,scope:current.scope});if(relayInterruptToken)await relayInterrupt(current.task.task_id);}catch(e){if(observationNonce&&['CONFIRM_NONCE_INVALID','TASK_MISSING','TASK_OWNER'].includes(e?.message)){observationNonce=null;collapsed=true;stopTimer();alertLine(()=>T("invalidTask"));}}
+ if(collapsed||!current?.task?.task_id||document.visibilityState==='hidden'||!pollBudgetLeft()||pollFailures>=5||pollInFlight)return;
+ pollInFlight=true;stopTimer();
+ try{
+  if(relayToken){await relayPoll();return;}
+  // New task cards use a read-only capability. Old cards retain bounded ordinary polling.
+  try{
+   const r=observationNonce?await call('card_answer',{nonce:observationNonce,choice:'status'}):await call('task_status',{task_id:current.task.task_id,from_card:true});
+   pollFailures=0;
+   if(r?.task)render({...r,changes:current.changes,scope:current.scope});
+   else if(r?.task_id)render({task:r,changes:current.changes,scope:current.scope});
+   if(relayInterruptToken)await relayInterrupt(current.task.task_id);
+  }catch(e){
+   if(supersededError(e)){renderCompact(originCheckpoint||current.task.last_checkpoint);return;}
+   if(observationNonce&&['CONFIRM_NONCE_INVALID','TASK_MISSING','TASK_OWNER'].includes(e?.message||e?.code)){
+    observationNonce=null;collapsed=true;stopTimer();alertLine(()=>T("invalidTask"));
+   }else pollFailures=Math.min(5,pollFailures+1);
+  }
+ }finally{
+  pollInFlight=false;
+  if(pollOnWake){
+   pollOnWake=false;
+   if(!collapsed&&document.visibilityState!=='hidden'){queueMicrotask(()=>void poll());return;}
+  }
+  schedule(current?.task?.status==='active');
+ }
 }
 // 1052（Claude）：最新的卡一直看着，AI 中途停住也能发现（原来 360 次、约 12 分钟后就不查了）；被新卡取代的卡收起来，不再查。
 // 1052 第四版（Claude，Ken 10/14：卡片查一次也走 ChatGPT，统计照算）：查的次数砍掉约一半，数和方案 A3 第 6 条一样：
@@ -732,16 +770,23 @@ function pollGap(){
 // 已经排了更早的一次就不往后推：卡片重画（宿主改主题、改高度时也会重画）不能把下一次查一直往后拖。
 function stopTimer(){clearTimeout(timer);timerDue=0;}
 function schedule(live,ms=pollGap()){
- if(!live||collapsed||!pollBudgetLeft()){stopTimer();return;}
- const due=Date.now()+ms;if(timerDue&&timerDue<=due)return;
+ if(!live||collapsed||document.visibilityState==='hidden'||pollInFlight||pollFailures>=5||!pollBudgetLeft()){stopTimer();return;}
+ const delay=pollFailures?Math.min(60000,ms*2**pollFailures):ms;
+ const due=Date.now()+delay;if(timerDue&&timerDue<=due)return;
  clearTimeout(timer);timerDue=due;
- timer=setTimeout(()=>{timerDue=0;polls++;if(document.visibilityState!=='hidden')void poll();schedule(current?.task?.status==='active');},ms);
+ timer=setTimeout(()=>{timerDue=0;polls++;void poll();},delay);
+}
+function resumePolling(){
+ pollFailures=0;stopTimer();
+ if(pollInFlight){pollOnWake=true;return;}
+ void poll();
 }
 window.addEventListener('pagehide',()=>{relayGeneration++;relayToken=null;relayPermit=null;relayInterruptToken=null;observationNonce=null;hostFlowCapability=null;taskControlNonce=null;taskControls=null;clearTimeout(relayTimer);stopTimer();});
 document.addEventListener('visibilitychange',()=>{
  if(document.visibilityState==='hidden'){clearTimeout(relayTimer);stopTimer();}
- else{void poll();if(current?.task?.status==='active')schedule(true);}
+ else resumePolling();
 });
+window.addEventListener('online',()=>{if(document.visibilityState!=='hidden')resumePolling();});
 window.addEventListener('message',e=>{if(e.source!==window.parent||!e.data||e.data.jsonrpc!=='2.0')return;const m=e.data;if(m.id&&pending.has(m.id)){const p=pending.get(m.id);clearTimeout(p.t);pending.delete(m.id);m.error?p.reject(Error(m.error.message||'error')):p.resolve(m.result);}
  if(m.method==='ui/notifications/tool-result'){acceptMetadata(m.params);render(m.params?.structuredContent);}if(m.method==='ui/notifications/host-context-changed'){setTheme(m.params?.theme);applyHostLocale(m.params?.locale,true);}});
 function acceptWidgetState(s){const id=s&&typeof s==='object'?s.chathand_resume_sent:null;if(typeof id==='string'&&id.length<=200&&!resumeSentFor)resumeSentFor=id;}

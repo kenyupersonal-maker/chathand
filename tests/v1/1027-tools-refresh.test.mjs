@@ -73,10 +73,15 @@ test('only one run at a time; the server starts it when an update changed the to
  const p=page(),r=make(p);
  const a=r.run(),b=r.run();assert.strictEqual(a,b);await a;
  const server=fs.readFileSync(new URL('../../app/server.mjs',import.meta.url),'utf8');
- const match=server.match(/onUpdated:(ju=>\{.*?\}),currentSystemProxy/);assert.ok(match,'current update callback exists');
+ const match=server.match(/onUpdated:(ju=>\{[\s\S]*?\}),currentSystemProxy/);assert.ok(match,'current update callback exists');
  for(const isolated of [false,true])for(const changed of [true,false,undefined]){
   const calls=[],callback=vm.runInNewContext('('+match[1]+')',{isolated,toolsRefresh:{run:async value=>{calls.push(value);}}});callback({tool_schema_changed:changed});
   assert.equal(calls.length,!isolated&&changed===true?1:0,'only a known schema change triggers refresh');
+ }
+ for(const isolated of [false,true])for(const [from,to] of [[1103,1104],[1102,1104],[1104,1105]]){
+  const calls=[],callback=vm.runInNewContext('('+match[1]+')',{isolated,toolsRefresh:{run:async value=>{calls.push(value);}}});
+  callback({tool_schema_changed:false,build_from:from,build_to:to});
+  assert.equal(calls.length,!isolated&&from===1103&&to===1104?1:0,'only the upgrade from the broken build runs the one-time check');
  }
  const ui=fs.readFileSync(new URL('../../ui/app.js',import.meta.url),'utf8');assert.equal(ui.includes('ai_install_local'),false);
 });

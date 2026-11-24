@@ -2,7 +2,12 @@ import test from 'node:test';import assert from 'node:assert/strict';import fs f
 import {TOOLS} from '../../app/tools.mjs';import {VERSION,manifest,CONNECTOR_API} from '../../app/product.mjs';import {WORKFLOW_INSTRUCTIONS,errorRecovery} from '../../app/v1/workflow.mjs';import {fixture,authorize} from '../core/helpers.mjs';
 const root=path.dirname(path.dirname(path.dirname(fileURLToPath(import.meta.url))));const definition=n=>TOOLS.find(t=>t.name===n);const frozenCount=JSON.parse(fs.readFileSync(path.join(root,`contracts/tools-v${CONNECTOR_API}.json`),'utf8')).length;
 test('50 v3 tool names remain and terminal is not removed',()=>{assert.equal(TOOLS.length,frozenCount);for(const n of ['connection_check','begin_task','finish_task','propose_command','command_input','cancel_command','command_result','read_file','start_search','browser_batch','browser_read','browser_find','browser_wait_for','computer_observe','computer_batch'])assert.ok(definition(n));});
-for(const n of ['propose_command','command_input','cancel_command'])test(n+' retains mutating open-world risk labels',()=>{const a=definition(n).annotations;assert.equal(a.readOnlyHint,false);assert.equal(a.openWorldHint,true);assert.equal(a.destructiveHint,true);});
+const api31=JSON.parse(fs.readFileSync(path.join(root,'contracts/tools-v31.json'),'utf8'));
+for(const n of ['propose_command','command_input','cancel_command'])test(n+' preserves the API31 risk history and the API32 read-only classification',()=>{
+ const previous=api31.find(tool=>tool.name===n).annotations;
+ assert.equal(previous.openWorldHint,true);assert.equal(previous.destructiveHint,true);
+ assert.equal(definition(n).annotations.readOnlyHint,false);
+});
 test('finish accurately labels bounded metadata mutation, not readonly shell',()=>{const a=definition('finish_task').annotations;assert.equal(a.readOnlyHint,false);assert.equal(a.openWorldHint,false);assert.equal(a.idempotentHint,true);assert.equal(a.destructiveHint,false);});
 test('begin is not falsely advertised as durable idempotent across restart',()=>assert.equal(definition('begin_task').annotations.idempotentHint,false));
 test('discovery schema hash changes with descriptions and matches current-API manifest',()=>{const a=manifest(TOOLS),mut=structuredClone(TOOLS);mut[0].description+=' changed';assert.equal(a.version,VERSION);assert.equal(a.connector_api,CONNECTOR_API);assert.equal(a.tool_count,frozenCount);assert.notEqual(a.schema_sha256,manifest(mut).schema_sha256);assert.equal(a.schema_sha256,manifest(TOOLS).schema_sha256);});

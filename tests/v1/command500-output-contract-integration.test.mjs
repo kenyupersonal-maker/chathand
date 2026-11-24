@@ -6,8 +6,8 @@ import {TOOLS} from '../../app/tools.mjs';
 
 
 const tool=name=>{const value=TOOLS.find(item=>item.name===name);assert.ok(value,name);return value;};
-const frozen=JSON.parse(fs.readFileSync(new URL('../../contracts/tools-v31.json',import.meta.url),'utf8'));
-for(const name of ['propose_command','command_result','list_commands'])assert.deepEqual(tool(name),frozen.find(t=>t.name===name),'API31 stays frozen: '+name);
+const frozen=JSON.parse(fs.readFileSync(new URL('../../contracts/tools-v32.json',import.meta.url),'utf8'));
+for(const name of ['propose_command','command_result','list_commands'])assert.deepEqual(tool(name),frozen.find(t=>t.name===name),'API32 stays frozen: '+name);
 const noLostFullPromise=text=>assert.doesNotMatch(text,/拿全文|for the complete output|for the full output/i);
 
 test('command500 integration: command description retains platform/grant rules and distinguishes captured pages from UI retention',()=>{

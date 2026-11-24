@@ -1,7 +1,7 @@
 {
   "version": 1,
   "reviewed": [
-    {"path":"app/v1/guide.mjs","content_sha256":"e16189cbf4f7678c090cf91dfd629e5f323eff40058bcb7c4f079bde5a9d6375","matches":[{"type":"HOME_PATH_REVIEW","line":13}],"reason":"通用写法反例中的示例路径。"},
+    {"path":"app/v1/guide.mjs","content_sha256":"b5d49fa04f9c23280e1ec4057f7584d6ebed9727e6815934c7c32654025882db","matches":[{"type":"HOME_PATH_REVIEW","line":13}],"reason":"通用写法反例中的示例路径。"},
     {"path":"app/v1/site-network-check.mjs","content_sha256":"df94609506ae3ade49ba569be3bd8e67af9d16bf0d3781c41e4768b2e203d279","matches":[{"type":"SITE_ORIGIN_REVIEW","line":5}],"reason":"源码说明该固定域名是无账号标识的网络探测样例；未访问远端。"},
     {"path":"native/tests/1070NativeWatchChecks.swift","content_sha256":"75e3512ea47479c1137838e38f6285c18da76cfd0bd42f63eeeef0b147c5df9c","matches":[{"type":"SITE_ORIGIN_REVIEW","line":7}],"reason":"自动测试中的合成 Site 示例。"},
     {"path":"native/tests/NativeCredentialPasteChecks.swift","content_sha256":"902a4b6835669e261e05be60ba95ed4700802fe69cf284c7120b88c79fef500b","matches":[{"type":"SITE_ORIGIN_REVIEW","line":5},{"type":"SITE_ORIGIN_REVIEW","line":30}],"reason":"自动测试中的合成 Site 示例。"},
@@ -21,9 +21,9 @@
     {"path":"tests/v1/1052-b-v2-receipt-recovery.test.mjs","content_sha256":"8408a04c01983c093c8158b1f4b2fe4eb38fd626d0b76dfbe1f9513405db15bf","matches":[{"type":"SITE_ORIGIN_REVIEW","line":15}],"reason":"自动测试中的合成 Site 示例。"},
     {"path":"tests/v1/1052-c4c6-owner-http.test.mjs","content_sha256":"28e39777940eed3f5642aab0e714ab40d5a51bca1bab494c32429907353731b9","matches":[{"type":"SITE_ORIGIN_REVIEW","line":35}],"reason":"自动测试中的合成 Site 示例。"},
     {"path":"tests/v1/1052-c6-site-setup.test.mjs","content_sha256":"1b08c947480c1d1832c5d972ef5db770d12654cb9ef2ef9ad8456b4621f4b90d","matches":[{"type":"SITE_ORIGIN_REVIEW","line":6}],"reason":"自动测试中的合成 Site 示例。"},
-    {"path":"tests/v1/1052-final-contract-boundaries.test.mjs","content_sha256":"e64a7ae1ee95503ce012511b12baedfd33f348e7ff38285d6bfd1a7ce775ddc0","matches":[{"type":"SITE_ORIGIN_REVIEW","line":97}],"reason":"自动测试中的合成 Site 示例。"},
+    {"path":"tests/v1/1052-final-contract-boundaries.test.mjs","content_sha256":"92bebe62b88728eff084e649732cd8f8203bfc0825d664edd72614eb05d6f678","matches":[{"type":"SITE_ORIGIN_REVIEW","line":98}],"reason":"自动测试中的合成 Site 示例。"},
     {"path":"tests/v1/1052-preinstall-site-recovery.test.mjs","content_sha256":"c0953be29c8f218d9128018ddf6eb980caccc6fb5ff2bb0c2871e66cd967178a","matches":[{"type":"SITE_ORIGIN_REVIEW","line":6},{"type":"SITE_ORIGIN_REVIEW","line":37},{"type":"SITE_ORIGIN_REVIEW","line":44}],"reason":"自动测试中的合成 Site 示例。"},
-    {"path":"tests/v1/1052-release-descriptor-offline-affected.test.mjs","content_sha256":"6a31155a3ac1938c8a5e11a79d595e02065abf38c67e8bff9766ffac1ee40584","matches":[{"type":"HOME_PATH_REVIEW","line":49}],"reason":"隔离测试的合成路径或无效 URL 示例，已核对不含当前用户目录。"},
+    {"path":"tests/v1/1052-release-descriptor-offline-affected.test.mjs","content_sha256":"32dc0f139850219d8a8eca29e4e561ec716bb24413d72daaebbaa5731ded6762","matches":[{"type":"HOME_PATH_REVIEW","line":49}],"reason":"隔离测试的合成路径或无效 URL 示例，已核对不含当前用户目录。"},
     {"path":"tests/v1/1052-v412-host-lifecycle.test.mjs","content_sha256":"84b75c2e456b602f89306387b000d1d233c02f7594ec49ee734d52dbfb82a059","matches":[{"type":"SITE_ORIGIN_REVIEW","line":5},{"type":"SITE_ORIGIN_REVIEW","line":9}],"reason":"自动测试中的合成 Site 示例。"},
     {"path":"tests/v1/1052-v412-production-parameters.test.mjs","content_sha256":"acfa61ca92e36a49d75ffd5181804abb6246047e0c2a1fb0ca3bc47bbc3245d0","matches":[{"type":"SITE_ORIGIN_REVIEW","line":18}],"reason":"自动测试中的合成 Site 示例。"},
     {"path":"tests/v1/1053-c2-display.test.mjs","content_sha256":"e30ab6a3d668931c360a89b2ccdd6def3259e6d16425f3584997b64f8565db21","matches":[{"type":"SECRET_REVIEW","line":23,"rule":"generic-api-key"}],"reason":"脱敏测试中用于验证输出的固定示例值，匹配整个测试文件的哈希。"},

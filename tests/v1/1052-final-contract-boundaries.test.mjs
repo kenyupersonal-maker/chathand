@@ -19,8 +19,9 @@ const repo=new URL('../../',import.meta.url);
 const source=file=>fs.readFileSync(new URL("../../"+file,import.meta.url),'utf8');
 const sha=value=>crypto.createHash('sha256').update(value).digest('hex');
 const pkg=JSON.parse(source('package.json'));
-const api=31;
+const api=32;
 const frozen=JSON.parse(source(`contracts/tools-v${api}.json`));
+const api31=JSON.parse(source('contracts/tools-v31.json'));
 const old=JSON.parse(source('contracts/tools-v23.json'));
 
 test('current immutable API definitions match the actual source tool schemas',()=>{
@@ -30,12 +31,12 @@ test('current immutable API definitions match the actual source tool schemas',()
  assert.equal(TOOLS.length,83);
  assert.deepEqual(TOOLS,frozen);
  assert.equal(manifest(TOOLS).schema_sha256,sha(JSON.stringify(frozen)));
- // API31 is locked, including every description and input schema.
- assert.equal(manifest(TOOLS).schema_sha256,'e1efe40af7052861d05103c20abecd9fc429824e6c040d4bb44efac2289bf05f');
+ // API32 is locked, including every description and input schema.
+ assert.equal(manifest(TOOLS).schema_sha256,'25c7bec44c4528d62d6e71b7cc38fe6d20c8cde27c791e5f65e1206618ea6b5f');
  assert.equal(sha(JSON.stringify(old)),'34bb2398a68232b6d10d5350c4980b0cd6de1772b1d2b2870b43b76cae9379ea');
  const previous=new Map(old.map(t=>[t.name,t]));
  assert.deepEqual(TOOLS.filter(t=>!previous.has(t.name)).map(t=>t.name),['records_export','matter_write','matter_query','chathand_guide','chathand_host_flow_commit','run_capability']);
- assert.equal(TOOLS.filter(t=>previous.has(t.name)&&JSON.stringify(t)!==JSON.stringify(previous.get(t.name))).length,61);
+ assert.equal(api31.filter(t=>previous.has(t.name)&&JSON.stringify(t)!==JSON.stringify(previous.get(t.name))).length,61);
  // Ken-approved item4 changed the widget source hash, so all three public
  // image-card descriptors now differ from API23 as well.
  for(const name of ['image_batch_start','image_batch_save','image_batch_status'])assert.notEqual(TOOLS.find(t=>t.name===name)._meta.ui.resourceUri,previous.get(name)._meta.ui.resourceUri);

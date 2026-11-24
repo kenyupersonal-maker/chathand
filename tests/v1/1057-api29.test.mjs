@@ -13,6 +13,6 @@ test('API29 changes only audited annotations, recording sentence, and five neces
   if(['show_task','task_checkpoint','finish_task','setup_write_probe','request_permission'].includes(t.name)){permitted.add('_meta.ui.resourceUri');permitted.add('_meta.openai/outputTemplate');assert.match(t._meta.ui.resourceUri,/^ui:\/\/chathand\/task-[a-f0-9]{10}\.html$/);}
   for(const field of fields)assert.ok(permitted.has(field),t.name+':'+field);
  }
- assert.deepEqual(api29.map(t=>t.name),previous.map(t=>t.name));const current=read('tools-v31.json');assert.deepEqual(TOOLS,current);assert.equal(TOOLS.length,current.length);
- for(const name of ['propose_command','command_input','cancel_command','task_stop','automation_stop','browser_close','tools_refresh_click'])assert.deepEqual(TOOLS.find(t=>t.name===name).annotations,previous.find(t=>t.name===name).annotations,name);
+ assert.deepEqual(api29.map(t=>t.name),previous.map(t=>t.name));const current=read('tools-v32.json');assert.deepEqual(TOOLS,current);assert.equal(TOOLS.length,current.length);
+ for(const name of ['propose_command','command_input','cancel_command','task_stop','automation_stop','browser_close','tools_refresh_click'])assert.deepEqual(api29.find(t=>t.name===name).annotations,previous.find(t=>t.name===name).annotations,name);
 });

@@ -41,7 +41,7 @@ const card=r=>r._meta?.['chathand/task_card'];
 const nonce=r=>r._meta?.['chathand/task_control_nonce'];
 const oldTask='00000000-0000-4000-8000-000000000001';
 
-test('API31 registry exposes only approved schema removals and truthful effect hints',()=>{
+test('current registry preserves API31 schema removals and visibility',()=>{
  assert.equal(TOOLS.length,83);assert.equal(modelTools(TOOLS).length,77);assert.equal(TOOLS.filter(isPrivateTool).length,6);
  assert.equal(TOOLS.some(d=>d.name==='request_permission'),false);
  assert.deepEqual(TOOLS.find(d=>d.name==='run_capability').inputSchema.required,[]);
@@ -49,8 +49,9 @@ test('API31 registry exposes only approved schema removals and truthful effect h
  assert.deepEqual(TOOLS.filter(isPrivateTool).map(d=>d.name).sort(),['card_answer','chathand_host_flow_commit','image_batch_claim','image_batch_control','relay_card_control','task_resume_claim']);
  for(const d of TOOLS.filter(isPrivateTool)){assert.equal(d._meta['openai/visibility'],'private');assert.equal(d._meta['openai/widgetAccessible'],true);assert.deepEqual(d._meta.ui.visibility,['app']);}
  for(const name of ['task_status','task_stop','desktop_action']){const d=TOOLS.find(d=>d.name===name);assert.equal(d._meta['openai/widgetAccessible'],true);assert.deepEqual(d._meta.ui.visibility,['model','app']);}
- for(const name of ['write_text','move_path','trash_path','run_capability','computer_action','card_answer'])assert.equal(TOOLS.find(d=>d.name===name).annotations.destructiveHint,true);
- assert.equal(TOOLS.find(d=>d.name==='run_capability').annotations.openWorldHint,true);
+ const api31=JSON.parse(fs.readFileSync(new URL('../../contracts/tools-v31.json',import.meta.url),'utf8'));
+ for(const name of ['write_text','move_path','trash_path','run_capability','computer_action','card_answer'])assert.equal(api31.find(d=>d.name===name).annotations.destructiveHint,true);
+ assert.equal(api31.find(d=>d.name==='run_capability').annotations.openWorldHint,true);
  assert.equal(TOOLS.find(d=>d.name==='task_status').annotations.readOnlyHint,true);
  assert.doesNotMatch(WORKFLOW_INSTRUCTIONS,/request_permission|six task_status|six times|最多等6次|TASK_OPEN_IN_CONVERSATION/);
  assert.match(WORKFLOW_INSTRUCTIONS,/ROUTE_NOT_SELECTED/);assert.match(chathandGuide('batch_files').text,/get_file_info/);assert.doesNotMatch(chathandGuide('browser').text,/confirm:true/);
@@ -62,8 +63,8 @@ test('bare and unknown capability discover real registry; known parameters remai
   const r=f.ok(await f.rpc('run_capability',args));assert.equal(r.executed,false);assert.deepEqual(r.extra_capabilities,f.app.tools.extraCapabilities.list());
  }
  assert.equal(f.app.policy.tasks.size,before);
- const known=f.ok(await f.rpc('run_capability',{capability:'contract_status'})),file=new URL('../../contracts/api31-freeze.json',import.meta.url),frozen=fs.existsSync(file)?JSON.parse(fs.readFileSync(file,'utf8')):null,current=manifest(TOOLS);
- assert.equal(known.api31_frozen,current.connector_api===31&&frozen?.connector_api===31&&current.schema_sha256===frozen?.schema_sha256);assert.equal(known.freeze_status,frozen?'present':'not_generated');
+ const known=f.ok(await f.rpc('run_capability',{capability:'contract_status'})),current=manifest(TOOLS),file=new URL(`../../contracts/api${current.connector_api}-freeze.json`,import.meta.url),frozen=fs.existsSync(file)?JSON.parse(fs.readFileSync(file,'utf8')):null;
+ assert.equal(known.contract_frozen,frozen?.connector_api===current.connector_api&&current.schema_sha256===frozen?.schema_sha256);assert.equal(known.freeze_status,frozen?'present':'not_generated');
  assert.equal((await f.rpc('run_capability',{capability:'contract_status',parameters:{extra:true}})).structuredContent.code,'CAPABILITY_ARGUMENT_INVALID');
  for(const args of [{parameters:[]},{capability:'Invalid Name'},{other:true}])assert.equal((await f.rpc('run_capability',args)).structuredContent.code,'ARG_INVALID');
 });

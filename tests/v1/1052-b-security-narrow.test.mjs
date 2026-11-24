@@ -198,7 +198,7 @@ test('isolated native owner+UI-key gates B import/select and untrusted origin; n
  assert.equal(refusal.executed,false);assert.equal(refusal.error_code,'ROUTE_NOT_SELECTED');
  assert.equal(refusal.can_execute,false);assert.equal(JSON.stringify(refusal).includes(work),false);
  assert.equal(TOOLS.some(tool=>tool.name==='matter_write'),true);
- const current=manifest(TOOLS);assert.equal(current.tool_count,TOOLS.length);assert.equal(current.connector_api,31);
+ const current=manifest(TOOLS);assert.equal(current.tool_count,TOOLS.length);assert.equal(current.connector_api,32);
  const source=fs.readFileSync(new URL('../../app/server.mjs',import.meta.url),'utf8');
  assert.match(source,/host_binding:null/);
  assert.doesNotMatch(fs.readFileSync(new URL('../../app/v1/tools-refresh.mjs',import.meta.url),'utf8'),/expected\?\.tool_count===78/);
