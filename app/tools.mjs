@@ -41,7 +41,7 @@ import {HistoryExporter} from './v1/history-export.mjs';
 import {compactToolReturn} from './v1/return-archive.mjs';
 import {taskWaitState} from './v1/wait-state.mjs';
 import {ResumeKeeper,sessionHashOf} from './v1/resume.mjs';import {STEP_WORDS} from './v1/tools-refresh.mjs';import {MATTER_RECORDING_RULE,MATTER_RECORDING_NOTE,MATTER_TOOLS,MATTER_DELTAS,matterBeginField,matterFinishField,validateMatterEntry,validateMatterWrite,validateMatterQuery} from './v1/matter-contract.mjs';
-import {VERSION,manifest,modelTools,isPrivateTool} from './product.mjs';
+import {VERSION,CONNECTOR_API,manifest,modelTools,isPrivateTool} from './product.mjs';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -85,13 +85,13 @@ function finishUserAction(args,updater,success){
 }
 const WRITE_HELP='写文件用 write_text，建文件夹用 create_directory，跑命令用 propose_command；看不到就先加载 ChatHand 的全部工具。';
 const beginGuidance=(store,profile={trial:"medium"})=>({
- split:{zh:`先估大小，小活直接做完；中大活按${profile.trial}拆块（约${PACING.block[profile.trial].calls}次调用或${PACING.block[profile.trial].ms/60000}分钟）。每块记进度后接着做，不结束这一轮；长命令用command_result(wait_ms:${PACING.wait.poll_ms},brief:true)在这一轮等，每${PACING.wait.note_ms/60000}分钟记进度。只有等用户或全部完成才结束。拿不准先看chathand_guide。`,en:`Use ${profile.trial} blocks: about ${PACING.block[profile.trial].calls} calls or ${PACING.block[profile.trial].ms/60000} minutes. Checkpoint and continue in this turn. Wait for commands with wait_ms:${PACING.wait.poll_ms},brief:true; checkpoint every ${PACING.wait.note_ms/60000} minutes. Finish only when complete or waiting for the user.`},
+ split:{zh:`先估大小，小活直接做完；中大活按${profile.trial}拆块（约${PACING.block[profile.trial].calls}次调用或${PACING.block[profile.trial].ms/60000}分钟）。每块记进度后接着做，不结束这一轮；长命令用command_result(wait_ms:${PACING.wait.poll_ms},brief:true)在这一轮等，每${PACING.wait.note_ms/60000}分钟记进度。只有明确要求「先停，等我继续」，或需要用户登录、密码、系统批准、用户特有材料、用户拍板，且做完独立部分后，才标 waiting_user:true；取消/停止任务调用 task_stop。建议换模型、请用户看一眼、汇报进度或任务太大，都继续做。全部完成再结束。拿不准先看chathand_guide。`,en:`Use ${profile.trial} blocks: about ${PACING.block[profile.trial].calls} calls or ${PACING.block[profile.trial].ms/60000} minutes. Checkpoint and continue in this turn. Wait for commands with wait_ms:${PACING.wait.poll_ms},brief:true; checkpoint every ${PACING.wait.note_ms/60000} minutes. Pause with waiting_user only when explicitly asked to wait for continue, or when login, password, OS approval, user-only input, or a decision is required. Complete independent steps first; cancellation uses task_stop. Model-switch suggestions, reviews, progress reports, and task size are not blockers. Finish when complete.`},
  completion_standard:{
   zh:'用户要的东西做成并核对过就 success=true，中途出错但修好也算成功；任何一部分没做成就 success=false。收尾时调用一次 finish_task，并用 summary 写 40 字以内的一句话，说明结果和成果位置。',
   en:'Use success=true when the requested result is completed and verified, even if intermediate errors were fixed. Use success=false if any part remains incomplete. Finish every task once with finish_task and a <=40-character summary that states the result and artifact location.'
  },
  workflow:[
-  '用户说停止任务时必须实际调用task_stop。先列编号清单、方法和成果位置；分块推进，每块记task_checkpoint后接着做，不结束这一轮。只有真的等用户或全部完成才交回。每项最多重试2次。开工不调show_task，返回要求才调。 Make a numbered checklist with method and destination. Checkpoint each block and continue in the same turn; stop only for real user waiting or completed work. Retry each item at most twice; do not render show_task at startup.',
+  '用户说停止任务时必须实际调用task_stop。先列编号清单、方法和成果位置；分块推进，每块记task_checkpoint后接着做，不结束这一轮。只有用户明确要求「先停，等我继续」，或确需登录、密码、系统批准、用户特有材料、用户拍板，做完独立部分后才标 waiting_user:true；取消/停止任务仍调用 task_stop。建议换模型、让用户看一眼、汇报进度或活太大都继续做。全部完成才交回。每项最多重试2次。开工不调show_task，返回要求才调。 Make a numbered checklist with method and destination. Checkpoint each block and continue in the same turn; pause with waiting_user only for an explicit wait-for-continue request or needed login, password, OS approval, user-only material, or decision, after completing independent steps. Cancel/stop uses task_stop. Model-switch or review suggestions, status updates, and task size are not blockers; finish when complete. Retry each item at most twice; do not render show_task at startup.',
   '命令返回运行中时，汇报前查到最终结果；查不到就说“还在跑，编号是…”。 If a command is still running, check for its final result before reporting; otherwise say it is still running and give its ID.',
   '要换做法先问用户；走不通时给出工具原话，不用 ChatGPT 自己的代码环境顶替。 Ask before changing approach; when blocked, quote the tool error and never substitute ChatGPT\'s own code environment.'
  ],
@@ -241,6 +241,12 @@ const workspaceRecoveryNote=({recreated=false,commandsStopped=false}={})=>{
  return {kind:recreated?'workspace_recreated':'workspace_commands_stopped',zh:displayText(key,{},'zh'),en:displayText(key,{},'en')};
 };
 for(const d of TOOLS)if(isPrivateTool(d))d._meta={...d._meta,ui:{...(d._meta.ui||{}),visibility:['app']}};
+if(CONNECTOR_API===32){
+ for(const tool of TOOLS){
+  tool.annotations.destructiveHint=false;
+  tool.annotations.openWorldHint=false;
+ }
+}
 export class Tools {
  constructor(state,store,queue,policy){Object.assign(this,{state,store,queue,policy});this.blocks=new Blocks({audit:e=>store.audit?.(e),emit:(kind,data)=>policy.emit?.(kind,data)});this.confirmations=new Confirmations({offerSettingsCards:false,audit:e=>store.audit?.(e),emit:(kind,data)=>{policy.emit?.(kind,data);if(['confirmation_answered','confirmation_input_rejected'].includes(kind))this.resume?.after(null,'确认结果',{task_id:data.task_id,path:data.message},{},false);},now:Date.now});bindConfirmations(state,this.confirmations);policy.confirmations=this.confirmations;this.imageBatch=new ImageBatchManager(store,policy);this.self=selfInfo({stateDir:store.stateDir,appRoot:APP_ROOT,extraPids:()=>this.selfPids?.()||[],extraCmdlines:()=>this.selfCmdlines?.()||[]});queue.onSandboxDenied=job=>{const t=policy.tasks?.get(policy.jobOwners?.get(job.id));job.blocked=scopeReceipt({command:[job.program,...job.args].join(' '),reason:job.needsFullAccess});this.confirmations.create({blocked:job.blocked,task_id:t?.id,session_hash:t?.session_hash,conversation_title:t?.conversation_title||t?.title,hash:commandHash({program:job.program,args:job.args,cwd:job.absoluteCwd})});this.blocks.record({kind:'scope',id:'sandbox',name:'整台电脑',command:[job.program,...job.args].join(' '),reason:'被「只在这个文件夹里」的系统沙箱挡住：'+job.needsFullAccess,blocked:job.blocked,task_id:t?.id??null,conversation_id:t?.conversation_id??null});};this.features=new Features(state,store,queue,policy);this.automation=new Automation(state,store,policy);this.lastCalls={};this.lastCheck=null;this.setupTest=new SetupTest();this.setupProgress=createSetupProgress();this.trace=store.stateDir?new CallTrace(store.stateDir,TOOLS):null;this.events=store.stateDir?new DiagnosticEvents(store.stateDir,{salt:this.trace?.salt,tools:TOOLS.map(t=>t.name)}):null;policy.diagnostics=this.events;this.resume=new ResumeKeeper({events:this.events,stateDir:store.stateDir||null,emit:(kind,data)=>policy.emit?.(kind,data)});this.taskContinuity=new TaskContinuity(policy,this.resume,this.features.changes);this.commandNotes=new CommandCompletionNotes({readJob:(id,caller,hash)=>{
   policy.check();const owner=policy.jobOwners.get(id),t=owner?policy.get(owner,caller):null;
@@ -261,9 +267,10 @@ export class Tools {
    const identity=Object.freeze({kind:'wrapper',namespace:'execute_task_step',id:request_id});
    return this.invoke(tool,arguments_,caller,{...context,[AUTO_TASK_IDENTITY]:identity});
   }});
-  this.extraCapabilities.register({name:'contract_status',description:'核对 API31 工具合同的实际冻结状态、离线卡片壳协议和可用的额外能力类别。',inputSchema:{type:'object',properties:{},required:[],additionalProperties:false},readOnly:true,run:()=>{
-   const current=manifest(TOOLS),file=new URL('../contracts/api31-freeze.json',import.meta.url);let frozen=null;try{frozen=JSON.parse(fs.readFileSync(file,'utf8'));}catch(e){if(e.code!=='ENOENT')throw e;}
-   return {connector_api:current.connector_api,tool_count:current.tool_count,schema_sha256:current.schema_sha256,api31_frozen:current.connector_api===31&&frozen?.connector_api===31&&current.schema_sha256===frozen?.schema_sha256,freeze_status:frozen?'present':'not_generated',shell_protocol:1,offline_shell:true,capability_categories:['contract_diagnostics']};
+  this.extraCapabilities.register({name:'contract_status',description:'核对当前工具合同的实际冻结状态、离线卡片壳协议和可用的额外能力类别。',inputSchema:{type:'object',properties:{},required:[],additionalProperties:false},readOnly:true,run:()=>{
+   const current=manifest(TOOLS),file=new URL(`../contracts/api${current.connector_api}-freeze.json`,import.meta.url);let frozen=null;try{frozen=JSON.parse(fs.readFileSync(file,'utf8'));}catch(e){if(e.code!=='ENOENT')throw e;}
+   const contractFrozen=frozen?.connector_api===current.connector_api&&current.schema_sha256===frozen?.schema_sha256;
+   return {connector_api:current.connector_api,tool_count:current.tool_count,schema_sha256:current.schema_sha256,contract_frozen:contractFrozen,api31_frozen:current.connector_api===31&&contractFrozen,freeze_status:frozen?'present':'not_generated',shell_protocol:1,offline_shell:true,capability_categories:['contract_diagnostics']};
   }});
  }
  commitCheckpoint({task_id,checkpoint_seq,choice,via,input}={}){if(via!=='window'||input?.human!==true)fail('CONFIRM_NOT_HUMAN','请在 ChatHand 窗口亲自选择。');return this.h8Cards.windowOption({task_id,checkpoint_seq,choice},this.resume);}
@@ -281,7 +288,7 @@ export class Tools {
  upgradeView(){
   const u=this.updater?.aiStatus?.()||{phase:'idle',current:{version:VERSION,build:this.updater?.currentBuild??null},target:null,install_state:'idle',just_updated:null,tools_changed:null,request:null};
   const r=this.toolsRefresh?.snapshot?.()||null,phase=this.upgradePending&&u.phase!=='failed'?'verifying':u.phase;
-  const refresh=u.tools_changed===false?{state:'not_needed'}:r&&r.state!=='idle'?{state:r.state,...(r.message?{message:r.message}:{}),...(r.stopped_at?{stopped_at:r.stopped_at}:{}),...(Array.isArray(r.steps)&&r.steps.length?{steps:r.steps}:{}),...Object.fromEntries(['tool_list_status','waiting','lang','buttons','rules','learned','bring_existing_tab','confirmation','correlation','clicked','code','proof_current','target_attested'].filter(k=>r[k]!==undefined).map(k=>[k,r[k]]))}:{state:u.tools_changed?'pending':'unknown'};
+  const refresh=u.tools_changed===false&&r?.reason!=='update'?{state:'not_needed'}:r&&r.state!=='idle'?{state:r.state,...(r.message?{message:r.message}:{}),...(r.stopped_at?{stopped_at:r.stopped_at}:{}),...(Array.isArray(r.steps)&&r.steps.length?{steps:r.steps}:{}),...Object.fromEntries(['tool_list_status','waiting','lang','buttons','rules','learned','bring_existing_tab','confirmation','correlation','clicked','code','proof_current','target_attested'].filter(k=>r[k]!==undefined).map(k=>[k,r[k]]))}:{state:u.tools_changed?'pending':'unknown'};
   const words={
    starting:'马上开始装，ChatHand 还没重启。接着调 upgrade_status（wait_s:25）。',
    installing:`正在核对、准备新版（${u.install_state}），ChatHand 还没重启。接着调 upgrade_status（wait_s:25）。`,

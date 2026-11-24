@@ -1,4 +1,5 @@
 import {fail} from '../../engine/src/core.mjs';
+import {isInternalBrowserControl} from '../v1/chatgpt-target.mjs';
 const s = {type: 'string'}, integer = (minimum, maximum) => ({type: 'integer', minimum, maximum});
 const condition = {type: 'object', additionalProperties: false, properties: {kind: {type: 'string', enum: ['text', 'text_absent', 'url_change', 'element', 'network_idle']}, text: {...s, maxLength: 4000}, url: s, role: {...s, maxLength: 80}, name: {...s, maxLength: 400}, timeout_ms: integer(1, 15000)}, required: ['kind']};
 const common = {task_id: s, page_id: s, allow_personal: {type: 'boolean', description: 'True only when the user explicitly named this personal tab outside the Ken Bridge group.'}};
@@ -52,7 +53,8 @@ export async function invokeBrowserExperience(automation, name, args, caller) {
   if ((automation.state.data.browser_backend || 'extension') !== 'extension') fail('BROWSER_BACKEND_UNSUPPORTED', '这项升级工具需要 Chrome 插件。请在本机选择扩展浏览器；不会自行换到空白浏览器。');
   const browser = automation.browser.extension;
   if (name === 'browser_read' || name === 'browser_find') {
-    if (name === 'browser_find' && !args.text && !args.role) fail('ARG_INVALID', '查找需要文字或角色。');
+    // The server-owned updater enumerates entries before matching the bound app ID.
+    if (name === 'browser_find' && !args.text && !args.role && !isInternalBrowserControl()) fail('ARG_INVALID', '查找需要文字或角色。');
     return automation.ops.read(args.task_id, caller, () => browser[name === 'browser_read' ? 'read' : 'find'](args, caller));
   }
   return automation.ops.run(name, args, caller, () => browser[name === 'browser_batch' ? 'batch' : 'waitFor'](args, caller));

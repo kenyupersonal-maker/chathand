@@ -12,6 +12,15 @@ const identity=value=>typeof value==='string'&&value.length>0&&value.length<=128
 const encrypt=(bytes,key)=>{const iv=crypto.randomBytes(12),cipher=crypto.createCipheriv('aes-256-gcm',key,iv),ciphertext=Buffer.concat([cipher.update(bytes),cipher.final()]);return {iv:iv.toString('base64'),tag:cipher.getAuthTag().toString('base64'),ciphertext:ciphertext.toString('base64')};};
 const decrypt=(entry,key)=>{const decipher=crypto.createDecipheriv('aes-256-gcm',key,Buffer.from(entry.iv,'base64'));decipher.setAuthTag(Buffer.from(entry.tag,'base64'));return Buffer.concat([decipher.update(Buffer.from(entry.ciphertext,'base64')),decipher.final()]);};
 const manifestEntry=(manifest,name)=>manifest instanceof Map?manifest.get(name):Array.isArray(manifest)?manifest.find(tool=>tool?.name===name):manifest?.[name];
+// Existing Site execution policy was established by the API31 contract.
+const SITE_CONFIRMED_TOOLS = new Set([
+ 'edit_file', 'desktop_action', 'browser_open', 'browser_tabs', 'browser_action',
+ 'browser_upload', 'browser_download', 'browser_close', 'automation_stop',
+ 'computer_action', 'computer_batch', 'computer_focus', 'browser_batch',
+ 'task_stop', 'cancel_command', 'write_text', 'restore_file', 'propose_command',
+ 'command_input', 'move_path', 'trash_path', 'restore_trash', 'card_answer',
+ 'run_capability',
+]);
 function supportedTemplateVersion(value){
  if(value===undefined)return {version:'4.0.0',major:4,minor:0};
  if(typeof value!=='string')return null;
@@ -24,12 +33,12 @@ export function resolveExecutionMode({rpc,toolManifest={},job={},queueWaitMs=0,c
  const name=rpc?.params?.name,declared=manifestEntry(toolManifest,name);
  if(!declared)return 'confirmed';
  const annotations=declared?.annotations||declared;
- const destructiveHint=annotations?.destructiveHint===true;
+ const needsSiteConfirmation=SITE_CONFIRMED_TOOLS.has(name)||annotations?.destructiveHint===true;
  const readOnly=annotations?.readOnly===true||annotations?.readonly===true||annotations?.readOnlyHint===true;
- if(readOnly&&!destructiveHint)return 'readonly';
+ if(readOnly&&!needsSiteConfirmation)return 'readonly';
  const retransmitted=job.replayed===true||job.redelivered===true||(Number.isSafeInteger(job.delivery_attempt)&&job.delivery_attempt>1);
  const legacyTemplate=supportedTemplateVersion(templateVersion)?.minor!==1;
- return (destructiveHint&&legacyTemplate)||retransmitted||connectionSwitched||queueWaitMs>100?'confirmed':'immediate';
+ return (needsSiteConfirmation&&legacyTemplate)||retransmitted||connectionSwitched||queueWaitMs>100?'confirmed':'immediate';
 }
 export function encodeFrame(opcode,payload){const bytes=Buffer.isBuffer(payload)?payload:Buffer.from(payload);if(bytes.length>MAX_FRAME)throw fixedError('WS_FRAME_LIMIT');const n=bytes.length<126?2:bytes.length<=65535?4:10,header=Buffer.alloc(n);header[0]=128|opcode;header[1]=128|(n===2?bytes.length:n===4?126:127);if(n===4)header.writeUInt16BE(bytes.length,2);if(n===10)header.writeBigUInt64BE(BigInt(bytes.length),2);const mask=crypto.randomBytes(4),data=Buffer.from(bytes);for(let i=0;i<data.length;i++)data[i]^=mask[i%4];return Buffer.concat([header,mask,data]);}
 export function decodeFrame(buffer){if(buffer.length<2)return null;if(buffer[0]&112||buffer[1]&128)throw fixedError('WS_FRAME_PROTOCOL');let length=buffer[1]&127,offset=2;if(length===126){if(buffer.length<4)return null;length=buffer.readUInt16BE(2);offset=4;}else if(length===127){if(buffer.length<10)return null;const big=buffer.readBigUInt64BE(2);if(big>BigInt(MAX_FRAME))throw fixedError('WS_FRAME_LIMIT');length=Number(big);offset=10;}if(length>MAX_FRAME)throw fixedError('WS_FRAME_LIMIT');const opcode=buffer[0]&15,fin=Boolean(buffer[0]&128);if(opcode>=8&&(!fin||length>125))throw fixedError('WS_CONTROL_PROTOCOL');if(buffer.length<offset+length)return null;return {opcode,fin,payload:buffer.subarray(offset,offset+length),consumed:offset+length};}

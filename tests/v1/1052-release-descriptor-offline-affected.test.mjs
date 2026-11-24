@@ -71,7 +71,7 @@ test('user selected local DMG comes only from native macOS file picker, not rend
 
 test('formal candidate still uses default signed build:trial entry and separate DMG packaging',()=>{
  const pkg=JSON.parse(fs.readFileSync(new URL('../../package.json',import.meta.url),'utf8'));
- assert.equal(pkg.kenBridge.connector_api,31);assert.ok(Number.isSafeInteger(pkg.kenBridge.build_number));
+ assert.equal(pkg.kenBridge.connector_api,32);assert.ok(Number.isSafeInteger(pkg.kenBridge.build_number));
  assert.equal(pkg.scripts['build:trial'],'node scripts/build-v09.mjs');
  const build=fs.readFileSync(new URL('../../scripts/build-v09.mjs',import.meta.url),'utf8');
  assert.match(build,/signApplication/);

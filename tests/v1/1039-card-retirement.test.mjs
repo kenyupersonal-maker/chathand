@@ -45,11 +45,11 @@ test('retired tools and old resource cannot change permission or create a confir
  assert.equal(resources.length,2);assert.equal(resources[0].uri,TASK_URI);
  assert.throws(()=>f.app.tools.features.resource('ui://chathand/probe-0123456789.html'),e=>e.code==='RESOURCE_MISSING'&&/探针已退出/.test(e.message));
  assert.ok(f.app.tools.features.resource(TASK_URI).contents[0].text.includes('task_status'));
- const current=JSON.parse(fs.readFileSync(new URL('../../contracts/tools-v31.json',import.meta.url),'utf8'));assert.equal(CONNECTOR_API,31);assert.deepEqual(TOOLS,current,'current tool contract follows API31');
+ const current=JSON.parse(fs.readFileSync(new URL('../../contracts/tools-v32.json',import.meta.url),'utf8'));assert.equal(CONNECTOR_API,32);assert.deepEqual(TOOLS,current,'current tool contract follows API32');
  assert.equal(TOOLS.find(tool=>tool.name==='relay_card_control')?._meta?.['openai/visibility'],'private');
  assert.deepEqual(TOOLS.find(tool=>tool.name==='task_stop')?.inputSchema.required,['task_id']);
  assert.ok(!TOOLS.some(x=>['card_probe','card_probe_report'].includes(x.name)));
- assert.deepEqual(TOOLS.map(tool=>tool.name),current.map(tool=>tool.name),'current names and order match API31 contract');
+ assert.deepEqual(TOOLS.map(tool=>tool.name),current.map(tool=>tool.name),'current names and order match API32 contract');
 });
 
 test('RPC card metadata remains private in legacy and modern transport and observers',async t=>{

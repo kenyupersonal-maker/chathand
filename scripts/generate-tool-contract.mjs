@@ -1,4 +1,4 @@
-// Source-only API31 generator. Root runs this once after every descriptor hook
+// Source-only contract generator. Run after every descriptor hook
 // and package.connector_api have been integrated; importing it never writes.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -8,10 +8,10 @@ import {TOOLS} from '../app/tools.mjs';
 import {CONNECTOR_API,modelTools} from '../app/product.mjs';
 const root=path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 export function toolContractFiles(tools,api){
- if(api!==31)throw Error('API31_PACKAGE_NOT_READY');
+ if(![31,32].includes(api))throw Error('API31_PACKAGE_NOT_READY');
  if(!Array.isArray(tools)||new Set(tools.map(t=>t.name)).size!==tools.length)throw Error('TOOL_REGISTRY_INVALID');
  const schema_sha256=crypto.createHash('sha256').update(JSON.stringify(tools)).digest('hex');
- return {'contracts/tools-v31.json':JSON.stringify(tools,null,2)+'\n','contracts/api31-freeze.json':JSON.stringify({connector_api:api,schema_sha256,shell_protocol:1},null,2)+'\n'};
+ return {[`contracts/tools-v${api}.json`]:JSON.stringify(tools,null,2)+'\n',[`contracts/api${api}-freeze.json`]:JSON.stringify({connector_api:api,schema_sha256,shell_protocol:1},null,2)+'\n'};
 }
 export function writeToolContract(directory,outputs,{check=false}={}){
  // Validate ALL existing files before writing either. Never replace a prior

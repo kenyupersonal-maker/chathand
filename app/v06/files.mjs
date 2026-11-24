@@ -53,14 +53,36 @@ export class FileReader {
         const encoding=o.encoding||'utf-8';if(!encodings.has(encoding))fail('ENCODING_UNSUPPORTED','不支持此编码。');
         const size=o.max_bytes??65536;if(!Number.isInteger(size)||size<4||size>131072)fail('ARG_INVALID','每次读取 4–131072 字节。');
         if(offset>stat.size)fail('OFFSET_INVALID','读取位置超过文件大小。');
-        const buf=Buffer.alloc(Math.min(size,Math.max(0,stat.size-offset)));let n=fs.readSync(fd,buf,0,buf.length,offset);
+        let start=offset;
+        if(encoding==='utf-8'&&offset>0&&offset<stat.size){
+          const at=Buffer.alloc(1);
+          fs.readSync(fd,at,0,1,offset);
+          if((at[0]&0xc0)===0x80){
+            const back=Math.min(3,offset),previous=Buffer.alloc(back);
+            fs.readSync(fd,previous,0,back,offset-back);
+            for(let distance=1;distance<=back;distance++){
+              const lead=previous[back-distance];
+              if((lead&0xc0)===0x80)continue;
+              const width=lead>=0xc2&&lead<=0xdf?2:lead>=0xe0&&lead<=0xef?3:lead>=0xf0&&lead<=0xf4?4:0;
+              if(width>distance){
+                const character=Buffer.alloc(width);
+                if(fs.readSync(fd,character,0,width,offset-distance)===width){
+                  try{new TextDecoder('utf-8',{fatal:true}).decode(character);start=offset-distance;}catch{}
+                }
+              }
+              break;
+            }
+            if(start===offset)fail('ENCODING_INVALID','解码失败，请提供文件的实际编码，或从返回的 next_offset 继续。');
+          }
+        }
+        const buf=Buffer.alloc(Math.min(size,Math.max(0,stat.size-start)));let n=fs.readSync(fd,buf,0,buf.length,start);
         if(!encoding.startsWith('utf-16')&&buf.subarray(0,n).includes(0))fail('BINARY_BLOCKED','这是二进制文件，请指定其实际格式。');
         let content='',used=n,lastError;
         for(let cut=0;cut<=Math.min(4,n);cut++){
-          try{used=n-cut;content=new TextDecoder(encoding,{fatal:true}).decode(buf.subarray(0,used));lastError=null;break;}catch(e){lastError=e;if(offset+n>=stat.size)break;}
+          try{used=n-cut;content=new TextDecoder(encoding,{fatal:true}).decode(buf.subarray(0,used));lastError=null;break;}catch(e){lastError=e;if(start+n>=stat.size)break;}
         }
         if(lastError||n>0&&used===0)fail('ENCODING_INVALID','解码失败，请提供文件的实际编码，或从返回的 next_offset 继续。');
-        data={format:'text',encoding,content,offset,bytes_read:used,next_offset:offset+used<stat.size?offset+used:null,truncated:offset+used<stat.size,chunk_sha256:digest(buf.subarray(0,used))};
+        data={format:'text',encoding,content,offset:start,...(start!==offset?{requested_offset:offset}:{}),bytes_read:used,next_offset:start+used<stat.size?start+used:null,truncated:start+used<stat.size,chunk_sha256:digest(buf.subarray(0,used))};
       }else if(format==='image'){
         if(stat.size>4*1024*1024)fail('IMAGE_TOO_LARGE','图片超过 4 MiB，请先生成较小预览。');
         const buf=fs.readFileSync(fd),mime=imageTypes[ext];

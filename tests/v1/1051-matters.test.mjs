@@ -42,8 +42,8 @@ test('API31 frozen matter definitions do not grow; checkpoint stays unchanged',(
  }
  const each=[...MATTER_TOOLS,MATTER_DELTAS.begin,MATTER_DELTAS.finish].map(v=>tokens(JSON.stringify(v))),limits=[665,248,48,242];
  each.forEach((value,i)=>assert.ok(value<=limits[i],JSON.stringify({each,limits})));
- const defs=manifest(TOOLS);assert.equal(defs.connector_api,31);assert.equal(defs.tool_count,83);
- assert.equal(defs.schema_sha256,manifest(frozen).schema_sha256);
+ const defs=manifest(TOOLS),current=JSON.parse(fs.readFileSync(new URL('../../contracts/tools-v32.json',import.meta.url)));assert.equal(defs.connector_api,32);assert.equal(defs.tool_count,83);
+ assert.equal(defs.schema_sha256,manifest(current).schema_sha256);
  for(const name of ['matter_write','matter_query'])assert.ok(TOOLS.some(t=>t.name===name));
  assert.ok('matter_ids'in TOOLS.find(t=>t.name==='begin_task').inputSchema.properties);
  assert.ok('matter_updates'in TOOLS.find(t=>t.name==='finish_task').inputSchema.properties);

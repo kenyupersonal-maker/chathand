@@ -1,7 +1,7 @@
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import os from 'node:os';import path from 'node:path';
 import {toolContractFiles,writeToolContract} from '../../scripts/generate-tool-contract.mjs';
-import {TOOLS} from '../../app/tools.mjs';
-test('unfrozen API31 registry changes only approved v30 descriptor paths',()=>{
+const TOOLS=JSON.parse(fs.readFileSync(new URL('../../contracts/tools-v31.json',import.meta.url),'utf8'));
+test('frozen API31 registry changes only approved v30 descriptor paths',()=>{
  const previous=JSON.parse(fs.readFileSync(new URL('../../contracts/tools-v30.json',import.meta.url),'utf8'));
  assert.deepEqual(TOOLS.map(t=>t.name),previous.filter(t=>t.name!=='request_permission').map(t=>t.name));
  const allowed=new Map(),allow=(names,paths)=>{for(const name of names){const set=allowed.get(name)||new Set();for(const p of paths)set.add(p);allowed.set(name,set);}};

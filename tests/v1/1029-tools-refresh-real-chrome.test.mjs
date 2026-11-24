@@ -6,7 +6,8 @@ import {BrowserDriver} from '../../browser-extension/driver.js';
 import {ToolsRefresher} from '../../app/v1/tools-refresh.mjs';
 import {storeTestDistribution} from '../support/chrome-store-fixture.mjs';
 import {AUTOMATION_TOOLS} from '../../app/v07/automation.mjs';
-import {BROWSER_EXPERIENCE_TOOLS,browserToolDefinition,validateBrowserTool} from '../../app/v09/browser-experience-tools.mjs';
+import {withInternalBrowserControl} from '../../app/v1/chatgpt-target.mjs';
+import {BROWSER_EXPERIENCE_TOOLS,browserToolDefinition,invokeBrowserExperience,validateBrowserTool} from '../../app/v09/browser-experience-tools.mjs';
 
 const CHROME=findChrome();
 const skip=CHROME?false:'找不到 Chrome';
@@ -61,7 +62,12 @@ test('1029 真 Chrome：中英日假插件页把刷新链路走通', {skip,timeo
    return driver.execute('new',{url:args.url});
   }
   if(name==='browser_wait_for')return driver.execute('wait_for',{page_id:args.page_id,condition:args.condition,operation_key:'real:'+ ++request});
-  if(name==='browser_find'){activePage=args.page_id;const {task_id,allow_personal,...rest}=args;return driver.execute('find',rest);}
+  if(name==='browser_find'){
+   activePage=args.page_id;
+   const extension={find({task_id,allow_personal,...rest}){return driver.execute('find',rest);}};
+   const automation={state:{data:{browser_backend:'extension'}},browser:{extension},ops:{read(_task,_caller,run){return run();}}};
+   return withInternalBrowserControl(()=>invokeBrowserExperience(automation,name,args,'chatgpt'))();
+  }
   if(name==='browser_snapshot'){const {task_id,allow_personal,...rest}=args;return driver.execute('snapshot',rest);}
   if(name==='browser_action'){const {task_id,request_id,allow_personal,action,...rest}=args;return driver.execute(action==='select'?'select_value':action,{...rest,operation_key:'real:'+ ++request});}
   if(name==='browser_tabs'){const {task_id,request_id,allow_personal,action,...rest}=args;return driver.execute(action,{...rest,operation_key:'real:'+ ++request});}
@@ -99,4 +105,9 @@ test('1029 真 Chrome：中英日假插件页把刷新链路走通', {skip,timeo
   assert.equal(clicks().filter(x=>x==='Delete app').length,before);assert.equal(rfr.snapshot().state,'needs_ai');
   const good=r.buttons.find(x=>x.name==='Refresh tools'),rr=await rfr.clickByNumber({number:good.number,meaning:'refresh tools'});assert.equal(rr.state,'refreshed');
  });
+});
+
+test('public browser_find still requires text or role', async ()=>{
+ const automation={state:{data:{browser_backend:'extension'}},browser:{extension:{}},ops:{}};
+ await assert.rejects(invokeBrowserExperience(automation,'browser_find',{task_id:'fixture',page_id:'fixture'},'chatgpt'),{code:'ARG_INVALID'});
 });

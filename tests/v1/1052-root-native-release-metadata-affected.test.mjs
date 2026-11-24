@@ -11,7 +11,7 @@ const read=p=>fs.readFileSync(new URL("../../"+p,import.meta.url),'utf8');
 
 test('candidate product has no private Site release URL or runtime bootstrap',()=>{
  const pkg=JSON.parse(read('package.json')),raw=JSON.parse(read('connectors/product.json'));
- assert.equal(pkg.kenBridge.connector_api,31);assert.equal(product.CONNECTOR_API,31);
+ assert.equal(pkg.kenBridge.connector_api,32);assert.equal(product.CONNECTOR_API,32);
  assert.equal(raw.schema,1);assert.equal(Object.hasOwn(raw,'release'),false);
  assert.equal(raw.relay_url,null);assert.equal(raw.connector_install_url,null);
  assert.equal(raw.public_service_status,'NOT_DEPLOYED');
