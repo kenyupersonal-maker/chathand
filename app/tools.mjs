@@ -3,7 +3,7 @@ import {workspaceNoticeContext,withWorkspaceNotice,noteWorkspaceRecreated,noteWo
 import {READ_TASK_INTERNAL} from './v1/read-task-tracker.mjs';
 import {OnboardingTelemetry,onboardingFailure} from './onboarding-telemetry.mjs';
 import {t as displayText} from './i18n.mjs';
-import {PACING} from './v1/pacing.mjs';
+import {FILE_READ_RESULT_CHARS,PACING} from './v1/pacing.mjs';
 import {CapabilityRegistry,RUN_CAPABILITY_TOOL} from './v1/capabilities.mjs';
 import {AutoTaskExecution,AUTO_TASK_INTERNAL,AUTO_TASK_IDENTITY,AUTO_TASK_WRAPPER_TOOLS} from './v1/auto-task-execution.mjs';
 import {widgetShellPresentation} from './v1/widget-shell.mjs';
@@ -583,7 +583,7 @@ export class Tools {
    return {...done,...matters,task_terminal:done.terminal===true,changes,scope:state.data.mode,reply_format:{...REPLY_FORMAT}};
   }
   if(name==='list_conversations')return {conversations:state.data.conversations.filter(c=>c.project_id===state.data.active),source:'user_saved_only'};
-  if(name==='list_directory')return store.list(args.path||'.',args);
+  if(name==='list_directory')return store.list(args.path||'.',args,FILE_READ_RESULT_CHARS);
   if(name==='read_text')return store.read(args.path,args.start_line??1,args.max_lines??250);
   if(name==='search_text'){const r=store.search(args.query,args.path||'.');return {...r,total:r.truncated?null:r.matches.length,at_least:r.matches.length,incomplete:r.truncated===true,results_complete:r.truncated!==true,next_offset:null,next_cursor:null,continuation:'start_search + search_results; full counts require existing command permission and authorized files'};}
   if(name==='list_commands'){
@@ -925,7 +925,14 @@ export class Tools {
     if(observerAuthorized&&!fromCard&&!presentsFile&&!note)note=this.resume?.takeCarried(hash)||null;
     note=mergeNotes(result?.chathand_note,note,confirmationNote,refreshNote,completionNote,presentsFile?null:this.resume?.takeBlockNote(hash));
     if(result&&typeof result==='object'&&!Array.isArray(result)&&(note||forecast))result={...result,...(note?{chathand_note:note}:{}),...(forecast?{chathand_forecast:forecast}:{})};
-    if(!desktop&&card.meta===undefined){const archiveTask=this.policy.tasks.get(args.task_id||result?.task_id||this.policy.jobOwners.get(args.job_id)),workspace=this.store.workspaceStatus?.(),archive=workspace?workspace.available===true&&(!archiveTask||(archiveTask.workspace_epoch||0)===(this.store.workspaceEpoch||0)):true;result=withFileTask(this.store,archiveTask,()=>compactToolReturn(result,{store:this.store,tool:name,args,archive}));if(result?.output_summary)this.events?.record('return.paged',{tool:name,n:Object.values(result.output_summary.omitted_items||{}).reduce((a,b)=>a+b,0),chars:result.output_summary.original_chars,saved:result.output_summary.saved===true});}
+    const filePage=(name==='list_directory'&&Array.isArray(result?.entries))||
+      (name==='read_file'&&result?.format==='text'&&typeof result.content==='string');
+    if(filePage&&note&&hash&&JSON.stringify(result).length>PACING.return_limit_chars){
+      this.resume?.carry(hash,note);
+      const {chathand_note,...page}=result;
+      result={...page,notes_deferred:true};
+    }
+    if(!filePage&&!desktop&&card.meta===undefined){const archiveTask=this.policy.tasks.get(args.task_id||result?.task_id||this.policy.jobOwners.get(args.job_id)),workspace=this.store.workspaceStatus?.(),archive=workspace?workspace.available===true&&(!archiveTask||(archiveTask.workspace_epoch||0)===(this.store.workspaceEpoch||0)):true;result=withFileTask(this.store,archiveTask,()=>compactToolReturn(result,{store:this.store,tool:name,args,archive}));if(result?.output_summary)this.events?.record('return.paged',{tool:name,n:Object.values(result.output_summary.omitted_items||{}).reduce((a,b)=>a+b,0),chars:result.output_summary.original_chars,saved:result.output_summary.saved===true});}
     if(desktop&&result?.observation?.image_base64){const {image_base64,...observation}=result.observation,metadata={...result,observation};response=ok({content:[{type:'text',text:JSON.stringify(metadata)},{type:'image',mimeType:observation.mimeType||'image/jpeg',data:image_base64}],structuredContent:metadata,isError:false});}
     else response=ok(toolResult(card.meta===undefined?result:{...result,_card_meta:card.meta}));
     if(name==='command_result'&&args.full===true&&JSON.stringify(response).length>12000){
@@ -936,7 +943,7 @@ export class Tools {
       if(JSON.stringify(response).length>12000)fail('OUTPUT_SPOOL_ENVELOPE_BUDGET','全文页面超出返回预算；页面仍保留，请勿重新执行命令。');
     }
    }catch(e){
-    const recovery=errorRecovery(e.code);
+    const recovery=errorRecovery(e.code,{tool:name,args:body.params?.arguments});
     if(observerAuthorized&&!completionNote&&!fromCard&&!presentsFile)try{completionNote=this.commandNotes?.collect(completionHash,caller,name,artifactObserverArgs(body.params?.arguments??{},name),null,{failed:true})||null;}catch{}
     const finalNote=mergeNotes(note,confirmationNote,refreshNote,completionNote,workspaceRecoveryNote({recreated:e.workspaceRecreated===true,commandsStopped:e.workspaceCommandsStopped===true}));const err={...cleanError(e),...(e.auto_task?{...e.auto_task}:{}),recovery,...(finalNote?{chathand_note:finalNote}:{})};
     if(!fromCard&&err.code==='WORKSPACE_UNAVAILABLE'&&err.details?.blocked?.item?.id==='workspace_missing')try{

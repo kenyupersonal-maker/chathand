@@ -3,6 +3,7 @@ import {sessionHashOf} from './resume.mjs';
 import {localText} from '../i18n.mjs';
 import {withFileTask} from '../../engine/src/core.mjs';
 import {usesWorkspace} from './workspace-recovery.mjs';
+import {isDirectoryPagingError} from './workflow.mjs';
 export const READ_TASK_INTERNAL=Symbol('read_task_internal');
 const GROUPS={matters:['matter_query'],files:['read_file','get_file_info','list_directory','read_text'],search:['start_search','search_results','stop_search','search_text'],git:['git_inspect'],browserStatus:['browser_status'],browser:['browser_snapshot','browser_screenshot','browser_read','browser_find','browser_wait_for'],screen:['computer_status','computer_observe','computer_screenshot'],applications:['computer_applications'],system:['system_inspect']};
 const BUSINESS_READS=new Map(Object.entries(GROUPS).flatMap(([group,names])=>names.map(name=>[name,group])));
@@ -36,13 +37,29 @@ export class ReadTaskTracker {
     try{const result=p.begin({request_id:'read_'+crypto.randomUUID(),title:localText('ui.server.'+titleKey)},caller,{session_hash:hash,connection_principal:principal});task=p.tasks.get(result.task_id);task.title_key=titleKey;task.title_params={};task.internal_source='read_task';owned=true;}
     catch{return run();} // Bookkeeping must never become a new permission gate.
    }
-   group={id:task.id,caller,hash,owned,inflight:0,lastAt:this.now(),retryAt:0,failed:false,onlyBrowserStatus:name==='browser_status',browserUnavailable:false,searches:new Set()};this.groups.set(key,group);
+   group={id:task.id,caller,hash,owned,inflight:0,lastAt:this.now(),retryAt:0,failed:false,
+    onlyBrowserStatus:name==='browser_status',browserUnavailable:false,searches:new Set(),pendingDirectories:new Set()};
+   this.groups.set(key,group);
   }
   if(name!=='browser_status'&&group.onlyBrowserStatus){group.onlyBrowserStatus=false;if(group.owned&&task.internal_source==='read_task'){const category=BUSINESS_READS.get(name);task.title_key='autoRead.'+category+'.title';task.title=localText('ui.server.'+task.title_key);task.title_params={};}}
   group.inflight++;group.retryAt=0;this.changed();
-  try{const value=await withFileTask(p.store,task,run);if(name==='browser_status'){const backend=value?.selected_backend||value?.backend||'extension',selected=backend==='extension'?value?.extension||value:value;group.browserUnavailable=backend==='extension'||backend==='personal'?selected?.connected!==true||selected?.available===false:selected?.available!==true;}if(BUSINESS_READS.get(name)==='search'&&typeof value?.search_id==='string'&&this.searchJobs.has(value.search_id))group.searches.add(value.search_id);return value&&typeof value==='object'&&!Array.isArray(value)&&!value.task_id?{...value,task_id:group.id}:value;}
-  catch(error){group.failed=true;throw error;}
-  finally{group.inflight--;group.lastAt=this.now();group.retryAt=0;this.changed();}
+  const directory=name==='list_directory'?(args.path||'.'):null;
+  try{
+   const value=await withFileTask(p.store,task,run);
+   if(name==='browser_status'){
+    const backend=value?.selected_backend||value?.backend||'extension',selected=backend==='extension'?value?.extension||value:value;
+    group.browserUnavailable=backend==='extension'||backend==='personal'?selected?.connected!==true||selected?.available===false:selected?.available!==true;
+   }
+   if(BUSINESS_READS.get(name)==='search'&&typeof value?.search_id==='string'&&this.searchJobs.has(value.search_id))group.searches.add(value.search_id);
+   if(directory!==null&&Array.isArray(value?.entries))group.pendingDirectories.delete(directory);
+   return value&&typeof value==='object'&&!Array.isArray(value)&&!value.task_id?{...value,task_id:group.id}:value;
+  }catch(error){
+   if(directory!==null&&isDirectoryPagingError(error.code)){
+    task.directory_page_errors=(task.directory_page_errors||0)+1;
+    group.pendingDirectories.add(directory);
+   }else group.failed=true;
+   throw error;
+  }finally{group.inflight--;group.lastAt=this.now();group.retryAt=0;this.changed();}
  }
  nextDeadline(){let at=Infinity;for(const [key,g] of this.groups){if(!this.scope(this.policy.tasks.get(g.id))){this.groups.delete(key);continue;}if(g.owned&&!g.inflight)at=Math.min(at,Math.max(g.lastAt+this.idleMs,g.retryAt||0));}return at;}
  maintain(){
@@ -51,7 +68,8 @@ export class ReadTaskTracker {
    const searches=[...g.searches].map(id=>this.searchJobs.get(id)).filter(Boolean);
    if(searches.some(j=>j.status==='failed'))g.failed=true;
    if(searches.some(j=>j.status==='running')||this.policy.hasLiveWork(task)||this.policy.hasUncertainWork?.(task.id)){g.retryAt=this.now()+1000;continue;}
-   try{this.policy.finish(g.id,g.caller,!g.failed&&!(g.onlyBrowserStatus&&g.browserUnavailable));this.groups.delete(key);}catch{g.retryAt=this.now()+5000;/* Retry without changing the last real activity time. */}
+   const success=!g.failed&&g.pendingDirectories.size===0&&!(g.onlyBrowserStatus&&g.browserUnavailable);
+   try{this.policy.finish(g.id,g.caller,success);this.groups.delete(key);}catch{g.retryAt=this.now()+5000;/* Retry without changing the last real activity time. */}
   }
   this.changed();
  }

@@ -140,7 +140,7 @@ export class ScopedStore extends ProjectStore {
     if(directory&&st&&!st.isDirectory())fail('TYPE_BLOCKED','需要一个文件夹。');
     return real;
   }
-  list(input='.',options={}){
+  list(input='.',options={},maxPageChars){
     this.checkActive();const dir=this.resolve(input,{directory:true}),entries=[];let restricted=false;
     const limit=options.limit??300,offset=options.offset??0,cursor=options.cursor??null;
     if(!Number.isInteger(limit)||limit<1||limit>300||!Number.isInteger(offset)||offset<0)fail('ARG_INVALID','文件列表分页范围无效。');
@@ -154,10 +154,31 @@ export class ScopedStore extends ProjectStore {
     const snapshot=digest(JSON.stringify([this.root,this.accessMode,dir,entries.map(x=>[x.name,x.type,x.bytes])]));
     if(cursor!==null){const match=typeof cursor==='string'&&/^v1:(\d+):([a-f0-9]{64})$/.exec(cursor);if(!match||Number(match[1])!==offset||match[2]!==snapshot)fail('LIST_CHANGED','文件列表已经变化，请从第一页重查。');}
     else if(offset!==0)fail('LIST_CURSOR_REQUIRED','翻页请带上一页的 cursor，避免错页。');
-    const page=entries.slice(offset,offset+limit),next_offset=offset+page.length<entries.length?offset+page.length:null;
-    return {path:input,entries:page,offset,limit,total:entries.length,scope_visible_only:true,
-      next_offset,next_cursor:next_offset===null?null:'v1:'+next_offset+':'+snapshot,
-      truncated:next_offset!==null||restricted,incomplete:restricted,hidden_or_skipped:restricted,scope:this.accessMode};
+    const page=entries.slice(offset,offset+limit);
+    const resultFor=next_offset=>{
+      const next_cursor=next_offset===null?null:'v1:'+next_offset+':'+snapshot;
+      const result={path:input,entries:page,offset,limit,total:entries.length,scope_visible_only:true,
+        next_offset,next_cursor,truncated:next_offset!==null||restricted,incomplete:restricted,
+        hidden_or_skipped:restricted,scope:this.accessMode};
+      if(maxPageChars&&next_cursor){
+        result.next_call={name:'list_directory',arguments:{path:input,limit,offset:next_offset,cursor:next_cursor}};
+      }
+      return result;
+    };
+    if(maxPageChars&&page.length>1){
+      // Reserve the largest possible offset and cursor before selecting entries.
+      let chars=JSON.stringify({...resultFor(entries.length),entries:[]}).length;
+      let count=0;
+      for(const entry of page){
+        const cost=JSON.stringify(entry).length+(count?1:0);
+        if(count&&chars+cost>maxPageChars)break;
+        chars+=cost;
+        count++;
+      }
+      page.length=count;
+    }
+    const end=offset+page.length;
+    return resultFor(end<entries.length?end:null);
   }
   openRead(input){
     this.checkActive();const p=this.resolve(input);const before=fs.statSync(p);
