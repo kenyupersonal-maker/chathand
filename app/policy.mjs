@@ -119,7 +119,7 @@ export class TaskPolicy {
   const actions=[...this.approvals.values()].filter(a=>a.task_id===id);
   if(actions.some(a=>['pending_approval','running'].includes(a.status))||[...(this.queue.inputs?.values()||[])].some(a=>t.jobs.includes(a.job_id)&&a.status==='pending_approval'))fail('TASK_BUSY','任务仍有待批准的文件操作或输入。');
   const jobFailed=j=>!(j.status==='completed'&&j.exit_code===0)&&!(j.mode==='service'&&j.status==='cancelled'&&j.started_at&&j.finished_at);
-  const intermediate_errors=actions.filter(a=>a.status==='failed').length+jobs.filter(jobFailed).length;
+  const intermediate_errors=actions.filter(a=>a.status==='failed').length+jobs.filter(jobFailed).length+(t.directory_page_errors||0);
   const result={...this.view(t),status:success?'completed':'failed',terminal:true,execution_complete:true,finished_at:Date.now(),receipt_id:id,success,summary:summary.trim(),...taskSummaryMetadata(t),user_action:user_action.trim(),intermediate_errors,replayed:false,next_action:'report_once_then_stop',retry:{create_new_task:false,poll_automatically:false,max_status_checks_per_turn:0}};
   try{const value=this.valueStats?.receiptValue(id);if(value)result.value=value;}catch{/* Flush completed calls before saving; never change completion/idempotency rules. */}
   this.receipts?.save(id,t.caller||caller,success,result,t.connection_principal); // Persist the original receipt identity before emitting.

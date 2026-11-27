@@ -6,6 +6,8 @@ export const PACING = Object.freeze({
  stall:Object.freeze({cap_ms:600000,floor_pro_ms:360000}),
  auto:Object.freeze({per_task:5,per_block:2,countdown_ms:20000}),
 });
+// Leave space for task notes on pages that must be delivered intact.
+export const FILE_READ_RESULT_CHARS = PACING.return_limit_chars - 2000;
 // This accepts only a classified model, never stores the original model string.
 // A4 will pass the per-task classification; A3 callers retain the original floor.
 export function stallBudget(ms,model='unknown'){

@@ -42,6 +42,70 @@ test('presenting a scoped file does not promote a read task or reset its idle de
  f.advance(1000);assert.equal(f.app.policy.tasks.get(id).status,'completed');
 });
 
+test('directory paging errors give a safe restart in the same task and count on its successful receipt',async t=>{
+ const f=await fixture(t);
+ const dir=path.join(f.root,'work','history');
+ fs.mkdirSync(dir);
+ for(const name of ['a.txt','b.txt'])fs.writeFileSync(path.join(dir,name),'');
+ const args={path:'history',limit:1};
+ const first=(await f.rpc('list_directory',args)).structuredContent;
+ const id=first.task_id;
+ assert.ok(id);
+
+ const checkRecovery=async(result,code)=>{
+  assert.equal(result.isError,true);
+  assert.equal(result.structuredContent.code,code);
+  const {recovery}=result.structuredContent;
+  assert.equal(recovery.next_action,'restart_directory_paging_once');
+  assert.equal(recovery.automatic_retry,true);
+  assert.equal(recovery.read_retry_limit,1);
+  assert.equal(recovery.create_new_task,false);
+  assert.deepEqual(recovery.next_call,{name:'list_directory',arguments:args});
+  const retry=await f.rpc(recovery.next_call.name,recovery.next_call.arguments);
+  assert.equal(retry.isError,false);
+  assert.equal(retry.structuredContent.task_id,id);
+  assert.equal(retry.structuredContent.offset,0);
+  return retry.structuredContent;
+ };
+ const missing=await f.rpc('list_directory',{...args,offset:first.next_offset});
+ await checkRecovery(missing,'LIST_CURSOR_REQUIRED');
+ fs.writeFileSync(path.join(dir,'c.txt'),'');
+ const stale=await f.rpc('list_directory',{...args,offset:first.next_offset,cursor:first.next_cursor});
+ let page=await checkRecovery(stale,'LIST_CHANGED');
+ const names=[];
+ while(true){
+  names.push(...page.entries.map(entry=>entry.name));
+  if(!page.next_call)break;
+  assert.ok(names.length<3);
+  page=(await f.rpc(page.next_call.name,page.next_call.arguments)).structuredContent;
+ }
+ assert.deepEqual(names,['a.txt','b.txt','c.txt']);
+ f.advance(15000);
+ const receipt=f.app.policy.receipts.read(id).result;
+ assert.equal(receipt.status,'completed');
+ assert.equal(receipt.intermediate_errors,2);
+});
+
+test('a different session cannot clear a paging error and a protected path gets no retry',async t=>{
+ const f=await fixture(t);
+ const first=(await f.rpc('list_directory',{path:'.'},'original')).structuredContent;
+ const error=await f.rpc('list_directory',{path:'.',offset:1},'original');
+ assert.equal(error.structuredContent.code,'LIST_CURSOR_REQUIRED');
+ const other=(await f.rpc('list_directory',{path:'.'},'other')).structuredContent;
+ assert.notEqual(other.task_id,first.task_id);
+ const blocked=(await f.rpc('list_directory',{path:path.join(f.root,'state'),offset:1},'blocked')).structuredContent;
+ assert.equal(blocked.code,'BRIDGE_STATE_PROTECTED');
+ assert.equal(blocked.recovery.automatic_retry,false);
+ assert.equal(blocked.recovery.next_call,undefined);
+ f.advance(15000);
+ const failed=f.app.policy.receipts.read(first.task_id).result;
+ const completed=f.app.policy.receipts.read(other.task_id).result;
+ assert.equal(failed.status,'failed');
+ assert.equal(failed.intermediate_errors,1);
+ assert.equal(completed.status,'completed');
+ assert.equal(completed.intermediate_errors,0);
+});
+
 test('reading saved matters is a business read while task and widget status queries remain controls',async t=>{
  const f=await fixture(t);const result=await f.rpc('matter_query',{}),id=result.structuredContent.task_id;
  assert.equal(result.isError,false);assert.equal(f.app.policy.tasks.get(id).title_key,'autoRead.matters.title');

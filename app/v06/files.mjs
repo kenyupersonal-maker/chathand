@@ -4,10 +4,38 @@ import crypto from 'node:crypto';
 import {spawn} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {fail,digest} from '../../engine/src/core.mjs';
+import {FILE_READ_RESULT_CHARS} from '../v1/pacing.mjs';
 const HERE=path.dirname(fileURLToPath(import.meta.url));
 const encodings=new Set(['utf-8','utf-16le','utf-16be','gbk','gb18030','windows-1252']);
 const stamp=st=>`${st.dev}:${st.ino}:${st.size}:${st.mtimeMs}:${st.ctimeMs}`;
 const imageTypes={'.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.webp':'image/webp','.gif':'image/gif'};
+function decodePrefix(bytes,decoder,atEnd){
+  for(let cut=0;cut<=Math.min(4,bytes.length);cut++){
+    const bytesRead=bytes.length-cut;
+    try{return {content:decoder.decode(bytes.subarray(0,bytesRead)),bytesRead};}
+    catch{if(atEnd)break;}
+  }
+  return null;
+}
+function decodeTextPage(bytes,encoding,start,atEnd,charLimit){
+  const decoder=new TextDecoder(encoding,{fatal:true,ignoreBOM:start!==0});
+  const decoded=decodePrefix(bytes,decoder,atEnd);
+  if(!decoded||(bytes.length>0&&decoded.bytesRead===0))fail('ENCODING_INVALID','解码失败，请提供文件的实际编码，或从返回的 next_offset 继续。');
+  if(JSON.stringify(decoded.content).length<=charLimit)return decoded;
+
+  // Escapes can make the JSON longer than the bytes read. Choose a shorter
+  // decoded prefix before computing the source offset and the chunk hash.
+  let fitting={content:'',bytesRead:0},low=0,high=decoded.bytesRead;
+  while(high-low>1){
+    const middle=Math.floor((low+high)/2);
+    const candidate=decodePrefix(bytes.subarray(0,middle),decoder,false);
+    if(candidate&&JSON.stringify(candidate.content).length<=charLimit){
+      low=middle;
+      fitting=candidate;
+    }else high=middle;
+  }
+  return fitting;
+}
 export function inspectFile(store,input){
   store.checkActive();store.requireWorkspace?.();const file=store.resolve(input),st=fs.statSync(file);
   const result={path:input,name:path.basename(file),type:st.isDirectory()?'directory':'file',bytes:st.size,modified_at:st.mtime.toISOString(),fingerprint:stamp(st)};
@@ -75,13 +103,12 @@ export class FileReader {
             if(start===offset)fail('ENCODING_INVALID','解码失败，请提供文件的实际编码，或从返回的 next_offset 继续。');
           }
         }
-        const buf=Buffer.alloc(Math.min(size,Math.max(0,stat.size-start)));let n=fs.readSync(fd,buf,0,buf.length,start);
+        // Allow at least one character even when the echoed path is long.
+        const charLimit=Math.max(26,FILE_READ_RESULT_CHARS-JSON.stringify(o.path).length-512);
+        const buf=Buffer.alloc(Math.min(size,charLimit-2,stat.size-start));
+        const n=fs.readSync(fd,buf,0,buf.length,start);
         if(!encoding.startsWith('utf-16')&&buf.subarray(0,n).includes(0))fail('BINARY_BLOCKED','这是二进制文件，请指定其实际格式。');
-        let content='',used=n,lastError;
-        for(let cut=0;cut<=Math.min(4,n);cut++){
-          try{used=n-cut;content=new TextDecoder(encoding,{fatal:true}).decode(buf.subarray(0,used));lastError=null;break;}catch(e){lastError=e;if(start+n>=stat.size)break;}
-        }
-        if(lastError||n>0&&used===0)fail('ENCODING_INVALID','解码失败，请提供文件的实际编码，或从返回的 next_offset 继续。');
+        const {content,bytesRead:used}=decodeTextPage(buf.subarray(0,n),encoding,start,start+n>=stat.size,charLimit);
         data={format:'text',encoding,content,offset:start,...(start!==offset?{requested_offset:offset}:{}),bytes_read:used,next_offset:start+used<stat.size?start+used:null,truncated:start+used<stat.size,chunk_sha256:digest(buf.subarray(0,used))};
       }else if(format==='image'){
         if(stat.size>4*1024*1024)fail('IMAGE_TOO_LARGE','图片超过 4 MiB，请先生成较小预览。');

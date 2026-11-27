@@ -6,7 +6,16 @@ export const WORKFLOW_INSTRUCTIONS = 'Tasks start automatically within the curre
  + 'Common command capabilities (administrator installation/system settings and autostart/cron) have their own user switches. Selecting full marks administrator setup as pending; only the user at the computer can authorize it in the macOS dialog. Disk erasure/formatting is never allowed. High-risk commands (deleting a whole big folder such as ~/Documents; reading Keychain passwords; curl|sh; bypassing Gatekeeper; recursive permission changes on big folders; shutdown, sleep or network off) are off by default; the user controls these switches in the ChatHand window. ChatGPT self-control has its own first-risk-consent switch; once allowed normal control continues. 先下载到文件、看过内容再运行。 If you already know a step needs one, tell the user before starting and ask them to enable it. '
  + 'When a call returns HIGH_RISK_DISABLED, CAPABILITY_OFF, NEEDS_FULL_ACCESS or details.blocked, explain the returned reason and the exact ChatHand setting. Continue independent work; do not show permission cards, poll for approval, change switches or replay unknown effects. needs_user requires the stated user action and status verification. 不重试、不绕过；说明窗口里对应的开关或范围，继续不依赖它的部分。 ' 
  + 'For administrator rights propose sudo <command> directly (never sudo -S, never inside sh -c or pipes). When the user has turned on administrator commands in ChatHand it runs right away with no password; before proposing it, tell the user in one sentence what you will run as administrator and why. If administrator or autostart is disabled, explain where the user can enable it in ChatHand and continue independent work; administrator setup still requires the user to enter the computer password only in the macOS dialog. Never retry an unknown setup result. ADMIN_SETUP_REQUIRED means the user must turn that switch off and on again at the Mac; explain and wait. Never done: typing the macOS computer password, closing or changing ChatHand itself, switching users (su, doas).';
-export function errorRecovery(code){
+export const isDirectoryPagingError=code=>code==='LIST_CURSOR_REQUIRED'||code==='LIST_CHANGED';
+export function errorRecovery(code,{tool,args={}}={}){
+ if(tool==='list_directory'&&isDirectoryPagingError(code)){
+  const firstPage={path:args.path||'.'};
+  if(args.limit!==undefined)firstPage.limit=args.limit;
+  return {
+   next_action:'restart_directory_paging_once',automatic_retry:true,read_retry_limit:1,create_new_task:false,
+   next_call:{name:'list_directory',arguments:firstPage}
+  };
+ }
  if(['ROUTE_NOT_SELECTED','B_ROUTE_NOT_SELECTED'].includes(code))return {next_action:'select_current_conversation_connection',automatic_retry:false,create_new_task:false};
  const control=controlErrorRecovery(code);if(control)return control;
  if(code==='FULL_OUTPUT_UNAVAILABLE')return {next_action:'continue_with_ordinary_output',automatic_retry:false,create_new_task:false,memory_complete_action:'use_integer_cursor_pages',rerun_command:false};
