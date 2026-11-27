@@ -5,6 +5,8 @@ import crypto from 'node:crypto';
 import {StringDecoder} from 'node:string_decoder';
 import {setImmediate as tick} from 'node:timers/promises';
 import {fail,digest} from '../../engine/src/core.mjs';
+const SCAN_ITEMS=50_000;
+const SCAN_MS=30_000;
 const glob=s=>new RegExp('^'+s.replace(/[.+^${}()|[\]\\]/g,'\\$&').replace(/\*/g,'.*').replace(/\?/g,'.')+'$','i');
 export class SearchManager {
   constructor(store,policy){this.store=store;this.policy=policy;this.jobs=new Map();}
@@ -17,17 +19,38 @@ export class SearchManager {
     while(this.jobs.size>=40){const oldest=[...this.jobs.values()].filter(j=>j.status!=='running').sort((a,b)=>(a.finished_at||0)-(b.finished_at||0))[0];if(!oldest)break;this.jobs.delete(oldest.id);}
     const base=this.store.resolve(o.path||'.',{directory:true});
     const j={id:crypto.randomUUID(),caller,session_hash,project_id:this.policy.state.data.active,root:this.store.root,epoch:this.policy.epoch,workspace_epoch:this.store.workspaceEpoch||0,permissionRevision:this.policy.permissionRevision||0,status:'running',results:[],visited:0,skipped:0,bytes:0,incomplete:false,reasons:[],created_at:Date.now(),streams:new Set(),base,options:o,type};
+    if(type==='files')j.scan_batches=1;
     this.jobs.set(j.id,j);void this.walk(j).catch(e=>{j.status='failed';j.error=e.code||'SEARCH_FAILED';}).finally(()=>{j.finished_at=Date.now();if(j.status==='running')j.status='completed';for(const s of j.streams)s.destroy();});
     return this.view(j,0,0);
   }
   valid(j){return j.status==='running'&&j.epoch===this.policy.epoch&&j.workspace_epoch===(this.store.workspaceEpoch||0)&&j.permissionRevision===(this.policy.permissionRevision||0)&&j.root===this.store.root&&!this.store.paused;}
   incomplete(j,reason){j.incomplete=true;if(!j.reasons.includes(reason))j.reasons.push(reason);}
   async walk(j){
-    const {options:o}=j;const needle=o.case_sensitive?o.query:o.query.toLocaleLowerCase();const filter=o.file_pattern?glob(o.file_pattern):null;const nameMatch=j.type==='files'?glob(o.query.includes('*')||o.query.includes('?')?o.query:'*'+o.query+'*'):null;
+    const {options:o}=j;
+    const fileSearch=j.type==='files';
+    const needle=o.case_sensitive?o.query:o.query.toLocaleLowerCase();
+    const filter=o.file_pattern?glob(o.file_pattern):null;
+    const nameMatch=fileSearch?glob(o.query.includes('*')||o.query.includes('?')?o.query:'*'+o.query+'*'):null;
     const pending=[{file:j.base,depth:0}],seen=new Set();const max=o.max_results??500;
+    let batchStartVisited=j.visited;
+    let batchDeadline=fileSearch?performance.now()+SCAN_MS:0;
+    const batchEnded=()=>j.visited-batchStartVisited>=SCAN_ITEMS||performance.now()>=batchDeadline;
+    const continueFileBatch=async()=>{
+      // The pending directories and the current iterator stay in this walk.
+      await tick();
+      if(!this.valid(j))return false;
+      batchStartVisited=j.visited;
+      batchDeadline=performance.now()+SCAN_MS;
+      j.scan_batches++;
+      return true;
+    };
     while(pending.length&&this.valid(j)){
-      if(Date.now()-j.created_at>30000){this.incomplete(j,'TIME_BUDGET');break;}
-      if(j.visited>=50000){this.incomplete(j,'FILE_COUNT_LIMIT');break;}
+      if(fileSearch){
+        if(batchEnded()&&!(await continueFileBatch()))return;
+      }else{
+        if(Date.now()-j.created_at>SCAN_MS){this.incomplete(j,'TIME_BUDGET');break;}
+        if(j.visited>=SCAN_ITEMS){this.incomplete(j,'FILE_COUNT_LIMIT');break;}
+      }
       const {file,depth}=pending.pop();let real;
       try{real=this.store.resolve(file,{directory:true});}catch{j.skipped++;continue;}
       if(seen.has(real))continue;seen.add(real);
@@ -36,14 +59,19 @@ export class SearchManager {
       for await(const entry of dir){
         if(!this.valid(j))break;
         if(j.results.length>=max){this.incomplete(j,'RESULT_LIMIT');return;}
-        if(j.visited>=50000||j.bytes>=256*1024*1024||Date.now()-j.created_at>30000){this.incomplete(j,'SCAN_BUDGET');return;}
+        if(fileSearch){
+          if(batchEnded()&&!(await continueFileBatch()))return;
+        }else if(j.visited>=SCAN_ITEMS||j.bytes>=256*1024*1024||Date.now()-j.created_at>SCAN_MS){
+          this.incomplete(j,'SCAN_BUDGET');
+          return;
+        }
         if(!o.include_hidden&&entry.name.startsWith('.'))continue;
         if(['node_modules','.git','.Trash'].includes(entry.name))continue;
         j.visited++;const p=path.join(real,entry.name);let safe;
         try{safe=this.store.resolve(p);}catch{j.skipped++;continue;}
         if(entry.isDirectory()){if(depth<30)pending.push({file:safe,depth:depth+1});else this.incomplete(j,'DEPTH_LIMIT');}
-        if(j.type==='files'&&nameMatch.test(entry.name))j.results.push({path:safe,type:entry.isDirectory()?'directory':'file'});
-        if(j.type==='content'&&entry.isFile()&&(!filter||filter.test(entry.name))){
+        if(fileSearch&&nameMatch.test(entry.name))j.results.push({path:safe,type:entry.isDirectory()?'directory':'file'});
+        if(!fileSearch&&entry.isFile()&&(!filter||filter.test(entry.name))){
           await this.scanFile(j,safe,needle,max);
           if(!this.valid(j))return;
         }
@@ -72,7 +100,7 @@ export class SearchManager {
         bytes+=chunk.length;j.bytes+=chunk.length;
         if(chunk.includes(0)){j.skipped++;break;}
         accept(decoder.write(chunk));
-        if(bytes>=64*1024*1024||j.bytes>=256*1024*1024||Date.now()-j.created_at>30000){this.incomplete(j,'CONTENT_SCAN_LIMIT');break;}
+        if(bytes>=64*1024*1024||j.bytes>=256*1024*1024||Date.now()-j.created_at>SCAN_MS){this.incomplete(j,'CONTENT_SCAN_LIMIT');break;}
         await tick();
         if(!this.valid(j))break;
       }
@@ -95,6 +123,7 @@ export class SearchManager {
     const items=j.results.slice(offset,offset+limit),next_offset=stable&&offset+items.length<j.results.length?offset+items.length:null;
     const complete=stable&&!j.incomplete&&j.skipped===0;
     return {search_id:j.id,status:j.status,visited:j.visited,skipped:j.skipped,bytes_scanned:j.bytes,
+      ...(j.type==='files'?{scan_batches:j.scan_batches}:{}),
       total_results:j.results.length,total:complete?j.results.length:null,at_least:j.results.length,total_exact:complete,
       results:items,offset,limit,next_offset,next_cursor:next_offset===null?null:'v1:'+next_offset+':'+snapshot,
       stable,waiting:j.status==='running',truncated:next_offset!==null||!complete,incomplete:j.incomplete||!stable||j.skipped>0,
